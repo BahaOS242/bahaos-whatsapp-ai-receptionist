@@ -19,7 +19,7 @@ Two distinct user groups, each with different needs:
 - **End customers** — people messaging the business's WhatsApp number to ask questions, book, reschedule, or cancel an appointment.
 - **Business operators/staff** — the people who need visibility into bookings, the ability to override/escalate, and (likely) some configuration surface for hours, services, and policies.
 
-> **Open question:** Is this being built for a single business (BahaOS's own business) or as a multi-tenant product intended to serve multiple client businesses? This materially changes the architecture (single-tenant vs. multi-tenant data model, auth, billing) and is not yet decided. See §14.
+**Decision (2026-08-18):** This is a multi-tenant product intended to serve multiple dental businesses. The architecture must therefore isolate each practice's data, configuration, staff, and WhatsApp connection. Billing is not in current MVP scope and remains an open product decision.
 
 ## 3. Core Problem We're Solving
 
@@ -109,7 +109,7 @@ Notification/Reminder Service (outbound WhatsApp templates, reminders, confirmat
 - Opt-in/consent handling before sending any proactive/marketing-style messages.
 - Rate limits and messaging tiers imposed by Meta based on account quality/history.
 
-> **Open question:** Direct Meta Cloud API integration vs. a BSP (Twilio/360dialog/etc.)? This affects cost, setup complexity, and available features. Not decided. See §14.
+**Decision (2026-08-18):** Integrate directly with the official Meta WhatsApp Cloud API. Do not use a BSP for the MVP.
 
 ## 8. AI/Receptionist Responsibilities
 
@@ -124,11 +124,17 @@ The AI receptionist is expected to:
 - Recognize when it cannot handle a request and escalate to a human, with context handed off.
 - Maintain a consistent tone/persona appropriate to the business.
 
-> **Open question:** What is the business's tone/brand voice, and what languages must be supported? Not yet defined. See §14.
+**Decision (2026-08-18):** The receptionist must support English, Spanish, and Haitian Creole. It must remain available 24/7; staff handoff is for requests requiring human assistance, not an offline-hours replacement. Brand tone/persona remains to be defined.
 
 ## 9. Booking and Cancellation Requirements
 
-Requirements gathering is incomplete. Known unknowns to resolve before implementation:
+Confirmed MVP requirements:
+
+- The product serves dental practices; bookings are dental appointments.
+- No payment or deposit flow is required in the MVP.
+- Customers may cancel an appointment up to two hours before its scheduled start time. The handling of later cancellations and no-shows remains to be defined.
+
+Requirements gathering is otherwise incomplete. Known unknowns to resolve before implementation:
 
 - What exactly is being booked — appointments, tables, rooms, service slots? (Depends on the business type, which is not yet specified.)
 - Source of truth for availability — a specific calendar system, or a custom scheduling database?
@@ -146,7 +152,7 @@ Requirements gathering is incomplete. Known unknowns to resolve before implement
 - Customer profile data: name, phone number (WhatsApp ID), contact history, preferences, consent/opt-in status.
 - Appointment/booking history per customer.
 - Full conversation/message history for context continuity and auditability.
-- Whether this integrates with an **existing** CRM/booking system the business already uses, or whether the CRM is being built from scratch as part of this project.
+- The MVP will include a simple internal CRM for customer profiles, appointment history, and conversation history. Integrations with external CRMs may be evaluated later.
 - Data retention policy — how long conversation and customer data are kept.
 - Export/reporting needs for business owners.
 
@@ -187,7 +193,7 @@ To be addressed during design, before any credentials or code are introduced:
 
 ## 13. Development Phases (Proposed)
 
-> **Assumption:** This phasing is a reasonable default sequence, not an agreed plan. Open for revision once the open questions in §14 are answered.
+> **Assumption:** This phasing is a reasonable default sequence, not an agreed plan. It reflects the confirmed multi-tenant dental MVP and remains open for revision.
 
 - **Phase 0 — Discovery & Context (this document).** Confirm scope, users, and architecture direction.
 - **Phase 1 — WhatsApp Connectivity Skeleton.** Webhook receiver, message send/receive round-trip, no AI logic yet.
@@ -204,22 +210,31 @@ To be addressed during design, before any credentials or code are introduced:
 
 These must be answered before writing application code — implementation should not proceed on assumed answers:
 
-1. **Single business vs. multi-tenant product?** Is this for one specific business, or a product meant to serve multiple client businesses (BahaOS as a SaaS vendor)?
-2. **What business/industry?** (Salon, clinic, restaurant, consultancy, etc.) This drives what "booking" even means (appointment vs. table vs. service slot).
-3. **WhatsApp provider:** Meta Cloud API direct, or a BSP (Twilio, 360dialog, WATI, etc.)? Cost/complexity tradeoffs need a decision.
-4. **LLM/AI provider:** Confirm Claude (Anthropic) as the intended model provider, and which model tier.
-5. **Calendar/scheduling system:** Google Calendar, Cal.com, Calendly, a custom-built scheduler, or an existing tool the business already uses?
-6. **Existing CRM/booking tools:** Does the business already have systems in place that need integration, or is this greenfield?
-7. **Hosting/infrastructure preference:** Cloud provider, PaaS, or self-hosted? Any existing infra to align with?
-8. **Human escalation process:** Who receives escalated conversations, and how (another WhatsApp number, email, internal tool)?
-9. **Languages required:** English only, or multilingual support needed?
-10. **Business hours/timezone(s):** Single location/timezone, or multi-location?
-11. **Cancellation policy specifics:** Cutoff windows, fees, no-show handling.
-12. **Compliance/regulatory requirements:** Data protection regime(s) applicable (e.g., GDPR, local equivalents) based on where customers are located.
-13. **Budget/cost constraints:** For WhatsApp messaging fees, LLM usage, hosting — none specified yet.
-14. **Admin dashboard scope and timing:** Required from day one, or can it be deferred past MVP?
-15. **Payment processing:** Does booking/cancellation involve deposits or payments, requiring a payment provider integration?
-16. **Branding/tone:** What persona/voice should the AI receptionist have?
+Resolved decisions (2026-08-18):
+
+- **Product model:** Multi-tenant SaaS for dental practices.
+- **WhatsApp provider:** Official Meta WhatsApp Cloud API.
+- **CRM:** Simple, built-in CRM for the MVP.
+- **Availability:** 24/7 AI receptionist with staff handoff when needed.
+- **Languages:** English, Spanish, and Haitian Creole.
+- **Payments:** Not in MVP scope.
+- **Cancellation cutoff:** Two hours before the appointment start time.
+- **Hosting constraint:** Choose the lowest-cost viable platform; no platform is selected yet.
+- **Demo scheduling constraint:** Choose the easiest suitable scheduling/calendar option for a demo; no option is selected yet.
+
+The following still require a decision before implementation:
+
+1. **LLM/AI provider and model:** Confirm the model provider and an acceptable quality/cost tier.
+2. **Calendar/scheduling approach:** Select a demo-friendly choice (Google Calendar, Cal.com, Calendly, or a small custom scheduler) and define it as the availability source of truth.
+3. **Hosting platform:** Select a concrete low-cost platform and establish its operational limits; "cheapest" alone is not a deployable decision.
+4. **Staff handoff design:** Identify the staff recipients and handoff mechanism (dashboard inbox, email, a separate WhatsApp workflow, or another channel), including how staff return the conversation to AI control.
+5. **Dental booking rules:** Appointment types, durations, practitioner/room assignment, buffer times, multi-location support, and booking confirmation/reminder timing.
+6. **Practice timezone and business configuration:** Default timezone, business information, services, prices, location(s), and FAQ content per tenant.
+7. **Late cancellations and no-shows:** What occurs inside the two-hour cutoff, and whether staff override is permitted.
+8. **Compliance and data retention:** The countries/regions served, applicable health/privacy obligations, and retention periods for patient and conversation data.
+9. **Tenant onboarding and WhatsApp ownership:** Whether each practice connects its own WhatsApp Business Account/number and the required onboarding flow.
+10. **MVP admin dashboard:** Minimum required capabilities for tenant staff and BahaOS administrators.
+11. **Brand voice:** The receptionist's tone, dental-safety boundaries, and escalation rules for clinical/medical questions.
 
 ---
 
