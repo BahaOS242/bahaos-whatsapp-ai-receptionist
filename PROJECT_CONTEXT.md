@@ -174,6 +174,7 @@ The following is demo-only configuration for the first tenant. It must not be pr
 | Demo calendar setup | One practice calendar and one practitioner/calendar schedule |
 | Appointment buffer | 30 minutes after every appointment |
 | Reminder cadence | Three reminders: the night before, the day of, and one hour before; exact send times pending |
+| Lead follow-up | Recontact an unconverted lead five days after their last inquiry, subject to consent and WhatsApp template rules |
 
 Illustrative demo prices, in Bahamian dollars (B$):
 
@@ -270,7 +271,7 @@ The following still require a decision or practice-specific information:
 2. **Practice configuration completion:** Confirm the full address, holiday/weekend handling, final FAQ content, and production prices before launch. The present configuration is sufficient only for a constrained demo.
 3. **Staff email and control flow:** Replace the placeholder escalation address and define how staff mark a handoff resolved or return the chat to AI control.
 4. **Dental booking rules:** Practitioner/room assignment, multi-location support, and exact booking confirmation/reminder send times.
-5. **Late cancellations and no-shows:** What occurs inside the two-hour cutoff, whether staff override is permitted, and what "reactivate after 5 days" means operationally. It could refer to re-contacting a customer, restoring appointment eligibility, reopening a conversation, or another policy; no behavior will be assumed.
+5. **Late cancellations and no-shows:** What occurs inside the two-hour cutoff and whether staff override is permitted. The five-day recontact policy applies only to unconverted leads, not to cancellations or no-shows.
 6. **Compliance and data retention:** The countries/regions served, applicable health/privacy obligations, and retention periods for patient and conversation data.
 7. **Tenant onboarding and WhatsApp ownership:** Whether each practice connects its own WhatsApp Business Account/number and the required onboarding flow.
 8. **MVP admin dashboard:** Minimum required capabilities for tenant staff and BahaOS administrators.

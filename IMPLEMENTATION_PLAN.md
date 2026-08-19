@@ -20,6 +20,7 @@ Deliver a demo-ready, multi-tenant WhatsApp AI receptionist for dental practices
 | Demo tenant | Bahamas Dental Service, `America/Nassau` |
 | Demo scheduling setup | One practice calendar; 30-minute buffer after every appointment |
 | Reminder cadence | Night before, day of, and one hour before; exact night-before/day-of send times pending |
+| Lead follow-up | Recontact an unconverted lead five days after their last inquiry, subject to consent and WhatsApp template rules |
 
 ## MVP Scope
 
@@ -114,6 +115,7 @@ Acceptance criteria:
 - A cancellation updates both the internal record and calendar.
 - A customer inside the cutoff is informed that staff will review the request; no automatic policy exception is made.
 - Rescheduling preserves a clear audit history and prevents slot conflicts.
+- An unconverted lead may receive one five-day follow-up only when consent and WhatsApp template requirements permit it; cancellations and no-shows do not trigger this follow-up.
 
 ### Phase 7 — Staff Dashboard and Handoff
 
@@ -157,7 +159,7 @@ Before Phase 1 code begins, confirm or provide:
 
 1. Exact OpenAI model and a monthly usage budget/limit.
 2. Exact send times for the night-before and day-of reminders.
-3. Rules for late cancellations, no-shows, staff overrides, and the meaning of "reactivate after 5 days."
+3. Rules for late cancellations, no-shows, and staff overrides.
 5. The staff email address to replace the `.example` placeholder.
 6. The complete practice address, weekend/holiday policy, and approved FAQ content.
 7. Required privacy/compliance obligations and data-retention period.
