@@ -137,8 +137,8 @@ Confirmed MVP requirements:
 
 Requirements gathering is otherwise incomplete. Known unknowns to resolve before implementation:
 
-- What exactly is being booked — appointments, tables, rooms, service slots? (Depends on the business type, which is not yet specified.)
-- Source of truth for availability — a specific calendar system, or a custom scheduling database?
+- Exact appointment types and rules beyond the initial dental demo services.
+- Google Calendar configuration and conflict-handling rules as the availability source of truth.
 - Cancellation policy — cutoff windows, fees, no-show handling.
 - Double-booking prevention strategy (locking/holds during the booking conversation).
 - Timezone handling (single timezone vs. multi-location).
@@ -157,7 +157,31 @@ Requirements gathering is otherwise incomplete. Known unknowns to resolve before
 - Data retention policy — how long conversation and customer data are kept.
 - Export/reporting needs for business owners.
 
-> **Open question:** Does the business already use a CRM, calendar, or booking tool that needs to be integrated with, or is this greenfield? Unknown — critical to resolve before choosing a data architecture. See §14.
+> **Decision (2026-08-18):** This MVP is greenfield: it uses a simple internal CRM and Google Calendar. External CRM/booking integrations are out of scope for the initial demo.
+
+## Demo Practice Configuration
+
+The following is demo-only configuration for the first tenant. It must not be presented as production pricing or clinical advice.
+
+| Field | Demo value |
+|---|---|
+| Practice name | Bahamas Dental Service |
+| Timezone | `America/Nassau` |
+| Address | Shirley St.; full street address/city pending confirmation |
+| Business hours | Monday–Friday, 9:00 AM–5:00 PM (local time); weekend and holiday policy pending |
+| Reception tone | Warm and professional |
+| Staff escalation email | `reception@bahamasdentalservice.example` — placeholder only; replace before a live demo or launch |
+
+Illustrative demo prices, in Bahamian dollars (B$):
+
+| Service | Demo price |
+|---|---:|
+| Dental consultation / basic exam | B$75 |
+| Routine cleaning | B$125 |
+| Basic filling | B$175 |
+| Root canal | B$950 |
+
+> **Assumption:** These prices are deliberately generic demo placeholders. A practice owner must validate all services, currencies, prices, and clinical wording before deployment.
 
 ## 11. Security Considerations
 
@@ -234,14 +258,14 @@ Additional approved demo defaults (2026-08-18):
 The following still require a decision or practice-specific information:
 
 1. **OpenAI model:** Select the precise model and usage limits during implementation after confirming expected volume and acceptable response quality.
-2. **Practice timezone and business configuration:** Default timezone, practice name, address, business hours, services, prices, location(s), and FAQ content per tenant. These are required to make the demo operate correctly.
-3. **Staff email and control flow:** Provide the escalation email address and define how staff mark a handoff resolved or return the chat to AI control.
+2. **Practice configuration completion:** Confirm the full address, holiday/weekend handling, final FAQ content, and production prices before launch. The present configuration is sufficient only for a constrained demo.
+3. **Staff email and control flow:** Replace the placeholder escalation address and define how staff mark a handoff resolved or return the chat to AI control.
 4. **Dental booking rules:** Practitioner/room assignment, buffer times, multi-location support, and booking confirmation/reminder timing.
 5. **Late cancellations and no-shows:** What occurs inside the two-hour cutoff, and whether staff override is permitted.
 6. **Compliance and data retention:** The countries/regions served, applicable health/privacy obligations, and retention periods for patient and conversation data.
 7. **Tenant onboarding and WhatsApp ownership:** Whether each practice connects its own WhatsApp Business Account/number and the required onboarding flow.
 8. **MVP admin dashboard:** Minimum required capabilities for tenant staff and BahaOS administrators.
-9. **Brand voice:** The receptionist's tone, dental-safety boundaries, and escalation rules for clinical/medical questions.
+9. **Clinical safety boundaries:** Specify the exact escalation rules for clinical/medical questions and emergencies; the AI must not diagnose, provide treatment advice, or give emergency instructions beyond approved practice policy.
 
 ---
 
