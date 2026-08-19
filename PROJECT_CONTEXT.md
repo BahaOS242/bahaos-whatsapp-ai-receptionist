@@ -76,11 +76,11 @@ Notification/Reminder Service (outbound WhatsApp templates, reminders, confirmat
 |---|---|
 | WhatsApp connectivity | Meta WhatsApp Cloud API (direct), or a BSP such as Twilio, 360dialog, or WATI |
 | Backend/runtime | Node.js (TypeScript) or Python |
-| AI/LLM | Claude (Anthropic) via API, given this is being built in a Claude Code environment |
+| AI/LLM | OpenAI API; use a cost-efficient production model selected during implementation |
 | Conversation/session state | Redis or a database-backed session table |
 | Primary database | PostgreSQL (relational, good fit for bookings/CRM data) |
-| Calendar integration | Google Calendar API, Cal.com, or Calendly API |
-| Hosting/infra | Not decided — options include a managed PaaS (Render, Railway, Fly.io) or cloud provider (AWS/GCP) |
+| Calendar integration | Google Calendar API (approved for the MVP demo) |
+| Hosting/infra | Railway (approved for the MVP demo) |
 | Admin dashboard | Not decided — could be a simple web app (Next.js) or deferred to a later phase |
 
 > **Assumption:** These are reasonable defaults for this type of system, not commitments. Every row is an open decision. See §14.
@@ -124,7 +124,7 @@ The AI receptionist is expected to:
 - Recognize when it cannot handle a request and escalate to a human, with context handed off.
 - Maintain a consistent tone/persona appropriate to the business.
 
-**Decision (2026-08-18):** The receptionist must support English, Spanish, and Haitian Creole. It must remain available 24/7; staff handoff is for requests requiring human assistance, not an offline-hours replacement. Brand tone/persona remains to be defined.
+**Decision (2026-08-18):** The receptionist must support English, Spanish, and Haitian Creole. It must remain available 24/7; staff handoff is for requests requiring human assistance, not an offline-hours replacement. For the demo, escalations will appear in a simple staff dashboard inbox and trigger an email notification. Brand tone/persona remains to be defined.
 
 ## 9. Booking and Cancellation Requirements
 
@@ -133,6 +133,7 @@ Confirmed MVP requirements:
 - The product serves dental practices; bookings are dental appointments.
 - No payment or deposit flow is required in the MVP.
 - Customers may cancel an appointment up to two hours before its scheduled start time. The handling of later cancellations and no-shows remains to be defined.
+- Initial demo appointment types: consultation (30 minutes), cleaning (60 minutes), and check-up (30 minutes). Emergency requests must be handed to staff rather than automatically booked.
 
 Requirements gathering is otherwise incomplete. Known unknowns to resolve before implementation:
 
@@ -208,7 +209,7 @@ To be addressed during design, before any credentials or code are introduced:
 
 ## 14. Open Questions Requiring Decisions Before Implementation
 
-These must be answered before writing application code — implementation should not proceed on assumed answers:
+The following records confirmed decisions and the remaining MVP decisions or required practice configuration. Implementation should not proceed on unlabelled assumptions.
 
 Resolved decisions (2026-08-18):
 
@@ -219,22 +220,28 @@ Resolved decisions (2026-08-18):
 - **Languages:** English, Spanish, and Haitian Creole.
 - **Payments:** Not in MVP scope.
 - **Cancellation cutoff:** Two hours before the appointment start time.
-- **Hosting constraint:** Choose the lowest-cost viable platform; no platform is selected yet.
-- **Demo scheduling constraint:** Choose the easiest suitable scheduling/calendar option for a demo; no option is selected yet.
+- **Hosting constraint:** Use the lowest-cost viable platform for the demo.
+- **Demo scheduling constraint:** Use the simplest suitable scheduling/calendar option for the demo.
 
-The following still require a decision before implementation:
+Additional approved demo defaults (2026-08-18):
 
-1. **LLM/AI provider and model:** Confirm the model provider and an acceptable quality/cost tier.
-2. **Calendar/scheduling approach:** Select a demo-friendly choice (Google Calendar, Cal.com, Calendly, or a small custom scheduler) and define it as the availability source of truth.
-3. **Hosting platform:** Select a concrete low-cost platform and establish its operational limits; "cheapest" alone is not a deployable decision.
-4. **Staff handoff design:** Identify the staff recipients and handoff mechanism (dashboard inbox, email, a separate WhatsApp workflow, or another channel), including how staff return the conversation to AI control.
-5. **Dental booking rules:** Appointment types, durations, practitioner/room assignment, buffer times, multi-location support, and booking confirmation/reminder timing.
-6. **Practice timezone and business configuration:** Default timezone, business information, services, prices, location(s), and FAQ content per tenant.
-7. **Late cancellations and no-shows:** What occurs inside the two-hour cutoff, and whether staff override is permitted.
-8. **Compliance and data retention:** The countries/regions served, applicable health/privacy obligations, and retention periods for patient and conversation data.
-9. **Tenant onboarding and WhatsApp ownership:** Whether each practice connects its own WhatsApp Business Account/number and the required onboarding flow.
-10. **MVP admin dashboard:** Minimum required capabilities for tenant staff and BahaOS administrators.
-11. **Brand voice:** The receptionist's tone, dental-safety boundaries, and escalation rules for clinical/medical questions.
+- **AI provider:** OpenAI API. Select a cost-efficient production model during implementation.
+- **Scheduling:** Google Calendar is the MVP availability source of truth.
+- **Hosting:** Railway is the MVP deployment platform.
+- **Handoff:** A simple staff dashboard inbox plus an email notification.
+- **Initial appointment types:** Consultation (30 minutes), cleaning (60 minutes), check-up (30 minutes); emergency requests are staff handoffs.
+
+The following still require a decision or practice-specific information:
+
+1. **OpenAI model:** Select the precise model and usage limits during implementation after confirming expected volume and acceptable response quality.
+2. **Practice timezone and business configuration:** Default timezone, practice name, address, business hours, services, prices, location(s), and FAQ content per tenant. These are required to make the demo operate correctly.
+3. **Staff email and control flow:** Provide the escalation email address and define how staff mark a handoff resolved or return the chat to AI control.
+4. **Dental booking rules:** Practitioner/room assignment, buffer times, multi-location support, and booking confirmation/reminder timing.
+5. **Late cancellations and no-shows:** What occurs inside the two-hour cutoff, and whether staff override is permitted.
+6. **Compliance and data retention:** The countries/regions served, applicable health/privacy obligations, and retention periods for patient and conversation data.
+7. **Tenant onboarding and WhatsApp ownership:** Whether each practice connects its own WhatsApp Business Account/number and the required onboarding flow.
+8. **MVP admin dashboard:** Minimum required capabilities for tenant staff and BahaOS administrators.
+9. **Brand voice:** The receptionist's tone, dental-safety boundaries, and escalation rules for clinical/medical questions.
 
 ---
 
