@@ -1,0 +1,8 @@
+dist
+node_modules
+drizzle
+coverage
+
+# Product/planning docs are owned by the founder/architect workflow, not
+# this codebase's formatting tooling.
+*.md
