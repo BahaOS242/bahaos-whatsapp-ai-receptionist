@@ -171,6 +171,9 @@ The following is demo-only configuration for the first tenant. It must not be pr
 | Business hours | Monday–Friday, 9:00 AM–5:00 PM (local time); weekend and holiday policy pending |
 | Reception tone | Warm and professional |
 | Staff escalation email | `reception@bahamasdentalservice.example` — placeholder only; replace before a live demo or launch |
+| Demo calendar setup | One practice calendar and one practitioner/calendar schedule |
+| Appointment buffer | 30 minutes after every appointment |
+| Reminder cadence | Three reminders: the night before, the day of, and one hour before; exact send times pending |
 
 Illustrative demo prices, in Bahamian dollars (B$):
 
@@ -182,6 +185,12 @@ Illustrative demo prices, in Bahamian dollars (B$):
 | Root canal | B$950 |
 
 > **Assumption:** These prices are deliberately generic demo placeholders. A practice owner must validate all services, currencies, prices, and clinical wording before deployment.
+
+Approved generic demo handoff response:
+
+> Thanks for reaching out to Bahamas Dental Service. A member of our team will review your message and get back to you as soon as possible.
+
+> **Assumption:** This generic wording is adequate for the demo only. Production wording and response-time expectations require practice approval.
 
 ## 11. Security Considerations
 
@@ -260,8 +269,8 @@ The following still require a decision or practice-specific information:
 1. **OpenAI model:** Select the precise model and usage limits during implementation after confirming expected volume and acceptable response quality.
 2. **Practice configuration completion:** Confirm the full address, holiday/weekend handling, final FAQ content, and production prices before launch. The present configuration is sufficient only for a constrained demo.
 3. **Staff email and control flow:** Replace the placeholder escalation address and define how staff mark a handoff resolved or return the chat to AI control.
-4. **Dental booking rules:** Practitioner/room assignment, buffer times, multi-location support, and booking confirmation/reminder timing.
-5. **Late cancellations and no-shows:** What occurs inside the two-hour cutoff, and whether staff override is permitted.
+4. **Dental booking rules:** Practitioner/room assignment, multi-location support, and exact booking confirmation/reminder send times.
+5. **Late cancellations and no-shows:** What occurs inside the two-hour cutoff, whether staff override is permitted, and what "reactivate after 5 days" means operationally. It could refer to re-contacting a customer, restoring appointment eligibility, reopening a conversation, or another policy; no behavior will be assumed.
 6. **Compliance and data retention:** The countries/regions served, applicable health/privacy obligations, and retention periods for patient and conversation data.
 7. **Tenant onboarding and WhatsApp ownership:** Whether each practice connects its own WhatsApp Business Account/number and the required onboarding flow.
 8. **MVP admin dashboard:** Minimum required capabilities for tenant staff and BahaOS administrators.

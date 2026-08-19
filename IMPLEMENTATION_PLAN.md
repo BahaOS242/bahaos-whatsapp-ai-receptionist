@@ -18,6 +18,8 @@ Deliver a demo-ready, multi-tenant WhatsApp AI receptionist for dental practices
 | CRM | Simple internal customer, appointment, and conversation records |
 | Handoff | Staff dashboard inbox plus email notification |
 | Demo tenant | Bahamas Dental Service, `America/Nassau` |
+| Demo scheduling setup | One practice calendar; 30-minute buffer after every appointment |
+| Reminder cadence | Night before, day of, and one hour before; exact night-before/day-of send times pending |
 
 ## MVP Scope
 
@@ -87,6 +89,7 @@ Acceptance criteria:
 - It accurately answers approved demo FAQ content for hours, address, services, and placeholder prices.
 - It never gives diagnosis, treatment recommendations, or unapproved emergency advice.
 - Clinical, emergency, complaint, low-confidence, and explicit-human requests become staff handoffs with context.
+- A demo handoff sends the approved generic acknowledgement without promising a specific response time.
 
 ### Phase 5 — Google Calendar Booking Engine
 
@@ -98,6 +101,7 @@ Acceptance criteria:
 - A confirmed appointment exists exactly once in both internal records and Google Calendar.
 - Concurrent requests cannot reserve the same time.
 - Consultation, cleaning, and check-up flows use their approved durations.
+- A 30-minute buffer is enforced after every confirmed appointment.
 - Emergency requests do not auto-book and instead hand off.
 
 ### Phase 6 — Cancellation, Rescheduling, and Notifications
@@ -152,9 +156,8 @@ Acceptance criteria:
 Before Phase 1 code begins, confirm or provide:
 
 1. Exact OpenAI model and a monthly usage budget/limit.
-2. Whether the demo has one practitioner/calendar or multiple practitioners/calendars.
-3. Buffer time between appointments and reminder timing.
-4. Rules for late cancellations, no-shows, and staff overrides.
+2. Exact send times for the night-before and day-of reminders.
+3. Rules for late cancellations, no-shows, staff overrides, and the meaning of "reactivate after 5 days."
 5. The staff email address to replace the `.example` placeholder.
 6. The complete practice address, weekend/holiday policy, and approved FAQ content.
 7. Required privacy/compliance obligations and data-retention period.
