@@ -89,7 +89,7 @@ describe("DevRuleBasedAIProvider — structured booking state (multi-turn)", () 
       intent: "book_appointment",
       service: "Basic filling",
       date: "Tuesday",
-      time: "18:00",
+      time: "14:00",
       name: "Trevor",
     };
     const result = await provider.generateResponse(request("+1 242 801 2847", state));
@@ -102,7 +102,7 @@ describe("DevRuleBasedAIProvider — structured booking state (multi-turn)", () 
           phone: "+12428012847",
           service: "Basic filling",
           preferredDate: "Tuesday",
-          preferredTime: "18:00",
+          preferredTime: "14:00",
         },
       },
     ]);

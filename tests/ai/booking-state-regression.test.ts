@@ -39,9 +39,9 @@ describe("Booking state regression — exact reported conversation", () => {
     const afterService = await turn("filling"); // 2. user selects filling
     expect(afterService.bookingState.service).toBe("Basic filling");
 
-    const afterDateTime = await turn("Tuesday 6pm"); // 3. user gives date/time
+    const afterDateTime = await turn("Tuesday 2pm"); // 3. user gives date/time (within hours)
     expect(afterDateTime.bookingState.date).toBe("Tuesday");
-    expect(afterDateTime.bookingState.time).toBe("18:00");
+    expect(afterDateTime.bookingState.time).toBe("14:00");
 
     // 4. user gives name + phone in ONE message
     const final = await turn("Trevor 12428012847");
@@ -59,7 +59,7 @@ describe("Booking state regression — exact reported conversation", () => {
           phone: "+12428012847",
           service: "Basic filling",
           preferredDate: "Tuesday",
-          preferredTime: "18:00",
+          preferredTime: "14:00",
         },
       },
     ]);
@@ -84,7 +84,7 @@ describe("Booking state regression — phone number variants normalize identical
         intent: "book_appointment" as const,
         service: "Basic filling",
         date: "Tuesday",
-        time: "18:00",
+        time: "14:00",
       };
 
       const result = await provider.generateResponse({

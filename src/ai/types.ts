@@ -26,11 +26,28 @@ export interface BusinessPolicies {
   emergencyPolicy: string;
 }
 
+export type Weekday =
+  "Sunday" | "Monday" | "Tuesday" | "Wednesday" | "Thursday" | "Friday" | "Saturday";
+
+export interface DayHours {
+  /** 24-hour "HH:MM", e.g. "09:00". */
+  open: string;
+  /** 24-hour "HH:MM", e.g. "17:00". */
+  close: string;
+}
+
 export interface BusinessContext {
   name: string;
   timezone: string;
   address: string;
+  /** Human-readable display string, e.g. for FAQ answers and rejection
+   * messages — kept alongside `weeklyHours` rather than derived from it,
+   * since the exact wording ("(local time)", etc.) is a copy decision. */
   hours: string;
+  /** Structured, machine-checkable hours per weekday — `null` means
+   * closed that day. This, not `hours`, is what appointment-time
+   * validation (src/ai/business-hours.ts) actually reads. */
+  weeklyHours: Record<Weekday, DayHours | null>;
   services: BusinessService[];
   policies: BusinessPolicies;
   /** Sent to the customer when a request is escalated to staff. */

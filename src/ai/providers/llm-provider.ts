@@ -3,9 +3,16 @@ import type {
   AIProviderRequest,
   AIProviderResponse,
   BookingState,
+  BusinessContext,
   ReceptionistAction,
 } from "../types";
 import type { LlmChatClient, LlmChatMessage, LlmToolCall } from "./llm-chat-client";
+import {
+  describeInvalidTime,
+  isWithinOperatingWindow,
+  validateAppointmentTime,
+} from "../business-hours";
+import type { BusinessHoursValidation } from "../business-hours";
 import {
   createLeadSchema,
   escalateSchema,
@@ -52,6 +59,7 @@ export class LLMProvider implements AIProvider {
 
     const actions: ReceptionistAction[] = [];
     let progressUpdate: Partial<BookingState> | undefined;
+    let hoursRejectionReply: string | undefined;
 
     for (const toolCall of result.toolCalls) {
       if (toolCall.name === "update_booking_progress") {
@@ -71,13 +79,68 @@ export class LLMProvider implements AIProvider {
           `LLM tool call "${toolCall.name}" had invalid or unparseable arguments.`,
         );
       }
+
+      // Application-level hours validation is authoritative regardless of
+      // what the model decided — this is a best-effort check for a good
+      // in-conversation rejection message; ReceptionistTools re-checks
+      // independently and is the actual hard backstop (see
+      // src/tools/receptionist-tools.ts), so the model can never cause a
+      // real "success" to be reported for an out-of-hours request even if
+      // this check were somehow skipped.
+      const hoursCheck = checkActionHours(request.business, action);
+      if (hoursCheck && !hoursCheck.validation.valid) {
+        hoursRejectionReply = describeInvalidTime(
+          request.business,
+          hoursCheck.validation,
+          hoursCheck.date,
+          hoursCheck.time,
+        );
+        continue; // drop the action — it is never returned to the agent
+      }
+
       actions.push(action);
     }
 
-    const bookingState = deriveBookingState(request.bookingState, progressUpdate, actions);
+    let bookingState = deriveBookingState(request.bookingState, progressUpdate, actions);
+    if (hoursRejectionReply) {
+      // The proposed time was rejected — preserve everything except
+      // date/time (even if update_booking_progress reported them this
+      // turn), so the customer isn't asked to repeat service/name/phone.
+      const { date: _date, time: _time, ...preserved } = bookingState;
+      bookingState = preserved;
+    }
 
-    return { reply: result.content ?? "", actions, bookingState };
+    return { reply: hoursRejectionReply ?? result.content ?? "", actions, bookingState };
   }
+}
+
+function checkActionHours(
+  business: BusinessContext,
+  action: ReceptionistAction,
+): { validation: BusinessHoursValidation; date: string; time: string } | undefined {
+  if (action.type === "request_appointment") {
+    const service = business.services.find((s) => s.name === action.payload.service);
+    const validation = validateAppointmentTime(
+      business,
+      action.payload.preferredDate,
+      action.payload.preferredTime,
+      service?.durationMinutes ?? 0,
+    );
+    return { validation, date: action.payload.preferredDate, time: action.payload.preferredTime };
+  }
+  if (action.type === "request_reschedule") {
+    const validation = isWithinOperatingWindow(
+      business,
+      action.payload.newPreferredDate,
+      action.payload.newPreferredTime,
+    );
+    return {
+      validation,
+      date: action.payload.newPreferredDate,
+      time: action.payload.newPreferredTime,
+    };
+  }
+  return undefined;
 }
 
 /** A completing action (appointment/reschedule/cancellation actually
@@ -124,9 +187,16 @@ function buildSystemPrompt(request: AIProviderRequest): string {
       .filter(Boolean)
       .join(", ") || "nothing yet — no booking in progress";
 
+  const weeklyHours = (
+    Object.entries(business.weeklyHours) as [string, { open: string; close: string } | null][]
+  )
+    .map(([day, hours]) => `${day}: ${hours ? `${hours.open}–${hours.close}` : "closed"}`)
+    .join(", ");
+
   return [
     `You are the virtual receptionist for ${business.name}, a dental practice.`,
     `Hours: ${business.hours}. Address: ${business.address}. Timezone: ${business.timezone}.`,
+    `Structured weekly hours (24-hour, for your reference only — the application independently validates every requested time against this and will reject anything outside it, so always check before proposing a time): ${weeklyHours}`,
     `Services:\n${services}`,
     `Insurance: ${business.policies.insurance}`,
     `New patients: ${business.policies.newPatientInfo}`,
@@ -143,6 +213,7 @@ function buildSystemPrompt(request: AIProviderRequest): string {
     "- Never claim a real staff member has already been contacted — only that you've flagged/escalated the request.",
     "- Call request_appointment / request_reschedule / request_cancellation only once every required field for that action is known. Never claim to have taken an action without calling the matching tool.",
     "- If a time is ambiguous (e.g. the customer just says a bare number with no am/pm), ask specifically for clarification — do not guess am/pm, and do not call update_booking_progress with a guessed time.",
+    "- Never call request_appointment or request_reschedule for a day the business is closed, or a time outside the structured weekly hours above (an appointment must fully fit before closing, not merely start before it). If the customer asks for such a time, tell them it's outside business hours and ask for a different day/time instead.",
     "- If the customer describes a possible emergency, asks for a human, or asks something you can't confidently answer from the information above, call the escalate tool.",
   ].join("\n");
 }

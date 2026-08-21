@@ -1,5 +1,10 @@
 import { resolveDateWord, parseTime } from "../date-time";
 import { extractPhone } from "../phone";
+import {
+  describeInvalidTime,
+  isWithinOperatingWindow,
+  validateAppointmentTime,
+} from "../business-hours";
 import type {
   AIProvider,
   AIProviderRequest,
@@ -243,19 +248,20 @@ function handleFlowTurn(
   incomingState: BookingState,
   message: string,
 ): AIProviderResponse {
-  // "name" must be the very NEXT field being asked for — not merely
-  // somewhere in the missing list — otherwise a message answering an
-  // earlier question (e.g. "filling" for service, while name also
-  // happens to still be unset) would be wrongly read as a name.
-  const nameIsCurrentQuestion = missingFields(incomingState)[0] === "name";
+  // Name is still genuinely outstanding — not necessarily the very next
+  // field in the fixed priority order (a customer can answer out of
+  // order, e.g. giving name+phone before date/time).
+  const nameStillNeeded = missingFields(incomingState).includes("name");
   const stated = extractStatedFields(business, message);
   const merged: BookingState = { ...incomingState, ...stated };
 
-  // Phone commonly arrives in the same message as a name ("Trevor
-  // 12428012847") — only service/date/time indicate this message was
-  // actually answering a different question.
+  // Only apply the bare-name fallback when this message didn't already
+  // answer some OTHER question — otherwise a service/date/time answer
+  // (e.g. "filling") would be wrongly read as a name just because name
+  // also happens to still be unset. Phone is exempt: it commonly arrives
+  // in the same message as a name ("Trevor 12428012847").
   const statedAnythingElse = Object.keys(stated).some((key) => key !== "name" && key !== "phone");
-  if (!merged.name && nameIsCurrentQuestion && !statedAnythingElse) {
+  if (!merged.name && nameStillNeeded && !statedAnythingElse) {
     const remainder = message.replace(PHONE_SUBSTRING_RE, " ").replace(/,/g, " ").trim();
     if (looksLikeBareName(remainder)) merged.name = titleCase(remainder);
   }
@@ -264,7 +270,7 @@ function handleFlowTurn(
   const stillMissing = missingFields(merged);
 
   if (stillMissing.length === 0) {
-    return completeFlow(flow, merged);
+    return completeFlow(business, flow, merged);
   }
 
   return { reply: askForField(flow, stillMissing), actions: [], bookingState: merged };
@@ -302,11 +308,34 @@ function askForField(flow: BookingIntent, missing: (keyof BookingState)[]): stri
   }
 }
 
-function completeFlow(flow: BookingIntent, state: BookingState): AIProviderResponse {
+/** Clears only date/time from a rejected-time BookingState — service,
+ * name, and phone (whatever was already known) are preserved so the
+ * customer never has to repeat them after picking a new time. */
+function rejectTime(state: BookingState, reply: string): AIProviderResponse {
+  const { date: _date, time: _time, ...preserved } = state;
+  return { reply, actions: [], bookingState: preserved };
+}
+
+function completeFlow(
+  business: BusinessContext,
+  flow: BookingIntent,
+  state: BookingState,
+): AIProviderResponse {
   // Once a flow completes, its slate is clear — a fresh, empty
   // BookingState — so the next unrelated message doesn't get treated as
   // still being "inside" a finished booking.
   if (flow === "book_appointment") {
+    const service = business.services.find((s) => s.name === state.service);
+    const validation = validateAppointmentTime(
+      business,
+      state.date!,
+      state.time!,
+      service?.durationMinutes ?? 0,
+    );
+    if (!validation.valid) {
+      return rejectTime(state, describeInvalidTime(business, validation, state.date!, state.time!));
+    }
+
     return {
       reply: `Perfect — I've captured your request for ${state.service} on ${state.date} at ${state.time}. A member of the team would confirm the appointment.`,
       actions: [
@@ -326,6 +355,11 @@ function completeFlow(flow: BookingIntent, state: BookingState): AIProviderRespo
   }
 
   if (flow === "reschedule_appointment") {
+    const validation = isWithinOperatingWindow(business, state.date!, state.time!);
+    if (!validation.valid) {
+      return rejectTime(state, describeInvalidTime(business, validation, state.date!, state.time!));
+    }
+
     return {
       reply: `Got it — I've noted your request to move your appointment to ${state.date} at ${state.time}. Someone from the team will confirm the change.`,
       actions: [

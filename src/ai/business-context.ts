@@ -11,6 +11,15 @@ export const BAHAMAS_DENTAL_SERVICE: BusinessContext = {
   timezone: "America/Nassau",
   address: "Shirley St., Nassau, The Bahamas",
   hours: "Monday–Friday, 9:00 AM–5:00 PM (local time)",
+  weeklyHours: {
+    Sunday: null,
+    Monday: { open: "09:00", close: "17:00" },
+    Tuesday: { open: "09:00", close: "17:00" },
+    Wednesday: { open: "09:00", close: "17:00" },
+    Thursday: { open: "09:00", close: "17:00" },
+    Friday: { open: "09:00", close: "17:00" },
+    Saturday: null,
+  },
   areaCode: "242",
   services: [
     {

@@ -79,7 +79,7 @@ describe("LLMProvider — tool call parsing", () => {
             phone: "242-555-0199",
             service: "Routine cleaning",
             preferredDate: "Tuesday",
-            preferredTime: "2pm",
+            preferredTime: "14:00",
           }),
         },
       ],
@@ -96,7 +96,7 @@ describe("LLMProvider — tool call parsing", () => {
           phone: "242-555-0199",
           service: "Routine cleaning",
           preferredDate: "Tuesday",
-          preferredTime: "2pm",
+          preferredTime: "14:00",
         },
       },
     ]);
@@ -239,7 +239,7 @@ describe("LLMProvider — structured booking state (not prose re-parsing)", () =
             phone: "+12428012847",
             service: "Basic filling",
             preferredDate: "Tuesday",
-            preferredTime: "18:00",
+            preferredTime: "14:00",
           }),
         },
       ],
@@ -252,7 +252,7 @@ describe("LLMProvider — structured booking state (not prose re-parsing)", () =
           intent: "book_appointment",
           service: "Basic filling",
           date: "Tuesday",
-          time: "18:00",
+          time: "14:00",
           name: "Trevor",
           phone: "+12428012847",
         },
@@ -272,6 +272,99 @@ describe("LLMProvider — structured booking state (not prose re-parsing)", () =
     await expect(provider.generateResponse(request("Tuesday"))).rejects.toThrow(
       MalformedLlmResponseError,
     );
+  });
+});
+
+describe("LLMProvider — business hours are application-authoritative, not model-trusted", () => {
+  it("drops an out-of-hours request_appointment tool call and rejects it, even though the model proposed it", async () => {
+    const client = new FakeLlmChatClient({
+      content: "Perfect, you're all set for 6pm!", // the model's optimistic (wrong) reply
+      toolCalls: [
+        {
+          id: "call_1",
+          name: "request_appointment",
+          argumentsJson: JSON.stringify({
+            name: "Trevor",
+            phone: "+12428012847",
+            service: "Basic filling",
+            preferredDate: "Tuesday",
+            preferredTime: "18:00", // after 17:00 close
+          }),
+        },
+      ],
+    });
+    const provider = new LLMProvider(client);
+
+    const result = await provider.generateResponse(
+      request("Tuesday 6pm", {
+        bookingState: {
+          intent: "book_appointment",
+          service: "Basic filling",
+          name: "Trevor",
+          phone: "+12428012847",
+        },
+      }),
+    );
+
+    // The action is never returned — the model's proposal is discarded,
+    // not merely flagged.
+    expect(result.actions).toEqual([]);
+    // The model's optimistic reply is never forwarded.
+    expect(result.reply).not.toContain("Perfect, you're all set");
+    expect(result.reply).toMatch(/outside our hours/i);
+
+    // Everything except date/time survives.
+    expect(result.bookingState).toEqual({
+      intent: "book_appointment",
+      service: "Basic filling",
+      name: "Trevor",
+      phone: "+12428012847",
+    });
+  });
+
+  it("drops a closed-day request_appointment tool call and explains why", async () => {
+    const client = new FakeLlmChatClient({
+      content: "Booked for Sunday!",
+      toolCalls: [
+        {
+          id: "call_1",
+          name: "request_appointment",
+          argumentsJson: JSON.stringify({
+            name: "Trevor",
+            phone: "+12428012847",
+            service: "Basic filling",
+            preferredDate: "Sunday",
+            preferredTime: "15:00",
+          }),
+        },
+      ],
+    });
+    const provider = new LLMProvider(client);
+
+    const result = await provider.generateResponse(
+      request("Sunday at 3pm", {
+        bookingState: {
+          intent: "book_appointment",
+          service: "Basic filling",
+          name: "Trevor",
+          phone: "+12428012847",
+        },
+      }),
+    );
+
+    expect(result.actions).toEqual([]);
+    expect(result.reply).toMatch(/closed on sundays/i);
+  });
+
+  it("includes the structured weekly hours in the system prompt as informational context", async () => {
+    const client = new FakeLlmChatClient({ content: "Sure.", toolCalls: [] });
+    const provider = new LLMProvider(client);
+
+    await provider.generateResponse(request("hi"));
+
+    expect(client.lastCallArgs?.systemPrompt).toContain("Tuesday: 09:00–17:00");
+    expect(client.lastCallArgs?.systemPrompt).toContain("Sunday: closed");
+    expect(client.lastCallArgs?.systemPrompt).toMatch(/application independently validates/i);
   });
 });
 
