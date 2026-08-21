@@ -115,27 +115,134 @@
   </div>
 </section>
 
-<section class="section">
+<section class="section" id="economics">
   <div class="wrap">
     <div class="section-head">
-      <div class="section-eyebrow">Example product economics</div>
-      <h2>Illustrative assumptions, not real results</h2>
-      <p class="section-lede">These numbers are hypothetical planning assumptions for a product like this — not results from real customers, revenue, or bookings.</p>
+      <div class="section-eyebrow">Illustrative customer economics</div>
+      <h2>What could this be worth to your business?</h2>
+      <p class="section-lede">Model the potential impact of recovering missed bookings, improving customer retention, and reactivating inactive customers. Planning assumptions only — not actual customer results.</p>
     </div>
-    <div class="ledger">
-      <div class="ledger-header"><span>LINE ITEM</span><span>ASSUMPTION</span></div>
-      <div class="ledger-row"><span class="label">Price</span><span class="value">$299 / month</span></div>
-      <div class="ledger-row"><span class="label">Estimated revenue @ 10 customers</span><span class="value">$2,990 / month</span></div>
-      <div class="ledger-row"><span class="label">Gross margin</span><span class="value">~75%</span></div>
-      <div class="ledger-row"><span class="label">COGS</span><span class="value">~$75 / customer / month</span></div>
-      <div class="ledger-row"><span class="label">CAC</span><span class="value">~$200</span></div>
-      <div class="ledger-row"><span class="label">LTV</span><span class="value">~$4,000</span></div>
-      <div class="ledger-row"><span class="label">Monthly churn</span><span class="value">~4%</span></div>
-      <div class="ledger-row"><span class="label">Initial operating costs</span><span class="value">~$500 / month</span></div>
-      <div class="ledger-row"><span class="label">Capital required</span><span class="value">~$1,500</span></div>
-      <div class="ledger-row"><span class="label">Time to revenue</span><span class="value">2–4 weeks</span></div>
-      <div class="ledger-foot">Illustrative planning assumptions only — not actual customer, revenue, or booking data.</div>
+
+    <div class="roi-calc">
+      <div class="roi-inputs">
+        <div class="roi-panel">
+          <h3>Recover missed bookings</h3>
+          <div class="roi-field">
+            <label for="roiMissedBookings">Missed booking opportunities / month</label>
+            <input type="number" id="roiMissedBookings" min="0" step="1" value="20" />
+          </div>
+          <div class="roi-field">
+            <label for="roiAvgNewRevenue">Average revenue per new customer</label>
+            <div class="roi-prefix"><span>$</span><input type="number" id="roiAvgNewRevenue" min="0" step="1" value="300" /></div>
+          </div>
+          <div class="roi-field roi-field-slider">
+            <label for="roiRecoveryRate">Estimated recovery rate <output id="roiRecoveryRateOut" for="roiRecoveryRate">50%</output></label>
+            <input type="range" id="roiRecoveryRate" min="0" max="100" step="5" value="50" />
+          </div>
+        </div>
+
+        <div class="roi-panel">
+          <h3>Retain more customers</h3>
+          <div class="roi-field">
+            <label for="roiActiveCustomers">Active customers</label>
+            <input type="number" id="roiActiveCustomers" min="0" step="1" value="500" />
+          </div>
+          <div class="roi-field roi-field-slider">
+            <label for="roiCurrentRetention">Current annual retention rate <output id="roiCurrentRetentionOut" for="roiCurrentRetention">70%</output></label>
+            <input type="range" id="roiCurrentRetention" min="0" max="100" step="1" value="70" />
+          </div>
+          <div class="roi-field roi-field-slider">
+            <label for="roiExpectedRetention">Expected retention with AI follow-up <output id="roiExpectedRetentionOut" for="roiExpectedRetention">80%</output></label>
+            <input type="range" id="roiExpectedRetention" min="0" max="100" step="1" value="80" />
+            <p class="roi-hint">A planning assumption you set — not a guaranteed result.</p>
+          </div>
+          <div class="roi-field">
+            <label for="roiAvgRetainedRevenue">Average annual revenue per retained customer</label>
+            <div class="roi-prefix"><span>$</span><input type="number" id="roiAvgRetainedRevenue" min="0" step="1" value="800" /></div>
+          </div>
+        </div>
+
+        <div class="roi-panel">
+          <div class="roi-panel-header">
+            <h3>Reactivate inactive customers</h3>
+            <label class="roi-toggle">
+              <input type="checkbox" id="roiReactivationEnabled" checked />
+              <span class="roi-toggle-track"><span class="roi-toggle-thumb"></span></span>
+              <span>Include</span>
+            </label>
+          </div>
+          <div id="roiReactivationFields">
+            <div class="roi-field">
+              <label for="roiInactiveCustomers">Inactive customers</label>
+              <input type="number" id="roiInactiveCustomers" min="0" step="1" value="100" />
+            </div>
+            <div class="roi-field roi-field-slider">
+              <label for="roiReactivationRate">Expected reactivation rate <output id="roiReactivationRateOut" for="roiReactivationRate">20%</output></label>
+              <input type="range" id="roiReactivationRate" min="0" max="100" step="5" value="20" />
+            </div>
+            <div class="roi-field">
+              <label for="roiRevenuePerReactivated">Revenue per reactivated customer</label>
+              <div class="roi-prefix"><span>$</span><input type="number" id="roiRevenuePerReactivated" min="0" step="1" value="800" /></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="roi-results">
+        <div class="roi-cards">
+          <div class="roi-card">
+            <div class="roi-card-eyebrow">Recover</div>
+            <p class="roi-card-sub">Potential annual revenue from missed bookings</p>
+            <p class="roi-card-value" id="roiOutRecover">$36,000</p>
+          </div>
+          <div class="roi-card">
+            <div class="roi-card-eyebrow">Retain</div>
+            <p class="roi-card-sub">Potential annual revenue protected/generated through improved retention</p>
+            <p class="roi-card-value" id="roiOutRetain">$40,000</p>
+          </div>
+          <div class="roi-card" id="roiReactivateCard">
+            <div class="roi-card-eyebrow">Reactivate</div>
+            <p class="roi-card-sub">Potential annual revenue from bringing inactive customers back</p>
+            <p class="roi-card-value" id="roiOutReactivate">$16,000</p>
+          </div>
+        </div>
+
+        <div class="roi-totals">
+          <div class="roi-total-row"><span>Total potential annual impact</span><strong id="roiOutTotal">$92,000</strong></div>
+          <div class="roi-total-row"><span>AI receptionist cost (annual)</span><strong id="roiOutAiCost">$3,600</strong></div>
+          <div class="roi-total-row roi-net-row"><span>Potential net annual impact</span><strong id="roiOutNet">$88,400</strong></div>
+        </div>
+
+        <div class="roi-banner">
+          <div class="roi-banner-label">Potential ROI</div>
+          <div class="roi-banner-value" id="roiOutMultiple">24.6&times;</div>
+          <div class="roi-banner-caption">for every $1 spent on the AI receptionist, per year</div>
+        </div>
+      </div>
     </div>
+
+    <details class="roi-formulas">
+      <summary>How is this calculated?</summary>
+      <div class="roi-formulas-body">
+        <div class="roi-formula-block">
+          <p class="roi-formula-title">Recover</p>
+          <p class="roi-formula">Missed bookings/month &times; Recovery rate &times; Avg. revenue per new customer &times; 12</p>
+        </div>
+        <div class="roi-formula-block">
+          <p class="roi-formula-title">Retain</p>
+          <p class="roi-formula">Active customers &times; (Expected retention &minus; Current retention) &times; Avg. annual revenue per retained customer</p>
+        </div>
+        <div class="roi-formula-block">
+          <p class="roi-formula-title">Reactivate</p>
+          <p class="roi-formula">Inactive customers &times; Reactivation rate &times; Revenue per reactivated customer</p>
+        </div>
+        <div class="roi-formula-block">
+          <p class="roi-formula-title">Net impact &amp; ROI</p>
+          <p class="roi-formula">Total impact &minus; ($300 &times; 12) = Net impact. Net impact &divide; $3,600 = ROI multiple.</p>
+        </div>
+        <p class="roi-formulas-note">These are illustrative planning assumptions, not actual customer results. Actual outcomes depend on message volume, booking conversion, customer value, retention behavior, follow-up effectiveness, and the business's existing processes. Recover, Retain, and Reactivate are modeled as separate customer populations (new bookings, existing active customers, and lapsed customers) — if your real numbers overlap between categories, adjust the inputs so the same customer isn't counted twice.</p>
+      </div>
+    </details>
   </div>
 </section>
 
@@ -149,7 +256,9 @@
 <script type="module" src="js/chat.js"></script>
 <script type="module">
   import { initChat } from "./js/chat.js";
+  import { initRoiCalculator } from "./js/roi.js";
   initChat();
+  initRoiCalculator();
 </script>
 </body>
 </html>
