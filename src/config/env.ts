@@ -2,15 +2,21 @@ import "dotenv/config";
 import { z } from "zod";
 
 /**
- * Phase 1 only needs these variables to run the app locally. Vars for later
- * phases (WhatsApp, OpenAI, Google Calendar, email, Railway) are documented
- * in .env.example but intentionally not validated or read here yet.
+ * Vars for phases not yet built (WhatsApp, Google Calendar, email, Railway)
+ * are documented in .env.example but intentionally not validated or read
+ * here yet. OPENAI_API_KEY/OPENAI_MODEL are the exception: the LLM
+ * receptionist provider (src/ai/providers/llm-provider.ts) is implemented
+ * in this phase, but the key is optional here — DevRuleBasedAIProvider
+ * requires no key at all, and nothing at startup should fail just because
+ * a developer hasn't configured a real LLM yet.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().max(65535).default(3000),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace"]).default("info"),
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
+  OPENAI_API_KEY: z.string().min(1).optional(),
+  OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
 });
 
 export type Env = z.infer<typeof envSchema>;
