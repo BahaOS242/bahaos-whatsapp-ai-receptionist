@@ -1,25 +1,34 @@
 /**
  * Interactive terminal chat against the real ReceptionistAgent — the
  * "how do I actually try this" entry point for this milestone. Uses
- * LLMProvider automatically when OPENAI_API_KEY is set, otherwise falls
- * back to DevRuleBasedAIProvider. Run with `npm run chat`.
+ * LLMProvider automatically when OPENAI_API_KEY is set (else
+ * DevRuleBasedAIProvider), and real Google Calendar tools when all four
+ * GOOGLE_CALENDAR_* vars are set (else the in-memory simulated tools).
+ * Run with `npm run chat`.
  */
 import { stdin, stdout } from "node:process";
 import readline from "node:readline/promises";
-import { BAHAMAS_DENTAL_SERVICE, createAiProvider } from "../src/ai/create-provider";
+import {
+  BAHAMAS_DENTAL_SERVICE,
+  createAiProvider,
+  createReceptionistTools,
+} from "../src/ai/create-provider";
 import { ConversationManager } from "../src/ai/conversation-manager";
 import { ReceptionistAgent } from "../src/ai/receptionist-agent";
-import { simulatedReceptionistTools } from "../src/tools/receptionist-tools";
 import type { ConversationTurn } from "../src/ai/types";
 
 async function main() {
   const provider = createAiProvider();
+  const tools = createReceptionistTools();
   const providerLabel = provider.constructor.name;
+  const toolsLabel = process.env.GOOGLE_CALENDAR_CLIENT_ID ? "real (Google Calendar)" : "simulated";
 
-  console.log(`\n${BAHAMAS_DENTAL_SERVICE.name} — dev chat (provider: ${providerLabel})`);
+  console.log(
+    `\n${BAHAMAS_DENTAL_SERVICE.name} — dev chat (provider: ${providerLabel}, tools: ${toolsLabel})`,
+  );
   console.log("Type a message and press enter. Ctrl+C to quit.\n");
 
-  const agent = new ReceptionistAgent(provider, simulatedReceptionistTools);
+  const agent = new ReceptionistAgent(provider, tools);
   const conversationManager = new ConversationManager();
   const history: ConversationTurn[] = [];
 

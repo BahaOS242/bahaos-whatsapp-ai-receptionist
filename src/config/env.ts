@@ -2,13 +2,14 @@ import "dotenv/config";
 import { z } from "zod";
 
 /**
- * Vars for phases not yet built (WhatsApp, Google Calendar, email, Railway)
- * are documented in .env.example but intentionally not validated or read
- * here yet. OPENAI_API_KEY/OPENAI_MODEL are the exception: the LLM
- * receptionist provider (src/ai/providers/llm-provider.ts) is implemented
- * in this phase, but the key is optional here — DevRuleBasedAIProvider
- * requires no key at all, and nothing at startup should fail just because
- * a developer hasn't configured a real LLM yet.
+ * Vars for phases not yet built (WhatsApp, email, Railway) are documented
+ * in .env.example but intentionally not validated or read here yet.
+ * OPENAI_API_KEY/OPENAI_MODEL and the GOOGLE_CALENDAR_* vars are the
+ * exception: both the LLM receptionist provider and the real-calendar
+ * ReceptionistTools are implemented, but every one of these stays
+ * optional here — DevRuleBasedAIProvider and createSimulatedReceptionistTools
+ * require no credentials at all, and nothing at startup should fail just
+ * because a developer hasn't configured real integrations yet.
  */
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -17,6 +18,10 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   OPENAI_API_KEY: z.string().min(1).optional(),
   OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
+  GOOGLE_CALENDAR_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CALENDAR_CLIENT_SECRET: z.string().min(1).optional(),
+  GOOGLE_CALENDAR_REFRESH_TOKEN: z.string().min(1).optional(),
+  GOOGLE_CALENDAR_ID: z.string().min(1).optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
