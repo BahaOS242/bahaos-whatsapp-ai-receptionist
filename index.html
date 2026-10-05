@@ -2,36 +2,52 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>WhatsApp AI Receptionist — Portfolio Demo</title>
-<meta name="description" content="A working demo of an AI receptionist for WhatsApp: answers questions, qualifies leads, and turns conversations into appointment requests." />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>BahaOS WhatsApp AI Receptionist</title>
+<meta name="description" content="A working demo of an AI receptionist for WhatsApp: answers questions, qualifies leads, and turns after-hours conversations into booked appointments." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bowlby+One&family=Archivo:wght@400;600;800&family=Martian+Mono:wght@400;700&display=swap" />
 <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 
-<nav class="nav">
-  <div class="brand">WhatsApp AI Receptionist</div>
-  <div class="tag">portfolio demo · simulated backend</div>
-</nav>
+<div class="ticker" aria-hidden="true">
+  <div class="ticker-track">
+    <span>Answered at 2:14am</span><span>Booked while you slept</span><span>Thursday cancel → refilled</span><span>No voicemail tag</span><span>Replies in seconds</span><span>Front desk gets the morning back</span>
+    <span>Answered at 2:14am</span><span>Booked while you slept</span><span>Thursday cancel → refilled</span><span>No voicemail tag</span><span>Replies in seconds</span><span>Front desk gets the morning back</span>
+  </div>
+</div>
 
-<header class="hero">
-  <div class="wrap hero-grid">
+<div class="wrap">
+  <nav class="nav">
+    <a class="logo" href="#top"><span class="logo-mark" aria-hidden="true"></span>BahaOS</a>
+    <div class="nav-links">
+      <a href="#night">Night shift</a>
+      <a href="#jobs">What it does</a>
+      <a href="#architecture">How it's built</a>
+      <a href="#economics">Your numbers</a>
+      <a class="btn sm" href="#demo">Try the demo</a>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
     <div>
-      <div class="eyebrow">Conversational AI · Small business ops</div>
-      <h1>Turns WhatsApp messages into <em>booked appointments</em>, automatically.</h1>
-      <p class="lede">
-        An AI receptionist that answers customer questions, qualifies leads, and guides
-        conversations toward a booked appointment — modeled here on a dental clinic,
-        but built to be portable to any appointment-based business.
-      </p>
+      <span class="stamp">WhatsApp AI receptionist · built in Nassau</span>
+      <h1>Lock up at six. <span class="hl">Wake up</span> to a <span class="aq">full book.</span></h1>
+      <p class="lede">BahaOS answers your clinic's WhatsApp all night. It books the 2am toothache, moves the Thursday cancel and fills the gap, so <strong>the day is lined up before you unlock the door.</strong></p>
       <div class="cta-row">
-        <a class="btn btn-primary" href="#demo">Try the demo ↓</a>
-        <a class="btn btn-ghost" href="#architecture">See how it's built</a>
+        <a class="btn" href="#night">Run a night shift ▸</a>
+        <a class="btn alt" href="#economics">What's it worth to me?</a>
       </div>
-      <p class="hero-note">Right now this is a fully client-side simulation — no messages leave your browser. See "What's real vs. simulated" below.</p>
+      <div class="proof">
+        <span>Replies in seconds, 24/7</span><span>Never re-asks</span><span>Hands off to staff</span>
+      </div>
+      <p class="hero-note">Portfolio demo: the chat runs fully in your browser. No messages leave it. See "How it's built" below.</p>
     </div>
 
-    <div id="demo">
+    <div class="stage" id="demo">
+      <div class="burst" aria-hidden="true"></div>
       <div class="phone">
         <div class="phone-screen">
           <div class="chat-header">
@@ -40,93 +56,135 @@
               <div class="who">BrightSmile Dental</div>
               <div class="status" id="chatStatus">online</div>
             </div>
+            <span class="live">Live demo</span>
           </div>
-          <div class="chat-body" id="chatBody"></div>
+          <div class="chat-body" id="chatBody" role="log" aria-live="polite"></div>
           <div class="chat-input-row">
+            <label class="sr-only" for="chatInput">Message</label>
             <input id="chatInput" type="text" placeholder="Type a message…" autocomplete="off" />
             <button class="send-btn" id="sendBtn" aria-label="Send message">➤</button>
           </div>
         </div>
       </div>
+      <p class="hint">Try: "my tooth hurts" · "how much is whitening?" · "book Friday 2pm"</p>
       <details class="scene-panel">
-        <summary>Behind the scenes — live conversation state</summary>
+        <summary>Behind the scenes: live conversation state</summary>
         <div class="scene-json" id="sceneJson"></div>
       </details>
     </div>
-  </div>
-</header>
+  </header>
+</div>
 
-<section class="section">
+<div class="band" aria-hidden="true"></div>
+
+<section class="night" id="night">
   <div class="wrap">
-    <div class="section-head">
-      <div class="section-eyebrow">The patient journey</div>
-      <h2>One conversation, five jobs</h2>
-      <p class="section-lede">Each message the AI sends is doing one of these five jobs, in roughly this order, for every real conversation.</p>
+    <div class="sec-head">
+      <div>
+        <div class="kicker">Interactive model · one Tuesday</div>
+        <h2>The desk closes. <em>The rush doesn't.</em></h2>
+      </div>
+      <p>Drag the needle or press play. These are sample messages a three-chair clinic gets in one day. Most of the bookable ones land when nobody is at the desk.</p>
     </div>
-    <div class="journey">
-      <div class="journey-step">
-        <div class="journey-dot">01</div>
-        <h3>Answer</h3>
-        <p>Answers common questions — hours, pricing, insurance — from the business's own knowledge base.</p>
+
+    <div class="clock-bar">
+      <div class="track" id="nsTrack">
+        <div class="open"><span>Desk staffed 8am–6pm</span></div>
+        <div class="needle" id="nsNeedle" data-time="12:00am"></div>
       </div>
-      <div class="journey-step">
-        <div class="journey-dot">02</div>
-        <h3>Qualify</h3>
-        <p>Picks up on intent and captures contact details as a lead, even mid-conversation.</p>
+      <div class="hours"><span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>12am</span></div>
+      <div class="controls">
+        <button class="btn sm" id="nsPlay" type="button">▶ Play the day</button>
+        <label class="sr-only" for="nsScrub">Time of day</label>
+        <input type="range" id="nsScrub" min="0" max="24" step="0.05" value="24" />
       </div>
-      <div class="journey-step">
-        <div class="journey-dot">03</div>
-        <h3>Book</h3>
-        <p>Collects service, date, time, name, and phone — never re-asking for what it already knows.</p>
+      <div class="legend">
+        <span><i class="booked"></i>Booked</span>
+        <span><i class="answered"></i>Answered</span>
+        <span><i class="moved"></i>Rescheduled</span>
+        <span><i class="escalated"></i>Sent to staff</span>
       </div>
-      <div class="journey-step">
-        <div class="journey-dot">04</div>
-        <h3>Follow up</h3>
-        <p>Handles reschedules and cancellations without losing the thread of the conversation.</p>
-      </div>
-      <div class="journey-step">
-        <div class="journey-dot">05</div>
-        <h3>Escalate</h3>
-        <p>Recognizes when it should stop guessing and hand off to a person.</p>
+    </div>
+
+    <div class="night-grid">
+      <div class="ns-feed" id="nsFeed" aria-live="polite"></div>
+      <div>
+        <div class="score">
+          <div class="tile big"><b id="nsBooked">$0</b><span>booked into the calendar</span></div>
+          <div class="tile"><b id="nsMsgs">0</b><span>conversations handled</span></div>
+          <div class="tile aq"><b id="nsAfter">0</b><span>after hours</span></div>
+          <div class="tile"><b id="nsAppts">0</b><span>appointments made</span></div>
+          <div class="tile aq"><b id="nsMins">0m</b><span>front-desk time saved</span></div>
+        </div>
+        <p class="footnote">Sample day for illustration, not customer data. Booked value uses the demo clinic's prices. Time saved assumes 4 minutes of staff time per conversation.</p>
       </div>
     </div>
   </div>
 </section>
 
-<section class="section" id="architecture">
+<div class="fringe" aria-hidden="true"></div>
+
+<section id="jobs">
   <div class="wrap">
-    <div class="section-head">
-      <div class="section-eyebrow">Architecture</div>
-      <h2>What's real vs. simulated today</h2>
-      <p class="section-lede">The conversation logic is already separated from the presentation layer, so each simulated stage below can be swapped for a real integration without a rewrite.</p>
+    <div class="sec-head">
+      <div>
+        <div class="kicker">In order, every conversation</div>
+        <h2>Five jobs. Zero missed beats.</h2>
+      </div>
+      <p>Each message the AI sends is doing one of these jobs, in roughly this order. It keeps time like a group moving down Bay Street, so your staff don't have to.</p>
     </div>
-    <div class="pipeline">
-      <span class="pipeline-node future">WhatsApp Cloud API</span><span class="pipeline-arrow">→</span>
-      <span class="pipeline-node future">Webhook / API</span><span class="pipeline-arrow">→</span>
-      <span class="pipeline-node live">AI Agent (this demo)</span><span class="pipeline-arrow">→</span>
-      <span class="pipeline-node live">Business Knowledge</span><span class="pipeline-arrow">→</span>
-      <span class="pipeline-node live">Business Actions (simulated)</span><span class="pipeline-arrow">→</span>
-      <span class="pipeline-node future">CRM / Calendar / Notifications</span>
+    <div class="lineup">
+      <article class="job"><span class="n">1</span><h3>Answer</h3><p>Hours, pricing and insurance, straight from the business's own knowledge base.</p><p class="eg">"Do you take insurance?" → plan info, in seconds</p></article>
+      <article class="job"><span class="n">2</span><h3>Qualify</h3><p>Picks up on intent and captures contact details as a lead, even mid-conversation.</p><p class="eg">"Haven't been in 2 yrs" → new patient</p></article>
+      <article class="job"><span class="n">3</span><h3>Book</h3><p>Service, date, time, name and phone. It never re-asks for what it already knows.</p><p class="eg">"Cleaning Friday 2pm" → asks only for name</p></article>
+      <article class="job"><span class="n">4</span><h3>Follow up</h3><p>Handles reschedules and cancellations without losing the thread of the conversation.</p><p class="eg">"Cancel Thursday" → slot reopened</p></article>
+      <article class="job"><span class="n">5</span><h3>Escalate</h3><p>Recognizes when it should stop guessing and hand off to a person.</p><p class="eg">"Speak to someone" → front desk, flagged</p></article>
+    </div>
+  </div>
+</section>
+
+<div class="band" aria-hidden="true"></div>
+
+<section id="architecture">
+  <div class="wrap">
+    <div class="sec-head">
+      <div>
+        <div class="kicker">Architecture</div>
+        <h2>What's real vs. simulated today.</h2>
+      </div>
+      <p>The conversation logic is already separated from the presentation layer, so each simulated stage below can be swapped for a real integration without a rewrite.</p>
+    </div>
+    <div class="pipeline-scroll">
+      <div class="pipeline">
+        <span class="pipeline-node future">WhatsApp Cloud API</span><span class="pipeline-arrow">→</span>
+        <span class="pipeline-node future">Webhook / API</span><span class="pipeline-arrow">→</span>
+        <span class="pipeline-node live">AI Agent (this demo)</span><span class="pipeline-arrow">→</span>
+        <span class="pipeline-node live">Business Knowledge</span><span class="pipeline-arrow">→</span>
+        <span class="pipeline-node live">Business Actions (simulated)</span><span class="pipeline-arrow">→</span>
+        <span class="pipeline-node future">CRM / Calendar / Notifications</span>
+      </div>
     </div>
     <div class="pipeline-legend">
       <span><span class="legend-dot live"></span>Implemented in this demo</span>
-      <span><span class="legend-dot future"></span>Not built yet — the code is structured to add these next</span>
+      <span><span class="legend-dot future"></span>Not built yet. The code is structured to add these next.</span>
     </div>
   </div>
 </section>
 
-<section class="section" id="economics">
+<section class="econ" id="economics">
   <div class="wrap">
-    <div class="section-head">
-      <div class="section-eyebrow">Illustrative customer economics</div>
-      <h2>What could this be worth to your business?</h2>
-      <p class="section-lede">Model the potential impact of recovering missed bookings, improving customer retention, and reactivating inactive customers. Planning assumptions only — not actual customer results.</p>
+    <div class="sec-head">
+      <div>
+        <div class="kicker">Interactive model · your business</div>
+        <h2>Score your year.</h2>
+      </div>
+      <p>Model the potential impact of recovering missed bookings, keeping more customers and reactivating inactive ones. Planning assumptions only, not actual customer results.</p>
     </div>
 
     <div class="roi-calc">
       <div class="roi-inputs">
         <div class="roi-panel">
-          <h3>Recover missed bookings</h3>
+          <h3>Recover missed bookings <small>Recover</small></h3>
           <div class="roi-field">
             <label for="roiMissedBookings">Missed booking opportunities / month</label>
             <input type="number" id="roiMissedBookings" min="0" step="1" value="20" />
@@ -142,7 +200,7 @@
         </div>
 
         <div class="roi-panel">
-          <h3>Retain more customers</h3>
+          <h3>Retain more customers <small>Retain</small></h3>
           <div class="roi-field">
             <label for="roiActiveCustomers">Active customers</label>
             <input type="number" id="roiActiveCustomers" min="0" step="1" value="500" />
@@ -154,7 +212,7 @@
           <div class="roi-field roi-field-slider">
             <label for="roiExpectedRetention">Expected retention with AI follow-up <output id="roiExpectedRetentionOut" for="roiExpectedRetention">80%</output></label>
             <input type="range" id="roiExpectedRetention" min="0" max="100" step="1" value="80" />
-            <p class="roi-hint">A planning assumption you set — not a guaranteed result.</p>
+            <p class="roi-hint">A planning assumption you set, not a guaranteed result.</p>
           </div>
           <div class="roi-field">
             <label for="roiAvgRetainedRevenue">Average annual revenue per retained customer</label>
@@ -164,7 +222,7 @@
 
         <div class="roi-panel">
           <div class="roi-panel-header">
-            <h3>Reactivate inactive customers</h3>
+            <h3>Reactivate inactive customers <small>Reactivate</small></h3>
             <label class="roi-toggle">
               <input type="checkbox" id="roiReactivationEnabled" checked />
               <span class="roi-toggle-track"><span class="roi-toggle-thumb"></span></span>
@@ -188,77 +246,68 @@
         </div>
       </div>
 
-      <div class="roi-results">
+      <aside class="roi-results" aria-live="polite">
+        <div class="kicker">The judges' sheet</div>
         <div class="roi-cards">
-          <div class="roi-card">
-            <div class="roi-card-eyebrow">Recover</div>
-            <p class="roi-card-sub">Potential annual revenue from missed bookings</p>
-            <p class="roi-card-value" id="roiOutRecover">$36,000</p>
-          </div>
-          <div class="roi-card">
-            <div class="roi-card-eyebrow">Retain</div>
-            <p class="roi-card-sub">Potential annual revenue protected/generated through improved retention</p>
-            <p class="roi-card-value" id="roiOutRetain">$40,000</p>
-          </div>
-          <div class="roi-card" id="roiReactivateCard">
-            <div class="roi-card-eyebrow">Reactivate</div>
-            <p class="roi-card-sub">Potential annual revenue from bringing inactive customers back</p>
-            <p class="roi-card-value" id="roiOutReactivate">$16,000</p>
-          </div>
+          <div class="roi-card"><span>Recover · missed bookings</span><b id="roiOutRecover">$36,000</b></div>
+          <div class="roi-card"><span>Retain · improved retention</span><b id="roiOutRetain">$40,000</b></div>
+          <div class="roi-card" id="roiReactivateCard"><span>Reactivate · inactive customers</span><b id="roiOutReactivate">$16,000</b></div>
         </div>
-
         <div class="roi-totals">
           <div class="roi-total-row"><span>Total potential annual impact</span><strong id="roiOutTotal">$92,000</strong></div>
-          <div class="roi-total-row"><span>AI receptionist cost (annual)</span><strong id="roiOutAiCost">$3,600</strong></div>
-          <div class="roi-total-row roi-net-row"><span>Potential net annual impact</span><strong id="roiOutNet">$88,400</strong></div>
+          <div class="roi-total-row cost"><span>AI receptionist cost (annual)</span><strong id="roiOutAiCost">$3,600</strong></div>
         </div>
-
         <div class="roi-banner">
-          <div class="roi-banner-label">Potential ROI</div>
-          <div class="roi-banner-value" id="roiOutMultiple">24.6&times;</div>
-          <div class="roi-banner-caption">for every $1 spent on the AI receptionist, per year</div>
+          <b id="roiOutMultiple">24.6&times;</b>
+          <span>potential ROI: back for every $1 spent, per year</span>
         </div>
-      </div>
+        <div class="roi-total-row roi-net-row"><span>Potential net annual impact</span><strong id="roiOutNet">$88,400</strong></div>
+      </aside>
     </div>
 
     <details class="roi-formulas">
       <summary>How is this calculated?</summary>
       <div class="roi-formulas-body">
-        <div class="roi-formula-block">
-          <p class="roi-formula-title">Recover</p>
-          <p class="roi-formula">Missed bookings/month &times; Recovery rate &times; Avg. revenue per new customer &times; 12</p>
-        </div>
-        <div class="roi-formula-block">
-          <p class="roi-formula-title">Retain</p>
-          <p class="roi-formula">Active customers &times; (Expected retention &minus; Current retention) &times; Avg. annual revenue per retained customer</p>
-        </div>
-        <div class="roi-formula-block">
-          <p class="roi-formula-title">Reactivate</p>
-          <p class="roi-formula">Inactive customers &times; Reactivation rate &times; Revenue per reactivated customer</p>
-        </div>
-        <div class="roi-formula-block">
-          <p class="roi-formula-title">Net impact &amp; ROI</p>
-          <p class="roi-formula">Total impact &minus; ($300 &times; 12) = Net impact. Net impact &divide; $3,600 = ROI multiple.</p>
-        </div>
-        <p class="roi-formulas-note">These are illustrative planning assumptions, not actual customer results. Actual outcomes depend on message volume, booking conversion, customer value, retention behavior, follow-up effectiveness, and the business's existing processes. Recover, Retain, and Reactivate are modeled as separate customer populations (new bookings, existing active customers, and lapsed customers) — if your real numbers overlap between categories, adjust the inputs so the same customer isn't counted twice.</p>
+        <div class="roi-formula-block"><p class="roi-formula-title">Recover</p><p class="roi-formula">Missed bookings/month &times; Recovery rate &times; Avg. revenue per new customer &times; 12</p></div>
+        <div class="roi-formula-block"><p class="roi-formula-title">Retain</p><p class="roi-formula">Active customers &times; (Expected retention &minus; Current retention) &times; Avg. annual revenue per retained customer</p></div>
+        <div class="roi-formula-block"><p class="roi-formula-title">Reactivate</p><p class="roi-formula">Inactive customers &times; Reactivation rate &times; Revenue per reactivated customer</p></div>
+        <div class="roi-formula-block"><p class="roi-formula-title">Net impact &amp; ROI</p><p class="roi-formula">Total impact &minus; ($300 &times; 12) = Net impact. Net impact &divide; $3,600 = ROI multiple.</p></div>
+        <p class="roi-formulas-note">These are illustrative planning assumptions, not actual customer results. Actual outcomes depend on message volume, booking conversion, customer value, retention behavior, follow-up effectiveness, and the business's existing processes. Recover, Retain, and Reactivate are modeled as separate customer populations (new bookings, existing active customers, and lapsed customers). If your real numbers overlap between categories, adjust the inputs so the same customer isn't counted twice.</p>
       </div>
     </details>
   </div>
 </section>
 
+<section class="finale" id="join">
+  <div class="wrap finale-inner">
+    <div>
+      <div class="kicker">Rush out with us</div>
+      <h2>Your front desk, on all night.</h2>
+      <p>Connect BahaOS to a WhatsApp Business number and calendar, load your prices and policies, and your team keeps final say on anything sensitive.</p>
+    </div>
+    <div class="price">
+      <span class="kicker">One plan</span>
+      <div><b>$300</b> / month</div>
+      <ul><li>Unlimited WhatsApp conversations</li><li>Booking, rescheduling and cancellations</li><li>Staff hand-off for anything tricky</li></ul>
+      <a class="btn" href="#demo">Try the demo ▸</a>
+    </div>
+  </div>
+</section>
+
 <footer class="footer">
   <div class="wrap">
-    <p><strong>What's simulated:</strong> WhatsApp delivery, appointment booking, cancellations, and lead storage are all in-memory in this browser session — nothing is sent to a real business, calendar, or CRM.</p>
+    <p><strong>What's simulated:</strong> WhatsApp delivery, appointment booking, cancellations, and lead storage are all in-memory in this browser session. Nothing is sent to a real business, calendar, or CRM.</p>
     <p><strong>What's real:</strong> The conversation logic, intent handling, and state management run exactly as they would in production; only the outer integrations (WhatsApp API, calendar, CRM) are stubbed out for this demo.</p>
   </div>
 </footer>
 
-<script type="module" src="js/chat.js"></script>
 <script type="module">
   import { initChat } from "./js/chat.js";
   import { initRoiCalculator } from "./js/roi.js";
+  import { initNightShift } from "./js/nightshift.js";
   initChat();
   initRoiCalculator();
+  initNightShift();
 </script>
 </body>
 </html>

@@ -28,8 +28,9 @@ The project intentionally separates concerns so real integrations can be
 swapped in later without touching the conversation logic:
 
 ```
-index.html        Portfolio page: hero, capability flow, architecture
-                   diagram, economics section, and the phone/chat frame.
+index.html        Portfolio page ("Rush Out" Junkanoo neo-brutal design):
+                   hero with the phone/chat frame, night-shift model,
+                   capability flow, architecture diagram, economics section.
 
 js/engine.js       The "brain" — a framework-free intent matcher and
                    stage-based state machine (ReceptionistEngine). Has
@@ -39,6 +40,10 @@ js/engine.js       The "brain" — a framework-free intent matcher and
 js/chat.js         The UI layer — renders messages, typing indicator,
                    quick-reply chips, and the state panel. Talks to the
                    engine only through handleMessage() / getStateSnapshot().
+
+js/nightshift.js   The 24-hour "night shift" model: a scrubbable sample day
+                   of inbound messages with running totals. Illustration
+                   data only; it does not talk to the engine.
 
 css/styles.css     All styling and design tokens (CSS custom properties
                    at the top of the file).
