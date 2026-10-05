@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Midnight on Bay Street</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=Chivo:wght@400;700;900&family=JetBrains+Mono:wght@500;700&display=swap" />
+<style>
+/* Layout: the parade after dark. Indigo night ground, cream outlines, hard shadows in
+   costume colours; goatskin drum pads are the main control. Dark by design. */
+:root {
+  --night: #140c33;
+  --night-2: #21165a;
+  --cream: #fff1d0;
+  --gold: #ffc933;
+  --aqua: #22e0d2;
+  --flamingo: #ff4f9e;
+  --black: #07041a;
+  --display: "Dela Gothic One", "Arial Black", Impact, sans-serif;
+  --body: "Chivo", "Helvetica Neue", Arial, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+  --b: 3px solid var(--cream);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body { overflow-x: clip; }
+body { margin: 0; background: var(--night); color: var(--cream); font: 400 1rem/1.6 var(--body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding-inline: max(16px, 4vw); }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 1.02; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--aqua); outline-offset: 3px; }
+.k-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.mono { font: 700 .72rem/1.2 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+
+/* star field + moon, drawn once on canvas */
+#sky { position: absolute; inset: 0 0 auto 0; height: 900px; width: 100%; pointer-events: none; z-index: 0; }
+.top { position: relative; overflow: hidden; }
+.top > *:not(#sky) { position: relative; z-index: 1; }
+
+.nav { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-block: 1.2rem; flex-wrap: wrap; }
+.logo { font: 400 1.3rem var(--display); text-decoration: none; display: flex; align-items: center; gap: .55rem; }
+.logo i { width: 1.8rem; height: 1.8rem; border-radius: 50%; background: var(--gold); box-shadow: inset -7px -3px 0 var(--night), 3px 3px 0 var(--flamingo); border: 2px solid var(--cream); }
+.nav-links { display: flex; gap: 1.2rem; align-items: center; font-weight: 700; flex-wrap: wrap; }
+.nav-links a { text-decoration: none; }
+.btn { display: inline-flex; align-items: center; gap: .5rem; padding: .9rem 1.25rem; font: 900 1rem/1 var(--body); background: var(--gold); color: var(--black); border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--flamingo); text-decoration: none; cursor: pointer; transition: transform .12s, box-shadow .12s; }
+.btn:hover { transform: translate(-2px, -2px); box-shadow: 8px 8px 0 var(--flamingo); }
+.btn:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0 var(--flamingo); }
+.btn.ghost { background: transparent; color: var(--cream); border: var(--b); box-shadow: 6px 6px 0 var(--aqua); }
+.btn.sm { padding: .6rem .9rem; font-size: .9rem; box-shadow: 4px 4px 0 var(--flamingo); }
+
+/* ---------- hero ---------- */
+.hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: clamp(2rem, 5vw, 4rem); padding-block: 2.5rem 4.5rem; align-items: start; }
+.hero > * { min-width: 0; }
+.clockline { display: flex; gap: .5rem; flex-wrap: wrap; }
+.clockline span { font: 700 .78rem var(--mono); border: 2px solid var(--cream); padding: .35rem .55rem; }
+.clockline span:first-child { background: var(--flamingo); color: var(--black); border-color: var(--black); }
+.hero h1 { font-size: clamp(2.8rem, 7.4vw, 6.2rem); margin-top: 1.3rem; }
+.hero h1 .g { color: var(--gold); }
+.hero h1 .a { -webkit-text-stroke: 2px var(--cream); color: transparent; }
+.lede { font-size: clamp(1.05rem, 1.5vw, 1.2rem); max-width: 34rem; margin-top: 1.4rem; color: #e9dcc0; }
+.cta-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 2rem; }
+
+.pads-label { margin-top: 2.6rem; color: var(--aqua); }
+.pads { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-top: 1rem; }
+.pad { aspect-ratio: 1; max-width: 100%; border-radius: 50%; border: 4px solid var(--black); cursor: pointer; position: relative; display: grid; place-items: center; text-align: center; padding: 14%; font: 900 .86rem/1.2 var(--body); color: var(--black); box-shadow: 0 8px 0 var(--black), 0 8px 0 3px var(--cream); transition: transform .08s, box-shadow .08s; }
+.pad::before { content: ""; position: absolute; inset: 8%; border-radius: 50%; border: 2px dashed rgba(7,4,26,.45); }
+.pad small { display: block; font: 700 .64rem var(--mono); margin-bottom: .25rem; }
+.pad:nth-child(1) { background: radial-gradient(circle at 40% 35%, #ffe08a, var(--gold)); }
+.pad:nth-child(2) { background: radial-gradient(circle at 40% 35%, #8af5ec, var(--aqua)); }
+.pad:nth-child(3) { background: radial-gradient(circle at 40% 35%, #ff9cc8, var(--flamingo)); }
+.pad:active, .pad.hit { transform: translateY(6px); box-shadow: 0 2px 0 var(--black), 0 2px 0 3px var(--cream); }
+.pad[aria-pressed="true"] { outline: 3px solid var(--cream); outline-offset: 4px; }
+
+.phone { background: var(--black); border: var(--b); border-radius: 28px; padding: 10px; box-shadow: 12px 12px 0 var(--aqua); position: relative; }
+.screen { border-radius: 20px; overflow: hidden; height: 600px; display: flex; flex-direction: column; background: #0d0a24; border: 2px solid #3a2f7a; }
+.bar { display: flex; align-items: center; gap: .7rem; padding: .8rem .9rem; background: var(--night-2); border-bottom: 2px solid #3a2f7a; }
+.ava { width: 2.3rem; height: 2.3rem; border-radius: 50%; background: var(--gold); color: var(--black); display: grid; place-items: center; font: 400 .85rem var(--display); flex: none; }
+.bar b { display: block; font-size: .95rem; }
+.bar small { font: 500 .68rem var(--mono); color: var(--aqua); }
+.bar .clock { margin-left: auto; font: 700 .8rem var(--mono); background: var(--black); border: 2px solid var(--cream); padding: .25rem .45rem; }
+#chat { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.k-msgs { flex: 1; overflow-y: auto; padding: 1rem .8rem; display: flex; flex-direction: column; gap: .55rem; }
+.k-msg { max-width: 84%; padding: .55rem .75rem 1.15rem; font-size: .9rem; line-height: 1.4; position: relative; white-space: pre-line; border: 2px solid var(--black); }
+.k-in { align-self: flex-end; background: var(--aqua); color: var(--black); box-shadow: -4px 4px 0 var(--cream); }
+.k-out { align-self: flex-start; background: var(--cream); color: var(--black); box-shadow: 4px 4px 0 var(--flamingo); }
+.k-ts { position: absolute; right: .5rem; bottom: .2rem; font: 500 .58rem var(--mono); opacity: .6; }
+.k-typing { align-self: flex-start; display: flex; gap: 4px; padding: .7rem; background: var(--cream); border: 2px solid var(--black); }
+.k-typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--night); animation: bob 1s infinite; }
+.k-typing i:nth-child(2) { animation-delay: .15s; } .k-typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes bob { 50% { transform: translateY(-4px); } }
+.k-chips { display: flex; gap: .4rem; flex-wrap: wrap; padding: 0 .8rem .6rem; }
+.k-chip { font: 700 .76rem var(--body); padding: .4rem .65rem; background: transparent; color: var(--cream); border: 2px solid var(--cream); cursor: pointer; }
+.k-chip:hover { background: var(--gold); color: var(--black); border-color: var(--black); }
+.k-form { display: flex; gap: .45rem; padding: .65rem; border-top: 2px solid #3a2f7a; background: var(--night-2); }
+.k-field { flex: 1; min-width: 0; padding: .65rem .75rem; font: 400 .92rem var(--body); background: var(--black); color: var(--cream); border: 2px solid var(--cream); }
+.k-field::placeholder { color: #a99fd0; }
+.k-send { width: 2.7rem; background: var(--gold); color: var(--black); border: 2px solid var(--black); cursor: pointer; font-size: 1rem; }
+.outcome { position: absolute; left: -18px; bottom: 76px; background: var(--gold); color: var(--black); border: 3px solid var(--black); box-shadow: 5px 5px 0 var(--flamingo); padding: .6rem .8rem; font: 700 .76rem/1.3 var(--mono); max-width: 240px; transform: rotate(-3deg); }
+.outcome[hidden] { display: none; }
+
+/* ---------- beat divider ---------- */
+.beat { display: flex; gap: 6px; padding-block: 1.4rem; overflow: hidden; justify-content: center; }
+.beat i { flex: none; width: 18px; height: 18px; border: 2px solid var(--cream); border-radius: 50%; }
+.beat i:nth-child(4n+1) { background: var(--gold); } .beat i:nth-child(4n+3) { background: var(--flamingo); }
+
+section { padding-block: clamp(3rem, 6vw, 5.5rem); }
+.head { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: end; margin-bottom: 2.4rem; }
+.head > * { min-width: 0; }
+.head h2 { font-size: clamp(2.1rem, 4.8vw, 3.8rem); margin-top: .8rem; }
+.head p { font-size: 1.08rem; color: #e9dcc0; max-width: 34rem; }
+.slab { background: var(--night-2); border: var(--b); box-shadow: 8px 8px 0 var(--black); }
+
+/* hours chart */
+.hours-model { display: grid; grid-template-columns: 1.35fr .65fr; gap: 1.6rem; }
+.hours-model > * { min-width: 0; }
+.chart { padding: 1.3rem; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart .bar-on { fill: var(--aqua); } .chart .bar-off { fill: var(--flamingo); }
+.chart .axis { fill: var(--cream); font: 500 11px var(--mono); }
+.chart .grid { stroke: rgba(255,241,208,.15); }
+.chart .shade { fill: rgba(34,224,210,.08); stroke: var(--aqua); stroke-dasharray: 4 4; }
+.chart-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.2rem; }
+.ctl label { display: flex; justify-content: space-between; gap: .8rem; font-weight: 700; font-size: .92rem; }
+.ctl output { font: 700 .82rem var(--mono); color: var(--gold); font-variant-numeric: tabular-nums; }
+.ctl input { width: 100%; accent-color: var(--gold); margin-top: .35rem; }
+.chart-legend { display: flex; gap: 1.2rem; flex-wrap: wrap; margin-top: 1rem; font: 500 .7rem var(--mono); text-transform: uppercase; }
+.chart-legend i { display: inline-block; width: 12px; height: 12px; margin-right: .35rem; vertical-align: -1px; border: 2px solid var(--black); }
+.readout { padding: 1.3rem; display: grid; gap: 1rem; align-content: start; }
+.big { border: 3px solid var(--black); background: var(--flamingo); color: var(--black); padding: 1rem; box-shadow: 6px 6px 0 var(--cream); }
+.big b { display: block; font: 400 clamp(2.6rem, 6vw, 4rem)/1 var(--display); font-variant-numeric: tabular-nums; }
+.big span { font-weight: 700; }
+.stat { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 2px dashed rgba(255,241,208,.25); padding-bottom: .55rem; }
+.stat b { font: 700 1rem var(--mono); color: var(--gold); font-variant-numeric: tabular-nums; }
+.fine { font: 500 .68rem/1.55 var(--mono); color: #b9add9; }
+
+/* drum ROI */
+.drums { display: grid; grid-template-columns: 1.2fr .8fr; gap: 1.8rem; align-items: start; }
+.drums > * { min-width: 0; }
+.size { display: flex; gap: .6rem; flex-wrap: wrap; margin-bottom: 1.4rem; }
+.size button { font: 700 .9rem var(--body); padding: .6rem .9rem; border: var(--b); background: transparent; color: var(--cream); cursor: pointer; }
+.size button[aria-pressed="true"] { background: var(--cream); color: var(--black); box-shadow: 4px 4px 0 var(--aqua); }
+.drumrow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.2rem; }
+.drum { display: grid; gap: .8rem; justify-items: center; text-align: center; }
+.drum .pad { width: 100%; max-width: 190px; font-size: 1.05rem; }
+.lvl { display: flex; gap: 4px; }
+.lvl i { width: 22px; height: 8px; border: 2px solid var(--cream); }
+.lvl i.on { background: var(--gold); }
+.drum p { font-size: .84rem; color: #e9dcc0; min-height: 4.2em; }
+.drum b.v { font: 700 1.05rem var(--mono); color: var(--gold); font-variant-numeric: tabular-nums; }
+.total { padding: 1.5rem; display: grid; gap: 1rem; position: sticky; top: 1rem; }
+.total .mult { background: var(--gold); color: var(--black); border: 3px solid var(--black); box-shadow: 6px 6px 0 var(--flamingo); padding: 1.2rem; text-align: center; }
+.total .mult b { display: block; font: 400 clamp(3.2rem, 8vw, 5rem)/1 var(--display); font-variant-numeric: tabular-nums; }
+.total .mult.pulse { animation: thump .25s; }
+@keyframes thump { 40% { transform: scale(1.05) rotate(-1deg); } }
+
+.close { border-top: var(--b); background: linear-gradient(var(--night), var(--black)); }
+.close-inner { display: grid; grid-template-columns: 1.3fr .7fr; gap: 2rem; align-items: center; }
+.close-inner > * { min-width: 0; }
+.close h2 { font-size: clamp(2.4rem, 6vw, 5rem); }
+.close h2 span { color: var(--aqua); }
+.close p { margin-top: 1rem; font-size: 1.1rem; color: #e9dcc0; max-width: 34rem; }
+.ticket { background: var(--cream); color: var(--black); border: 3px solid var(--black); box-shadow: 10px 10px 0 var(--gold); padding: 1.5rem; position: relative; }
+.ticket::before, .ticket::after { content: ""; position: absolute; top: 50%; width: 24px; height: 24px; margin-top: -12px; border-radius: 50%; background: var(--night); border: 3px solid var(--black); }
+.ticket::before { left: -15px; } .ticket::after { right: -15px; }
+.ticket b { font: 400 3rem/1 var(--display); }
+.ticket p { color: var(--black); font-size: .95rem; margin: .8rem 0 1.2rem; }
+footer { background: var(--black); font: 500 .7rem/1.6 var(--mono); padding-block: 1.6rem 2rem; color: #b9add9; }
+footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+@media (max-width: 940px) {
+  .hero, .head, .hours-model, .drums, .close-inner { grid-template-columns: 1fr; }
+  .total { position: static; }
+  .outcome { left: 10px; }
+}
+@media (max-width: 520px) {
+  .pads, .drumrow { gap: .6rem; }
+  .pad { font-size: .7rem; padding: 12%; }
+  .pad small { font-size: .55rem; }
+  .drum .pad { font-size: .8rem; }
+  .drum p { font-size: .74rem; }
+  .chart-controls { grid-template-columns: 1fr; }
+  .screen { height: 520px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <canvas id="sky" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <nav class="nav">
+      <a class="logo" href="#top"><i></i>BahaOS</a>
+      <div class="nav-links">
+        <a href="#hours">After hours</a>
+        <a href="#drums">Your numbers</a>
+        <a class="btn sm" href="#close">Get it running</a>
+      </div>
+    </nav>
+
+    <header class="hero" id="top">
+      <div>
+        <div class="clockline"><span>2:07 AM</span><span>Toothache</span><span>Booked for 8:00</span></div>
+        <h1>The parade runs all night. <span class="g">So does</span> <span class="a">your desk.</span></h1>
+        <p class="lede">BahaOS is a WhatsApp receptionist for clinics. It answers in seconds at any hour, books straight into your calendar, and leaves your team a tidy morning list instead of a pile of "seen" messages.</p>
+        <div class="cta-row">
+          <a class="btn" href="#hours">See what you miss after 5 ▸</a>
+          <a class="btn ghost" href="#drums">Run your numbers</a>
+        </div>
+        <p class="mono pads-label">Hit a drum. Play a real-world night.</p>
+        <div class="pads" role="group" aria-label="Play a patient scenario">
+          <button class="pad" type="button" data-scene="0" aria-pressed="false"><span><small>2:07 AM</small>Toothache</span></button>
+          <button class="pad" type="button" data-scene="1" aria-pressed="false"><span><small>SUN 8:40 PM</small>Price check</span></button>
+          <button class="pad" type="button" data-scene="2" aria-pressed="false"><span><small>FRI 6:15 AM</small>Can't make it</span></button>
+        </div>
+      </div>
+
+      <div class="phone">
+        <div class="screen">
+          <div class="bar"><div class="ava">BS</div><div><b>BrightSmile Dental</b><small>answers 24/7</small></div><span class="clock" id="clock">now</span></div>
+          <div id="chat"></div>
+        </div>
+        <div class="outcome" id="outcome" hidden></div>
+      </div>
+    </header>
+  </div>
+</div>
+
+<div class="beat" aria-hidden="true" id="beat"></div>
+
+<section id="hours">
+  <div class="wrap">
+    <div class="head">
+      <div><span class="mono" style="color:var(--aqua)">Interactive model · when patients message</span><h2>Half your messages land after you lock up.</h2></div>
+      <p>Bars show when a typical clinic's WhatsApp messages arrive across the day. Set your desk hours. Every pink bar is a message waiting until morning, or going to another clinic.</p>
+    </div>
+    <div class="hours-model">
+      <div class="slab chart">
+        <svg id="chartSvg" viewBox="0 0 760 270" role="img" aria-label="Share of weekly WhatsApp messages by hour of day"></svg>
+        <div class="chart-controls">
+          <div class="ctl"><label for="hOpen">Desk opens <output id="oOpen"></output></label><input type="range" id="hOpen" min="5" max="11" step="1" value="8" /></div>
+          <div class="ctl"><label for="hClose">Desk closes <output id="oClose"></output></label><input type="range" id="hClose" min="13" max="21" step="1" value="17" /></div>
+          <div class="ctl"><label for="hWeek">Messages a week <output id="oWeek"></output></label><input type="range" id="hWeek" min="20" max="400" step="10" value="120" /></div>
+          <div class="ctl"><label for="hVal">Average first-visit value <output id="oVal"></output></label><input type="range" id="hVal" min="60" max="600" step="10" value="150" /></div>
+        </div>
+        <div class="chart-legend"><span><i style="background:#22e0d2"></i>Desk staffed</span><span><i style="background:#ff4f9e"></i>Nobody at the desk</span></div>
+      </div>
+      <div class="slab readout" aria-live="polite">
+        <div class="big"><b id="rShare"></b><span>of messages arrive while you're closed</span></div>
+        <div class="stat"><span>After-hours messages a year</span><b id="rYear"></b></div>
+        <div class="stat"><span>Bookable, at 1 in 3</span><b id="rBook"></b></div>
+        <div class="stat"><span>Visits BahaOS can catch</span><b id="rVal"></b></div>
+        <p class="fine">Hourly pattern is an illustrative clinic profile with peaks at lunch and 7–10pm. Assumes 1 in 3 after-hours messages is someone ready to book, and 52 weeks.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="beat" aria-hidden="true" id="beat2"></div>
+
+<section id="drums">
+  <div class="wrap">
+    <div class="head">
+      <div><span class="mono" style="color:var(--gold)">Interactive model · drum pad ROI</span><h2>Three drums. One year of bookings.</h2></div>
+      <p>Pick your clinic size, then tap each drum to set how hard it plays: steady, strong or full rush. The board adds it up against the $300 a month plan.</p>
+    </div>
+    <div class="drums">
+      <div>
+        <div class="size" role="group" aria-label="Clinic size">
+          <button type="button" data-size="0" aria-pressed="false">1 chair</button>
+          <button type="button" data-size="1" aria-pressed="true">3 chairs</button>
+          <button type="button" data-size="2" aria-pressed="false">6+ chairs</button>
+        </div>
+        <div class="drumrow">
+          <div class="drum"><button class="pad" type="button" data-drum="recover" aria-label="Recover missed bookings, change level"><span><small>DRUM 1</small>Recover</span></button><div class="lvl" id="lvl-recover"></div><b class="v" id="v-recover"></b><p id="d-recover"></p></div>
+          <div class="drum"><button class="pad" type="button" data-drum="retain" aria-label="Retain patients, change level"><span><small>DRUM 2</small>Retain</span></button><div class="lvl" id="lvl-retain"></div><b class="v" id="v-retain"></b><p id="d-retain"></p></div>
+          <div class="drum"><button class="pad" type="button" data-drum="reactivate" aria-label="Reactivate lapsed patients, change level"><span><small>DRUM 3</small>Win back</span></button><div class="lvl" id="lvl-reactivate"></div><b class="v" id="v-reactivate"></b><p id="d-reactivate"></p></div>
+        </div>
+      </div>
+      <aside class="slab total" aria-live="polite">
+        <span class="mono" style="color:var(--aqua)">Year one, if the band plays like this</span>
+        <div class="mult" id="mult"><b id="tMult"></b><span>return on every $1</span></div>
+        <div class="stat"><span>Total yearly impact</span><b id="tTotal"></b></div>
+        <div class="stat"><span>BahaOS for 12 months</span><b id="tCost"></b></div>
+        <div class="stat"><span>Net to the practice</span><b id="tNet"></b></div>
+        <p class="fine">Planning model, not a guarantee. Uses the same formulas as the portfolio calculator: recover = missed × rate × value × 12; retain = active × lift × yearly value; win back = lapsed × rate × yearly value.</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<section class="close" id="close">
+  <div class="wrap close-inner">
+    <div>
+      <span class="mono" style="color:var(--gold)">Boxing Day, New Year's, any Tuesday</span>
+      <h2>Go home. <span>We've got the desk.</span></h2>
+      <p>We connect your WhatsApp Business number and calendar, teach it your prices and policies, and send anything sensitive to your team. Live in about a week.</p>
+    </div>
+    <div class="ticket">
+      <span class="mono">Admit one practice</span>
+      <div><b>$300</b> / month</div>
+      <p>Unlimited conversations, 24/7 booking, reminders, rescheduling and staff hand-off.</p>
+      <a class="btn" href="https://www.trevthewebdev.com/whatsapp-ai-receptionist">Book a walkthrough ▸</a>
+    </div>
+  </div>
+</section>
+<footer><div class="wrap"><span>BahaOS · concept 3 of 3, "Midnight on Bay Street"</span><span>Demo clinic and simulated chat. Nothing is sent.</span></div></footer>
+
+<script src="kit.js"></script>
+<script>
+(() => {
+  const { money, HOURLY_SHARE, roi, AI_COST_ANNUAL } = Kit;
+  const $ = (id) => document.getElementById(id);
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* sky */
+  const sky = $("sky"), ctx = sky.getContext("2d");
+  function drawSky() {
+    const w = sky.clientWidth, h = sky.clientHeight, dpr = devicePixelRatio || 1;
+    sky.width = w * dpr; sky.height = h * dpr; ctx.scale(dpr, dpr);
+    let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const cols = ["#fff1d0", "#ffc933", "#22e0d2", "#ff4f9e"];
+    for (let i = 0; i < 140; i++) {
+      ctx.fillStyle = cols[i % 9 === 0 ? 1 + (i % 3) : 0];
+      ctx.globalAlpha = .3 + rnd() * .6;
+      const s = rnd() < .12 ? 3 : 1.6; ctx.fillRect(rnd() * w, rnd() * h, s, s);
+    }
+    ctx.globalAlpha = 1;
+  }
+  drawSky(); addEventListener("resize", () => { ctx.setTransform(1, 0, 0, 1, 0, 0); drawSky(); });
+
+  /* beat dividers */
+  ["beat", "beat2"].forEach((id) => ($(id).innerHTML = "<i></i>".repeat(80)));
+
+  /* chat + scenario drums */
+  const clock = $("clock"), outcome = $("outcome");
+  let known = null;
+  const chat = Kit.mountChat($("chat"), { inputId: "nightField", placeholder: "Message the clinic…", onState: (st) => (known = st) });
+  const scenes = [
+    { clock: "2:07 AM", lines: ["my back tooth is killing me, can't sleep", "Tomorrow", "8am", "Marco Knowles"], result: "2:07am · Emergency booked for 8:00. Desk sees it at open." },
+    { clock: "SUN 8:40 PM", lines: ["how much is a cleaning? no insurance", "Book a cleaning", "Monday 3pm", "Nia Ferguson"], result: "Sunday 8:40pm · Price question became a $120 booking." },
+    { clock: "FRI 6:15 AM", lines: ["I can't make my appointment, need to reschedule", "Saturday", "10:30am", "Patrice Bain"], result: "Friday 6:15am · Moved to Saturday. Friday slot reopened." },
+  ];
+  let playing = null;
+  function play(i) {
+    if (playing !== null) return;
+    playing = i;
+    document.querySelectorAll("[data-scene]").forEach((b) => b.setAttribute("aria-pressed", b.dataset.scene == i));
+    clock.textContent = scenes[i].clock; outcome.hidden = true;
+    const queue = [...scenes[i].lines];
+    const tick = () => {
+      if (chat.isBusy()) return setTimeout(tick, 200);
+      let next = queue.shift();
+      if (queue.length === 0 && next != null && known && known.stage !== "name") next = queue.shift(); // name already on file
+      if (next == null) { outcome.textContent = scenes[i].result; outcome.hidden = false; playing = null; return; }
+      setTimeout(() => { chat.send(next); tick(); }, reduce ? 50 : 650);
+    };
+    tick();
+  }
+  document.querySelectorAll("[data-scene]").forEach((b) => b.addEventListener("click", () => {
+    b.classList.add("hit"); setTimeout(() => b.classList.remove("hit"), 120); play(+b.dataset.scene);
+  }));
+
+  /* hours chart */
+  const svg = $("chartSvg"), NS = "http://www.w3.org/2000/svg";
+  const W = 760, H = 270, L = 42, R = 10, T = 14, B = 34, cw = (W - L - R) / 24;
+  const maxShare = 0.08;
+  const y = (v) => T + (H - T - B) * (1 - v / maxShare);
+  const el = (n, a) => { const e = document.createElementNS(NS, n); for (const k in a) e.setAttribute(k, a[k]); return e; };
+  const shade = el("rect", { class: "shade", y: T, height: H - T - B });
+  svg.appendChild(shade);
+  [0, 0.02, 0.04, 0.06, 0.08].forEach((v) => {
+    svg.appendChild(el("line", { class: "grid", x1: L, x2: W - R, y1: y(v), y2: y(v) }));
+    const t = el("text", { class: "axis", x: L - 8, y: y(v) + 4, "text-anchor": "end" }); t.textContent = v * 100 + "%"; svg.appendChild(t);
+  });
+  const bars = HOURLY_SHARE.map((s, h) => {
+    const r = el("rect", { x: L + h * cw + 3, width: cw - 6, y: y(s), height: y(0) - y(s) });
+    svg.appendChild(r); return r;
+  });
+  [0, 3, 6, 9, 12, 15, 18, 21].forEach((h) => {
+    const t = el("text", { class: "axis", x: L + h * cw + cw / 2, y: H - 10, "text-anchor": "middle" });
+    t.textContent = h === 0 ? "12a" : h === 12 ? "12p" : h < 12 ? h + "a" : h - 12 + "p"; svg.appendChild(t);
+  });
+  const hr = (h) => (h % 12 || 12) + (h < 12 ? "am" : "pm");
+  function hours() {
+    const o = +$("hOpen").value, c = +$("hClose").value, wk = +$("hWeek").value, val = +$("hVal").value;
+    $("oOpen").textContent = hr(o); $("oClose").textContent = hr(c); $("oWeek").textContent = wk; $("oVal").textContent = money(val);
+    shade.setAttribute("x", L + o * cw); shade.setAttribute("width", (c - o) * cw);
+    let off = 0;
+    bars.forEach((b, h) => { const on = h >= o && h < c; b.setAttribute("class", on ? "bar-on" : "bar-off"); if (!on) off += HOURLY_SHARE[h]; });
+    const year = wk * off * 52, book = year / 3;
+    $("rShare").textContent = Math.round(off * 100) + "%";
+    $("rYear").textContent = Math.round(year).toLocaleString();
+    $("rBook").textContent = Math.round(book).toLocaleString();
+    $("rVal").textContent = money(book * val);
+  }
+  document.querySelectorAll(".ctl input").forEach((i) => i.addEventListener("input", hours));
+  hours();
+
+  /* drum ROI */
+  const SIZES = [
+    { missed: 8, newValue: 250, active: 250, retainedValue: 600, inactive: 60 },
+    { missed: 20, newValue: 300, active: 500, retainedValue: 800, inactive: 100 },
+    { missed: 45, newValue: 320, active: 1400, retainedValue: 850, inactive: 300 },
+  ];
+  const LEVELS = {
+    recover: [{ r: .3, t: "Replies to 3 in 10 messages that used to slip" }, { r: .5, t: "Replies to half of the messages that used to slip" }, { r: .7, t: "Books 7 in 10 of the messages that used to slip" }],
+    retain: [{ r: .04, t: "Reminders lift retention by 4 points" }, { r: .1, t: "Reminders and follow-ups lift retention by 10 points" }, { r: .16, t: "Recall campaigns lift retention by 16 points" }],
+    reactivate: [{ r: .1, t: "1 in 10 lapsed patients rebook after a nudge" }, { r: .2, t: "1 in 5 lapsed patients rebook after a nudge" }, { r: .3, t: "3 in 10 lapsed patients rebook after a nudge" }],
+  };
+  const state = { size: 1, recover: 1, retain: 1, reactivate: 1 };
+  function drums(pulse) {
+    const s = SIZES[state.size];
+    const r = roi({
+      missed: s.missed, newValue: s.newValue, recoveryRate: LEVELS.recover[state.recover].r,
+      active: s.active, retainBefore: 0, retainAfter: LEVELS.retain[state.retain].r, retainedValue: s.retainedValue,
+      inactive: s.inactive, reactivationRate: LEVELS.reactivate[state.reactivate].r, reactivatedValue: s.retainedValue,
+    });
+    ["recover", "retain", "reactivate"].forEach((k) => {
+      $("lvl-" + k).innerHTML = [0, 1, 2].map((i) => `<i class="${i <= state[k] ? "on" : ""}"></i>`).join("");
+      $("d-" + k).textContent = LEVELS[k][state[k]].t;
+      $("v-" + k).textContent = money(r[k]);
+    });
+    $("tMult").textContent = Math.max(0, r.multiple).toFixed(1) + "×";
+    $("tTotal").textContent = money(r.total); $("tCost").textContent = "−" + money(AI_COST_ANNUAL); $("tNet").textContent = money(r.net);
+    if (pulse) { const m = $("mult"); m.classList.remove("pulse"); void m.offsetWidth; m.classList.add("pulse"); }
+  }
+  document.querySelectorAll("[data-drum]").forEach((b) => b.addEventListener("click", () => {
+    const k = b.dataset.drum; state[k] = (state[k] + 1) % 3;
+    b.classList.add("hit"); setTimeout(() => b.classList.remove("hit"), 120); drums(true);
+  }));
+  document.querySelectorAll("[data-size]").forEach((b) => b.addEventListener("click", () => {
+    state.size = +b.dataset.size;
+    document.querySelectorAll("[data-size]").forEach((x) => x.setAttribute("aria-pressed", x === b));
+    drums(true);
+  }));
+  drums(false);
+})();
+</script>
+</body>
+</html>

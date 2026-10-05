@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>The Shack Receptionist</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Rammetto+One&family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=IBM+Plex+Mono:wght@500;700&display=swap" />
+<style>
+/* Layout: a Junkanoo shack workbench. Cardboard ground, crepe-paper fringe headers,
+   pieces taped down at slight angles. Thick ink outlines + hard shadows. Single bright look by design. */
+:root {
+  --card: #e9cfa0;      /* cardboard */
+  --card-dk: #c9a46b;
+  --sheet: #fffaf0;
+  --ink: #161216;
+  --magenta: #ec1c8a;
+  --tang: #ff7a1a;
+  --lemon: #ffe23d;
+  --cobalt: #2747ff;
+  --mint: #1fd1a1;
+  --display: "Rammetto One", "Arial Black", sans-serif;
+  --body: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --b: 3px solid var(--ink);
+  --sh: 7px 7px 0 var(--ink);
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body { overflow-x: clip; }
+body { margin: 0; color: var(--ink); font: 400 1.03rem/1.55 var(--body);
+  background-color: var(--card);
+  background-image: repeating-linear-gradient(90deg, rgba(0,0,0,.035) 0 2px, transparent 2px 9px), radial-gradient(rgba(120,80,20,.12) 1px, transparent 1.5px);
+  background-size: auto, 14px 14px; }
+.wrap { max-width: 1160px; margin: 0 auto; padding-inline: max(16px, 4vw); }
+h1, h2, h3 { font-family: var(--display); font-weight: 400; line-height: 1.02; margin: 0; text-wrap: balance; }
+p { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 4px solid var(--cobalt); outline-offset: 3px; }
+.k-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.label { font: 700 .72rem/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; }
+
+/* crepe paper fringe: strips with a ragged cut, hung from a stick */
+.fringe { height: 64px; position: relative; border-top: 10px solid var(--ink); background: repeating-linear-gradient(90deg, var(--magenta) 0 14px, var(--tang) 14px 28px, var(--lemon) 28px 42px, var(--cobalt) 42px 56px, var(--mint) 56px 70px);
+  -webkit-mask: linear-gradient(#000 0 0) top/100% 30% no-repeat, repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 7px);
+  mask: linear-gradient(#000 0 0) top/100% 30% no-repeat, repeating-linear-gradient(90deg, #000 0 6px, transparent 6px 7px);
+  transform-origin: top; animation: sway 4s ease-in-out infinite; }
+.fringe.short { height: 40px; }
+@keyframes sway { 50% { transform: skewX(-4deg); } }
+
+.nav { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding-block: 1.2rem; flex-wrap: wrap; }
+.logo { font: 400 1.35rem var(--display); text-decoration: none; display: flex; gap: .5rem; align-items: center; }
+.logo i { width: 1.9rem; height: 1.9rem; background: var(--magenta); border: var(--b); border-radius: 50%; box-shadow: 3px 3px 0 var(--ink); position: relative; }
+.logo i::after { content: ""; position: absolute; inset: 5px; border-radius: 50%; background: var(--lemon); border: 2px solid var(--ink); }
+.nav-links { display: flex; gap: 1.2rem; align-items: center; font-weight: 800; flex-wrap: wrap; }
+.nav-links a { text-decoration: none; }
+.btn { display: inline-flex; align-items: center; gap: .45rem; padding: .9rem 1.25rem; font: 800 1rem/1 var(--body); background: var(--lemon); border: var(--b); box-shadow: var(--sh); text-decoration: none; color: var(--ink); cursor: pointer; border-radius: 0; transition: transform .1s, box-shadow .1s; }
+.btn:hover { transform: translate(-2px, -2px) rotate(-1deg); box-shadow: 9px 9px 0 var(--ink); }
+.btn:active { transform: translate(5px, 5px); box-shadow: 2px 2px 0 var(--ink); }
+.btn.mag { background: var(--magenta); color: var(--sheet); }
+.btn.sm { padding: .6rem .9rem; font-size: .9rem; box-shadow: 4px 4px 0 var(--ink); }
+
+.tape { position: absolute; width: 90px; height: 26px; background: rgba(255,240,180,.75); border: 1px solid rgba(0,0,0,.15); top: -13px; left: 50%; transform: translateX(-50%) rotate(-4deg); }
+
+/* ---------- hero with before/after switch ---------- */
+.hero { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem, 5vw, 4rem); align-items: center; padding-block: 2rem 4rem; }
+.hero > * { min-width: 0; }
+.hero h1 { font-size: clamp(2.5rem, 6.2vw, 5.2rem); }
+.hero h1 .cut { display: inline-block; background: var(--magenta); color: var(--sheet); padding: .05em .2em .12em; border: var(--b); box-shadow: 6px 6px 0 var(--ink); transform: rotate(-2deg); }
+.hero .lede { font-size: clamp(1.08rem, 1.6vw, 1.25rem); margin-top: 1.5rem; max-width: 33rem; }
+.cta-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-top: 1.8rem; }
+
+.switch-wrap { position: relative; background: var(--sheet); border: var(--b); box-shadow: 12px 12px 0 var(--ink); padding: 1.3rem; transform: rotate(1.2deg); }
+.switch { display: grid; grid-template-columns: 1fr 1fr; border: var(--b); background: var(--ink); gap: 3px; margin-bottom: 1rem; }
+.switch button { font: 800 .95rem var(--body); padding: .75rem .5rem; border: 0; cursor: pointer; background: var(--sheet); color: var(--ink); }
+.switch button[aria-pressed="true"] { background: var(--ink); color: var(--lemon); }
+.switch button[aria-pressed="true"].with { background: var(--mint); color: var(--ink); }
+.inbox { border: var(--b); background: #fff; }
+.inbox-top { display: flex; justify-content: space-between; align-items: center; padding: .65rem .8rem; border-bottom: var(--b); font-weight: 800; gap: .5rem; }
+.badge { font: 700 .72rem var(--mono); padding: .3rem .5rem; border: 2px solid var(--ink); background: var(--magenta); color: var(--sheet); white-space: nowrap; }
+.badge.ok { background: var(--mint); color: var(--ink); }
+.thread { display: grid; grid-template-columns: 2.4rem 1fr auto; gap: .65rem; align-items: center; padding: .6rem .8rem; border-bottom: 2px solid #eadfcb; }
+.thread:last-child { border-bottom: 0; }
+.ava { width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 2px solid var(--ink); display: grid; place-items: center; font: 700 .72rem var(--mono); }
+.thread b { font-size: .9rem; display: block; }
+.thread .line { font-size: .82rem; opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.thread .meta { text-align: right; font: 500 .66rem var(--mono); display: grid; gap: .25rem; justify-items: end; }
+.unread { background: var(--magenta); color: #fff; border-radius: 99px; min-width: 1.35rem; padding: .1rem .35rem; text-align: center; font-weight: 700; }
+.tag { border: 2px solid var(--ink); padding: .15rem .35rem; background: var(--lemon); white-space: nowrap; }
+.tag.bk { background: var(--mint); }
+.thread .line.reply { color: #0a7a5a; font-weight: 600; opacity: 1; }
+.tally { display: grid; grid-template-columns: repeat(3, 1fr); gap: .6rem; margin-top: 1rem; }
+.tally div { border: var(--b); padding: .6rem; background: var(--lemon); }
+.tally b { display: block; font: 400 1.5rem/1 var(--display); font-variant-numeric: tabular-nums; }
+.tally span { font: 500 .64rem var(--mono); text-transform: uppercase; }
+.switch-wrap[data-mode="without"] .tally div { background: #f3d9d9; }
+
+/* ---------- sections ---------- */
+section { padding-block: clamp(3rem, 6vw, 5.5rem); }
+.head { max-width: 46rem; margin-bottom: 2.4rem; }
+.head h2 { font-size: clamp(2rem, 4.6vw, 3.6rem); margin-top: .8rem; }
+.head p { margin-top: 1rem; font-size: 1.1rem; }
+.sheet { background: var(--sheet); border: var(--b); box-shadow: var(--sh); position: relative; }
+
+/* chair filler */
+.filler { display: grid; grid-template-columns: .8fr 1.2fr; gap: 1.8rem; align-items: start; }
+.filler > * { min-width: 0; }
+.knobs { padding: 1.4rem; display: grid; gap: 1.2rem; }
+.knob label { display: flex; justify-content: space-between; gap: 1rem; font-weight: 700; font-size: .95rem; }
+.knob output { font: 700 .85rem var(--mono); background: var(--lemon); border: 2px solid var(--ink); padding: .1rem .45rem; font-variant-numeric: tabular-nums; }
+.knob input { width: 100%; accent-color: var(--magenta); margin-top: .45rem; }
+.knob small { display: block; font-size: .8rem; opacity: .75; margin-top: .2rem; }
+.result { border-top: var(--b); margin: .2rem -1.4rem -1.4rem; padding: 1.2rem 1.4rem; background: var(--cobalt); color: var(--sheet); display: grid; gap: .3rem; }
+.result b { font: 400 clamp(2rem, 4vw, 2.8rem)/1 var(--display); color: var(--lemon); font-variant-numeric: tabular-nums; }
+.result span { font-size: .92rem; }
+
+.cal { padding: 1.2rem; overflow-x: auto; }
+.cal-grid { display: grid; grid-template-columns: 3.4rem repeat(6, minmax(2.6rem, 1fr)); gap: 4px; min-width: 430px; }
+.cal-grid .dh { font: 700 .7rem var(--mono); text-transform: uppercase; text-align: center; padding-bottom: .3rem; }
+.cal-grid .hh { font: 500 .66rem var(--mono); display: flex; align-items: center; }
+.slot { height: 30px; border: 2px solid var(--ink); background: #fff; display: grid; grid-template-columns: repeat(3, 1fr); gap: 2px; padding: 2px; }
+.slot.closed { background: repeating-linear-gradient(45deg, #ddd 0 4px, #f4f4f4 4px 8px); border-style: dashed; }
+.chair { background: transparent; transition: background .25s, transform .25s; }
+.chair.base { background: var(--card-dk); }
+.chair.ai { background: var(--magenta); animation: pop .4s cubic-bezier(.2,1.6,.4,1); }
+@keyframes pop { from { transform: scale(.2); } }
+.cal-legend { display: flex; gap: 1.1rem; flex-wrap: wrap; margin-top: .9rem; font: 500 .7rem var(--mono); text-transform: uppercase; }
+.cal-legend i { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--ink); margin-right: .35rem; vertical-align: -2px; }
+.cal-top { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.cal-top h3 { font-size: 1.2rem; }
+
+/* demo chat */
+.demo { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; }
+.demo > * { min-width: 0; }
+.chatbox { height: 520px; display: flex; flex-direction: column; overflow: hidden; }
+.chat-head { display: flex; gap: .7rem; align-items: center; background: var(--magenta); color: var(--sheet); padding: .8rem 1rem; border-bottom: var(--b); }
+.chat-head .ava { background: var(--lemon); color: var(--ink); }
+.chat-head b { display: block; }
+.chat-head small { font: 500 .7rem var(--mono); }
+#chat { flex: 1; display: flex; flex-direction: column; min-height: 0; background: repeating-linear-gradient(0deg, transparent 0 27px, #f1e6d2 27px 28px), var(--sheet); }
+.k-msgs { flex: 1; overflow-y: auto; padding: 1rem; display: flex; flex-direction: column; gap: .55rem; }
+.k-msg { max-width: 82%; padding: .55rem .75rem 1.15rem; border: 2px solid var(--ink); font-size: .9rem; line-height: 1.4; position: relative; white-space: pre-line; }
+.k-in { align-self: flex-end; background: var(--lemon); transform: rotate(.6deg); }
+.k-out { align-self: flex-start; background: #fff; box-shadow: 3px 3px 0 var(--magenta); transform: rotate(-.4deg); }
+.k-ts { position: absolute; right: .5rem; bottom: .2rem; font: 500 .58rem var(--mono); opacity: .6; }
+.k-typing { align-self: flex-start; display: flex; gap: 4px; padding: .7rem; border: 2px solid var(--ink); background: #fff; }
+.k-typing i { width: 7px; height: 7px; background: var(--magenta); animation: bob 1s infinite; }
+.k-typing i:nth-child(2) { animation-delay: .15s; background: var(--tang); } .k-typing i:nth-child(3) { animation-delay: .3s; background: var(--cobalt); }
+@keyframes bob { 50% { transform: translateY(-4px); } }
+.k-chips { display: flex; gap: .4rem; flex-wrap: wrap; padding: 0 1rem .6rem; }
+.k-chip { font: 700 .78rem var(--body); padding: .4rem .65rem; border: 2px solid var(--ink); background: var(--mint); cursor: pointer; box-shadow: 2px 2px 0 var(--ink); }
+.k-chip:nth-child(2) { background: var(--lemon); } .k-chip:nth-child(3) { background: var(--tang); }
+.k-form { display: flex; gap: .5rem; padding: .7rem; border-top: var(--b); background: #fff; }
+.k-field { flex: 1; min-width: 0; border: 2px solid var(--ink); padding: .65rem .75rem; font: 400 .95rem var(--body); }
+.k-send { border: 2px solid var(--ink); background: var(--magenta); color: #fff; font: 800 .85rem var(--body); padding: 0 .9rem; cursor: pointer; }
+.booked-strip { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.4rem; }
+.ticket { font: 700 .74rem var(--mono); background: var(--mint); border: 2px solid var(--ink); padding: .5rem .7rem; box-shadow: 3px 3px 0 var(--ink); animation: pop .4s; }
+.say { display: grid; gap: .6rem; margin-top: 1.4rem; }
+.say button { text-align: left; font: 600 .95rem var(--body); padding: .75rem 1rem; border: var(--b); background: var(--sheet); box-shadow: 4px 4px 0 var(--ink); cursor: pointer; }
+.say button:hover { background: var(--lemon); }
+
+/* build steps, a true sequence */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.2rem; counter-reset: s; }
+.step { padding: 1.4rem 1.2rem; }
+.step:nth-child(odd) { transform: rotate(-1deg); } .step:nth-child(even) { transform: rotate(1deg); }
+.step::before { counter-increment: s; content: "Day " counter(s); display: inline-block; font: 700 .7rem var(--mono); text-transform: uppercase; letter-spacing: .1em; background: var(--ink); color: var(--lemon); padding: .35rem .55rem; margin-bottom: .8rem; }
+.step:nth-child(4)::before { content: "Day 5"; background: var(--magenta); color: #fff; }
+.step h3 { font-size: 1.2rem; margin-bottom: .5rem; }
+.step p { font-size: .93rem; }
+
+.close { background: var(--ink); color: var(--sheet); }
+.close-inner { display: grid; grid-template-columns: 1.2fr .8fr; gap: 2rem; align-items: center; }
+.close-inner > * { min-width: 0; }
+.close h2 { font-size: clamp(2.2rem, 5.4vw, 4.4rem); }
+.close h2 span { color: var(--lemon); }
+.close p { margin-top: 1rem; font-size: 1.1rem; max-width: 34rem; }
+.plan { background: var(--lemon); color: var(--ink); border: 3px solid var(--sheet); box-shadow: 10px 10px 0 var(--magenta); padding: 1.6rem; }
+.plan b { font: 400 3.2rem/1 var(--display); }
+.plan p { font-size: .95rem; margin: .8rem 0 1.2rem; }
+footer { background: var(--ink); color: var(--sheet); font: 500 .72rem/1.6 var(--mono); padding-block: 1.5rem 2rem; border-top: 2px dashed rgba(255,250,240,.25); }
+footer .wrap { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+@media (max-width: 920px) {
+  .hero, .filler, .demo, .close-inner { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr 1fr; }
+  .switch-wrap { transform: none; }
+}
+@media (max-width: 520px) {
+  .steps { grid-template-columns: 1fr; }
+  .tally b { font-size: 1.2rem; }
+  .thread { grid-template-columns: 2.1rem 1fr; }
+  .thread .meta { grid-column: 2; justify-items: start; grid-auto-flow: column; justify-content: start; }
+  .chatbox { height: 480px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="fringe" aria-hidden="true"></div>
+<div class="wrap">
+  <nav class="nav">
+    <a class="logo" href="#top"><i></i>BahaOS</a>
+    <div class="nav-links">
+      <a href="#chairs">Fill the chairs</a>
+      <a href="#try">Try it</a>
+      <a href="#build">Setup</a>
+      <a class="btn sm mag" href="#close">Start in 5 days</a>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div>
+      <span class="label">WhatsApp AI receptionist for clinics</span>
+      <h1 style="margin-top:1rem">Every message <span class="cut">answered.</span> Every chair <span class="cut" style="background:var(--cobalt)">filled.</span></h1>
+      <p class="lede">Your patients message at 9pm, at lunch, from the beach. BahaOS replies to every one in seconds, books them straight into your calendar and keeps your front desk free for the people standing in front of it.</p>
+      <div class="cta-row">
+        <a class="btn" href="#chairs">Fill my week ▸</a>
+        <a class="btn mag" href="#try">Talk to it</a>
+      </div>
+    </div>
+
+    <div class="switch-wrap" id="ba" data-mode="with">
+      <span class="tape" aria-hidden="true"></span>
+      <div class="switch" role="group" aria-label="Compare your inbox">
+        <button type="button" id="bWithout" aria-pressed="false">Monday, without</button>
+        <button type="button" id="bWith" class="with" aria-pressed="true">Monday, with BahaOS</button>
+      </div>
+      <div class="inbox">
+        <div class="inbox-top"><span>WhatsApp · BrightSmile</span><span class="badge ok" id="inboxBadge"></span></div>
+        <div id="threads"></div>
+      </div>
+      <div class="tally">
+        <div><b id="tA"></b><span id="tAl"></span></div>
+        <div><b id="tB"></b><span id="tBl"></span></div>
+        <div><b id="tC"></b><span id="tCl"></span></div>
+      </div>
+    </div>
+  </header>
+</div>
+
+<div class="fringe short" aria-hidden="true"></div>
+
+<section id="chairs">
+  <div class="wrap">
+    <div class="head">
+      <span class="label">Interactive model · your week</span>
+      <h2>Watch the empty chairs disappear.</h2>
+      <p>Each square is one chair-hour at a three-chair clinic. Tan is what you book today. Pink is the extra bookings when every WhatsApp gets a reply in seconds.</p>
+    </div>
+    <div class="filler">
+      <div class="sheet knobs">
+        <span class="tape" aria-hidden="true"></span>
+        <div class="knob"><label for="kIn">WhatsApp enquiries a week <output id="oIn"></output></label><input type="range" id="kIn" min="10" max="150" step="1" value="60" /></div>
+        <div class="knob"><label for="kNow">Share your team replies to quickly today <output id="oNow"></output></label><input type="range" id="kNow" min="10" max="100" step="5" value="55" /><small>The rest get a slow reply, or none, and book somewhere else.</small></div>
+        <div class="knob"><label for="kConv">Share of quick replies that book <output id="oConv"></output></label><input type="range" id="kConv" min="10" max="80" step="5" value="40" /></div>
+        <div class="knob"><label for="kVal">Average visit value <output id="oVal"></output></label><input type="range" id="kVal" min="60" max="600" step="10" value="160" /></div>
+        <div class="result" aria-live="polite">
+          <span><b id="rExtra"></b> extra appointments a week</span>
+          <span><b id="rYear"></b> more a year in visits</span>
+          <span style="font-size:.78rem;opacity:.85">Your inputs, 50 working weeks. A planning model, not a promise.</span>
+        </div>
+      </div>
+      <div class="sheet cal">
+        <div class="cal-top">
+          <h3>Next week at BrightSmile</h3>
+          <button class="btn sm" type="button" id="refill">↻ Rebook the week</button>
+        </div>
+        <div class="cal-grid" id="cal"></div>
+        <div class="cal-legend"><span><i style="background:#c9a46b"></i>Booked today</span><span><i style="background:#ec1c8a"></i>Added by BahaOS</span><span><i style="background:#fff"></i>Empty chair</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="try" style="background:var(--lemon);border-block:3px solid var(--ink)">
+  <div class="wrap demo">
+    <div>
+      <span class="label">Live demo · no sign-up</span>
+      <h2 style="font-size:clamp(2rem,4.6vw,3.4rem);margin-top:.8rem">Message the front desk at midnight.</h2>
+      <p style="margin-top:1rem;font-size:1.1rem;max-width:32rem">This is a demo clinic. Book something and watch it remember what you already told it. Each booking turns into a ticket below.</p>
+      <div class="say">
+        <button type="button" data-say="Hi, my wisdom tooth is killing me">"Hi, my wisdom tooth is killing me"</button>
+        <button type="button" data-say="Can I get whitening Saturday 10:30am?">"Can I get whitening Saturday 10:30am?"</button>
+        <button type="button" data-say="Do you take NIB insurance?">"Do you take NIB insurance?"</button>
+      </div>
+      <div class="booked-strip" id="tickets"></div>
+    </div>
+    <div class="sheet chatbox">
+      <div class="chat-head"><div class="ava">BS</div><div><b>BrightSmile Dental</b><small>typically replies instantly</small></div></div>
+      <div id="chat"></div>
+    </div>
+  </div>
+</section>
+
+<section id="build">
+  <div class="wrap">
+    <div class="head">
+      <span class="label">Built like a costume: fast, by hand, to fit</span>
+      <h2>From first call to live in five days.</h2>
+    </div>
+    <div class="steps">
+      <article class="sheet step"><h3>Send your price list</h3><p>Services, prices, hours, insurers you take, and what should always go to a human.</p></article>
+      <article class="sheet step"><h3>Connect WhatsApp</h3><p>We link your WhatsApp Business number and your calendar. Your number stays the same.</p></article>
+      <article class="sheet step"><h3>Rehearse it</h3><p>Your team messages it like patients would. We tune the tone until it sounds like your clinic.</p></article>
+      <article class="sheet step"><h3>Go live</h3><p>Patients message as usual. Your desk sees every booking and every hand-off in one place.</p></article>
+    </div>
+  </div>
+</section>
+
+<section class="close" id="close">
+  <div class="wrap close-inner">
+    <div>
+      <span class="label" style="color:var(--mint)">Ready when the rush starts</span>
+      <h2>Stop losing patients to <span>"seen 9:42pm."</span></h2>
+      <p>One plan, everything included. Cancel any month.</p>
+    </div>
+    <div class="plan">
+      <b>$300</b><span> / month</span>
+      <p>Unlimited WhatsApp conversations, calendar booking, reminders, rescheduling and staff hand-off.</p>
+      <a class="btn mag" href="https://www.trevthewebdev.com/whatsapp-ai-receptionist">Book a walkthrough ▸</a>
+    </div>
+  </div>
+</section>
+<footer><div class="wrap"><span>BahaOS · concept 2 of 3, "The Shack"</span><span>Demo clinic and sample messages. Nothing is sent.</span></div></footer>
+
+<script src="kit.js"></script>
+<script>
+(() => {
+  const { money } = Kit;
+  const $ = (id) => document.getElementById(id);
+
+  /* ---------- before / after inbox ---------- */
+  const people = [
+    { n: "Kayla N.", c: "#ffe23d", msg: "Haven't been in 2 yrs, can I still come?", at: "Sun 9:42pm", reply: "Of course! Fri 11am is open. Booked ✓", tag: "Booked", v: 120 },
+    { n: "Andre G.", c: "#1fd1a1", msg: "chipped my front tooth 😩", at: "Sun 11:08pm", reply: "Emergency slot 8am Monday. See you then ✓", tag: "Booked", v: 95 },
+    { n: "Simone H.", c: "#ff7a1a", msg: "How much is whitening?", at: "Mon 6:51am", reply: "$350, or $299 with a cleaning. Sat 10:30 booked ✓", tag: "Booked", v: 350 },
+    { n: "Brent A.", c: "#2747ff", msg: "need to cancel thursday", at: "Mon 7:20am", reply: "Done. Slot offered to the waitlist ✓", tag: "Moved", v: 0 },
+    { n: "Omar P.", c: "#ec1c8a", msg: "cleaning any day after 4?", at: "Mon 12:14pm", reply: "Wed 4:30pm is yours ✓", tag: "Booked", v: 120 },
+  ];
+  function paint(mode) {
+    const w = mode === "with";
+    $("ba").dataset.mode = mode;
+    $("bWith").setAttribute("aria-pressed", w); $("bWithout").setAttribute("aria-pressed", !w);
+    $("inboxBadge").textContent = w ? "0 waiting" : "14 unread";
+    $("inboxBadge").className = "badge" + (w ? " ok" : "");
+    $("threads").innerHTML = "";
+    people.forEach((p, i) => {
+      const row = document.createElement("div");
+      row.className = "thread";
+      row.innerHTML = `<div class="ava" style="background:${p.c}"></div><div style="min-width:0"><b></b><div class="line"></div></div><div class="meta"><span></span>${w ? `<span class="tag ${p.tag === "Booked" ? "bk" : ""}">${p.tag}</span>` : `<span class="unread">${[2, 3, 1, 1, 2][i]}</span>`}</div>`;
+      row.querySelector(".ava").textContent = p.n.split(" ").map((x) => x[0]).join("");
+      row.querySelector("b").textContent = p.n;
+      const line = row.querySelector(".line");
+      line.textContent = w ? "↳ " + p.reply : p.msg; if (w) line.classList.add("reply");
+      row.querySelector(".meta span").textContent = w ? "replied in 4s" : p.at;
+      $("threads").appendChild(row);
+    });
+    const won = people.filter((p) => p.tag === "Booked");
+    if (w) {
+      $("tA").textContent = "4s"; $("tAl").textContent = "avg. reply";
+      $("tB").textContent = won.length; $("tBl").textContent = "booked overnight";
+      $("tC").textContent = money(won.reduce((a, p) => a + p.v, 0)); $("tCl").textContent = "in the calendar";
+    } else {
+      $("tA").textContent = "14h"; $("tAl").textContent = "avg. reply";
+      $("tB").textContent = "0"; $("tBl").textContent = "booked overnight";
+      $("tC").textContent = "?"; $("tCl").textContent = "went elsewhere";
+    }
+  }
+  $("bWith").addEventListener("click", () => paint("with"));
+  $("bWithout").addEventListener("click", () => paint("without"));
+  paint("with");
+
+  /* ---------- chair filler ---------- */
+  const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16];
+  const open = (d, h) => (d === 5 ? h >= 9 && h < 13 : h !== 12); // lunch closed weekdays; Sat 9–1
+  const cal = $("cal");
+  cal.innerHTML = '<span></span>' + DAYS.map((d) => `<span class="dh">${d}</span>`).join("");
+  const chairs = [];
+  HOURS.forEach((h) => {
+    const hh = document.createElement("span"); hh.className = "hh"; hh.textContent = (h % 12 || 12) + (h < 12 ? "am" : "pm"); cal.appendChild(hh);
+    DAYS.forEach((_, d) => {
+      const s = document.createElement("div");
+      s.className = "slot" + (open(d, h) ? "" : " closed");
+      if (open(d, h)) for (let c = 0; c < 3; c++) { const ch = document.createElement("i"); ch.className = "chair"; s.appendChild(ch); chairs.push(ch); }
+      cal.appendChild(s);
+    });
+  });
+  // deterministic shuffle so the pattern looks organic but stable
+  const order = chairs.map((_, i) => i).sort((a, b) => ((a * 7919) % 101) - ((b * 7919) % 101));
+
+  function fill(animate) {
+    const inq = +$("kIn").value, now = $("kNow").value / 100, conv = $("kConv").value / 100, val = +$("kVal").value;
+    $("oIn").textContent = inq; $("oNow").textContent = Math.round(now * 100) + "%"; $("oConv").textContent = Math.round(conv * 100) + "%"; $("oVal").textContent = money(val);
+    const baseBooked = Math.round(inq * now * conv);
+    const withAi = Math.round(inq * conv);            // every message gets a quick reply
+    const existing = Math.round(chairs.length * 0.38); // walk-ins, recalls, phone bookings
+    const base = Math.min(chairs.length, existing + baseBooked);
+    const total = Math.min(chairs.length, existing + withAi);
+    const extra = total - base;
+    order.forEach((idx, i) => {
+      const ch = chairs[idx];
+      const cls = i < base ? "chair base" : i < total ? "chair ai" : "chair";
+      if (ch.className !== cls) {
+        ch.className = cls;
+        if (animate && cls === "chair ai") { ch.style.animationDelay = Math.min((i - base) * 18, 900) + "ms"; }
+      }
+    });
+    $("rExtra").textContent = extra;
+    $("rYear").textContent = money(extra * val * 50);
+  }
+  document.querySelectorAll(".knob input").forEach((i) => i.addEventListener("input", () => fill(false)));
+  $("refill").addEventListener("click", () => { chairs.forEach((c) => { if (c.classList.contains("ai")) c.className = "chair"; }); requestAnimationFrame(() => fill(true)); });
+  fill(false);
+
+  /* ---------- chat ---------- */
+  const chat = Kit.mountChat($("chat"), {
+    inputId: "shackField",
+    sendLabel: "Send",
+    onBooked: (b) => {
+      const t = document.createElement("span"); t.className = "ticket";
+      t.textContent = `✓ ${b.service} · ${b.when} · ${money(b.value)}`;
+      $("tickets").appendChild(t);
+    },
+  });
+  document.querySelectorAll("[data-say]").forEach((b) => b.addEventListener("click", () => chat.send(b.dataset.say)));
+})();
+</script>
+</body>
+</html>
