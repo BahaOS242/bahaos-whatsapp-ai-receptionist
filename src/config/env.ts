@@ -18,10 +18,84 @@ const envSchema = z.object({
   DATABASE_URL: z.string().min(1, "DATABASE_URL is required"),
   OPENAI_API_KEY: z.string().min(1).optional(),
   OPENAI_MODEL: z.string().min(1).default("gpt-4o-mini"),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_MODEL: z.string().min(1).default("claude-haiku-4-5-20251001"),
+  GEMINI_API_KEY: z.string().min(1).optional(),
+  GEMINI_MODEL: z.string().min(1).default("gemini-2.5-flash"),
+  OPENROUTER_API_KEY: z.string().min(1).optional(),
+  OPENROUTER_MODEL: z.string().min(1).default("openrouter/free"),
   GOOGLE_CALENDAR_CLIENT_ID: z.string().min(1).optional(),
   GOOGLE_CALENDAR_CLIENT_SECRET: z.string().min(1).optional(),
   GOOGLE_CALENDAR_REFRESH_TOKEN: z.string().min(1).optional(),
   GOOGLE_CALENDAR_ID: z.string().min(1).optional(),
+  // Explicit opt-in only — DATABASE_URL is always required (used for
+  // other things too), so its mere presence can't imply the booking
+  // schema's migrations (drizzle/0000.../0001.../0002...) have actually
+  // been applied. Defaults to disabled so existing deployments are
+  // unaffected until someone deliberately turns this on.
+  DB_BOOKING_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
+  // Explicit opt-in, same shape as DB_BOOKING_ENABLED — routes booking
+  // through the clinic simulator (test-data/clinic-calendar/'s immutable
+  // reference calendar + an in-memory transaction layer) instead of the
+  // plain in-memory simulated tools. Checked BEFORE DB_BOOKING_ENABLED in
+  // createReceptionistTools, since turning this on is an explicit,
+  // deliberate choice to exercise the simulator specifically.
+  CLINIC_SIMULATOR_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
+  // Business-knowledge (RAG) engine — see KNOWLEDGE_ENGINE.md. Explicit
+  // opt-in, same shape as DB_BOOKING_ENABLED/CLINIC_SIMULATOR_ENABLED, and
+  // for the same reason: the knowledge tables come from migration 0007, and
+  // nothing should start querying a schema a deployment may not have yet.
+  // With the flag off the receptionist behaves exactly as it did before
+  // the engine existed.
+  KNOWLEDGE_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
+  // Optional remote embeddings (Voyage AI — Anthropic's recommended
+  // embeddings partner). Absent => the offline hashing embedder, so local
+  // dev and every test need no credentials. OpenAI is deliberately not an
+  // option here (standing project constraint).
+  VOYAGE_API_KEY: z.string().min(1).optional(),
+  VOYAGE_EMBEDDING_MODEL: z.string().min(1).default("voyage-3.5-lite"),
+  // WhatsApp Cloud API (Meta) — all optional, matching the GOOGLE_CALENDAR_*
+  // pattern above: the webhook route is always mounted (so ops can point
+  // Meta's console at it and see a clear 403 rather than a 404), but each
+  // piece of behavior degrades explicitly rather than requiring all four:
+  //   - WHATSAPP_WEBHOOK_VERIFY_TOKEN alone enables the GET verification
+  //     challenge (Meta's one-time webhook setup step).
+  //   - WHATSAPP_ACCESS_TOKEN + WHATSAPP_PHONE_NUMBER_ID together enable
+  //     real outbound sending (createMessagingProvider falls back to an
+  //     in-memory mock transport otherwise — see
+  //     src/messaging/create-messaging-provider.ts) — never required for
+  //     npm test/test:db/npm run chat.
+  //   - WHATSAPP_APP_SECRET enables X-Hub-Signature-256 verification of
+  //     inbound webhook payloads; its absence is logged, not silently
+  //     ignored (see src/whatsapp/webhook-signature.ts).
+  // Never hardcoded, never logged.
+  WHATSAPP_ACCESS_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_PHONE_NUMBER_ID: z.string().min(1).optional(),
+  WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().min(1).optional(),
+  WHATSAPP_APP_SECRET: z.string().min(1).optional(),
+  WHATSAPP_API_VERSION: z.string().min(1).default("v21.0"),
+  // How often server.ts's in-process outbound retry poller runs (see
+  // src/messaging/outbound-retry-worker.ts). Deliberately independent
+  // of the backoff schedule itself — this only bounds how promptly a
+  // message that's already due gets picked up, not how long it waits
+  // before becoming due. 30s default: prompt enough that a customer
+  // isn't kept waiting long after a transient blip clears, infrequent
+  // enough not to hammer the database when nothing is due (the query
+  // itself is cheap — an indexed, normally-empty `retry_pending` scan —
+  // but there's no reason to poll faster than a human would notice).
+  OUTBOUND_RETRY_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

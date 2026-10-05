@@ -1,4 +1,25 @@
+import { isIsoDateString, weekdayForIsoDate } from "./date-time";
 import type { BusinessContext, Weekday } from "./types";
+
+/** `date` is either a canonical weekday name or a real "YYYY-MM-DD" (see
+ * date-time.ts's resolveCalendarDateWord) — resolves either form to the
+ * weekday BusinessContext.weeklyHours is actually keyed by. */
+function weekdayOf(date: string): Weekday {
+  return (isIsoDateString(date) ? weekdayForIsoDate(date) : date) as Weekday;
+}
+
+/** Customer-facing label for `date` — "Tuesday" unchanged for a weekday
+ * name, or "Saturday, September 13" for a real "YYYY-MM-DD" (never the
+ * bare ISO string itself in a customer-facing message). Pure calendar
+ * formatting, no timezone conversion needed for a date-only value. */
+function displayDate(date: string): string {
+  if (!isIsoDateString(date)) return date;
+  const [year, month, day] = date.split("-").map((part) => Number.parseInt(part, 10));
+  const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", timeZone: "UTC" }).format(
+    new Date(Date.UTC(year, month - 1, day)),
+  );
+  return `${weekdayForIsoDate(date)}, ${monthLabel} ${day}`;
+}
 
 /**
  * Business-hours validation. This is the application-level authority on
@@ -39,7 +60,7 @@ export function validateAppointmentTime(
   time: string,
   durationMinutes: number,
 ): BusinessHoursValidation {
-  const dayHours = business.weeklyHours[date as Weekday];
+  const dayHours = business.weeklyHours[weekdayOf(date)];
   if (!dayHours) {
     return { valid: false, reason: "closed_day" };
   }
@@ -72,7 +93,7 @@ export function isWithinOperatingWindow(
   date: string,
   time: string,
 ): BusinessHoursValidation {
-  const dayHours = business.weeklyHours[date as Weekday];
+  const dayHours = business.weeklyHours[weekdayOf(date)];
   if (!dayHours) return { valid: false, reason: "closed_day" };
 
   const startMinutes = toMinutes(time);
@@ -110,7 +131,8 @@ export function describeInvalidTime(
   time: string,
 ): string {
   if (validation.reason === "closed_day") {
-    return `We're closed on ${date}s. We're open ${business.hours}. What day would you like to come in instead?`;
+    const label = isIsoDateString(date) ? displayDate(date) : `${date}s`;
+    return `We're closed on ${label}. We're open ${business.hours}. What day would you like to come in instead?`;
   }
-  return `${formatTime12h(time)} on ${date} is outside our hours — we're open ${business.hours}. What time works for you?`;
+  return `${formatTime12h(time)} on ${displayDate(date)} is outside our hours — we're open ${business.hours}. What time works for you?`;
 }

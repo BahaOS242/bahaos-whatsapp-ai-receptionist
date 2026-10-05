@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createGoogleCalendarReceptionistTools } from "../../src/tools/google-calendar-receptionist-tools";
+import { nextDateForWeekday } from "../../src/tools/calendar/calendar-datetime";
 import {
   createInMemoryAppointmentStore,
   createInMemoryReconciliationQueue,
@@ -81,7 +82,9 @@ describe("Google Calendar tools — 1. available slot", () => {
 
     const result = await tools.requestAppointment(VALID_PAYLOAD);
 
-    expect(result).toEqual({ success: true });
+    // persisted: true — a real calendar event + internal record now
+    // exist, distinct from the simulated tools' validated-only success.
+    expect(result).toEqual({ success: true, persisted: true });
     expect(calendar.createEventCalls).toBe(1);
     expect(store.all()).toHaveLength(1);
     expect(store.all()[0]).toMatchObject({ name: "Trevor", service: "Basic filling" });
@@ -92,11 +95,21 @@ describe("Google Calendar tools — 2. busy slot", () => {
   it("creates neither a calendar event nor a successful appointment when the slot is busy", async () => {
     const calendar = new FakeCalendarClient();
     // Pre-populate the calendar with a conflicting event covering the
-    // same window the valid payload will request.
+    // same window the valid payload will request. Genuine pre-existing
+    // bug found running this suite on a later date than it was written:
+    // a HARDCODED "2026-08-25" only actually matched "the next Tuesday
+    // from real wall-clock now" (what toCalendarRange/VALID_PAYLOAD's
+    // "Tuesday" resolves against) on the specific days that date was
+    // still in the future — once "now" rolled past it, "Tuesday" started
+    // resolving to a LATER Tuesday than this hardcoded conflict, and the
+    // test silently stopped proving anything. Computed the same way
+    // production code resolves it instead, so this test is correct on
+    // every day it's ever run, not just the day it was written.
+    const conflictDate = nextDateForWeekday("Tuesday");
     await calendar.createEvent({
       summary: "Existing appointment",
-      startDateTime: "2026-08-25T14:00:00",
-      endDateTime: "2026-08-25T14:45:00",
+      startDateTime: `${conflictDate}T14:00:00`,
+      endDateTime: `${conflictDate}T14:45:00`,
       timeZone: BAHAMAS_DENTAL_SERVICE.timezone,
     });
     calendar.createEventCalls = 0; // reset — only counting calls from the tool under test

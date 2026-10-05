@@ -3,6 +3,7 @@ import type {
   BusinessContext,
   ReceptionistTools,
   RequestAppointmentPayload,
+  RequestRecurringAppointmentPayload,
   ToolResult,
 } from "../ai/types";
 import type { CalendarClient } from "./calendar/calendar-client";
@@ -85,7 +86,7 @@ export function createGoogleCalendarReceptionistTools(
       const existing = await store.findByIdempotencyKey(idempotencyKey);
       if (existing) {
         console.log("[google-calendar tool] idempotent replay — already booked", idempotencyKey);
-        return { success: true };
+        return { success: true, persisted: true };
       }
 
       const range = toCalendarRange(
@@ -144,6 +145,18 @@ export function createGoogleCalendarReceptionistTools(
       return { success: true };
     },
 
+    async requestRecurringAppointment(payload: RequestRecurringAppointmentPayload): Promise<ToolResult> {
+      // Genuinely NOT implemented here — see ReceptionistTools.requestRecurringAppointment's
+      // own docstring and Section 9's "do NOT fake it." Neither provider
+      // proposes this action against this backend in practice (see
+      // AIProviderRequest.checkAvailability).
+      console.error("[google-calendar tool] request_recurring_appointment REJECTED (not supported by this backend)", payload);
+      return {
+        success: false,
+        error: "Recurring scheduling is not available on this backend.",
+      };
+    },
+
     async escalate(payload) {
       console.log("[google-calendar tool] escalate", payload);
       return { success: true };
@@ -170,7 +183,7 @@ async function bookWithinLock(
   // have completed while we were waiting for the lock.
   const existingInsideLock = await store.findByIdempotencyKey(idempotencyKey);
   if (existingInsideLock) {
-    return { success: true };
+    return { success: true, persisted: true };
   }
 
   // 2. Google Calendar availability — the source of truth.
@@ -232,9 +245,9 @@ async function bookWithinLock(
       reason: error instanceof Error ? error.message : "unknown internal write failure",
       queuedAt: new Date().toISOString(),
     });
-    return { success: true };
+    return { success: true, persisted: true };
   }
 
   // 5. Success.
-  return { success: true };
+  return { success: true, persisted: true };
 }

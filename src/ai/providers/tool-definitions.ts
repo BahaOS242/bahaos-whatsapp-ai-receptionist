@@ -4,10 +4,14 @@ type ChatCompletionTool = OpenAI.Chat.Completions.ChatCompletionTool;
 
 /**
  * The 5 controlled actions the model may request, plus
- * update_booking_progress — not an action, but how the model reports
- * structured booking fields as it learns them, so the application never
- * has to re-parse the model's prose reply to figure out what's already
- * known. This — not database access — is the model's only way to affect
+ * update_booking_progress — not an action, but the ONE piece of booking
+ * state the application can't determine deterministically from a raw
+ * message: which flow the customer wants (new booking vs. reschedule vs.
+ * cancellation). Every other field (service/date/time/name/phone/
+ * pendingAction) is extracted by the application directly from the
+ * customer's message instead — see src/ai/message-field-extraction.ts —
+ * so this tool's schema deliberately no longer asks the model to report
+ * them. This — not database access — is the model's only way to affect
  * anything or persist anything; ReceptionistAgent executes the 5 real
  * actions via ReceptionistTools, and LLMProvider handles
  * update_booking_progress itself to build the returned BookingState.
@@ -18,7 +22,7 @@ export const RECEPTIONIST_TOOL_DEFINITIONS: ChatCompletionTool[] = [
     function: {
       name: "update_booking_progress",
       description:
-        "Report the current state of an in-progress booking, reschedule, or cancellation as structured fields. Call this on every turn where you're actively collecting booking information — even if you don't have everything yet — so the application can track what's already known. Only include fields you're confident about; omit anything still unknown. date should be a weekday name (e.g. \"Tuesday\"); time should be 24-hour HH:MM (e.g. \"18:00\") — never call this with an ambiguous or guessed time.",
+        "Report which flow the customer wants: a new booking, a reschedule of an existing appointment, or a cancellation. Call this as soon as that's clear — the application tracks every other detail (service, date, time, name, phone) directly from what the customer says, so you only need to report intent here.",
       parameters: {
         type: "object",
         properties: {
@@ -26,11 +30,6 @@ export const RECEPTIONIST_TOOL_DEFINITIONS: ChatCompletionTool[] = [
             type: "string",
             enum: ["book_appointment", "reschedule_appointment", "cancel_appointment"],
           },
-          service: { type: "string" },
-          date: { type: "string", description: 'Weekday name, e.g. "Tuesday"' },
-          time: { type: "string", description: '24-hour HH:MM, e.g. "18:00"' },
-          name: { type: "string" },
-          phone: { type: "string" },
         },
         required: ["intent"],
         additionalProperties: false,

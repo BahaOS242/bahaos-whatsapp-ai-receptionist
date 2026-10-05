@@ -18,11 +18,18 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:db": "vitest run --config vitest.db.config.mts",
     "chat": "tsx scripts/dev-chat.ts",
+    "eval": "tsx scripts/run-eval.ts",
+    "eval:llm": "tsx scripts/eval-llm-comparison/cli.ts",
+    "eval:llm:compare": "tsx scripts/eval-llm-comparison/cli.ts --compare",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "drizzle-kit migrate"
+    "db:migrate": "drizzle-kit migrate",
+    "knowledge": "tsx scripts/knowledge.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.120.0",
+    "@google/genai": "^2.18.0",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "express": "^5.2.1",

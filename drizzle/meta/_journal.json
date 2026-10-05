@@ -8,6 +8,55 @@
       "when": 1787103015232,
       "tag": "0000_groovy_madrox",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787543669673,
+      "tag": "0001_hesitant_nick_fury",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787543691629,
+      "tag": "0002_appointments_no_overlap",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1787569472654,
+      "tag": "0003_magenta_firestar",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787610925953,
+      "tag": "0004_great_nextwave",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787620596455,
+      "tag": "0005_low_vengeance",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1787799543566,
+      "tag": "0006_parallel_doctor_doom",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791216807427,
+      "tag": "0007_knowledge_engine",
+      "breakpoints": true
     }
   ]
 }

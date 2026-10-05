@@ -44,13 +44,19 @@ describe("Booking state regression — exact reported conversation", () => {
     expect(afterDateTime.bookingState.time).toBe("14:00");
 
     // 4. user gives name + phone in ONE message
-    const final = await turn("Trevor 12428012847");
+    const confirming = await turn("Trevor 12428012847");
 
     // 5/6. system persisted both and did not ask again
-    expect(final.reply).not.toMatch(/could i get your name/i);
-    expect(final.reply).not.toMatch(/what day|what time/i);
+    expect(confirming.reply).not.toMatch(/could i get your name/i);
+    expect(confirming.reply).not.toMatch(/what day|what time/i);
 
-    // 7. booking proceeds to the next required action
+    // Objective 2's hard gate: every field being known now presents a
+    // confirm-and-summarize prompt, not an immediate booking.
+    expect(confirming.actions).toEqual([]);
+    expect(confirming.reply).toMatch(/reply yes to confirm/i);
+
+    // 7. booking proceeds to the next required action once confirmed
+    const final = await turn("yes");
     expect(final.actions).toEqual([
       {
         type: "request_appointment",
@@ -87,12 +93,21 @@ describe("Booking state regression — phone number variants normalize identical
         time: "14:00",
       };
 
-      const result = await provider.generateResponse({
+      const confirming = await provider.generateResponse({
         business: BAHAMAS_DENTAL_SERVICE,
         customer: {},
         history: [],
         message,
         bookingState: state,
+      });
+      expect(confirming.bookingState.pendingAction).toBe("confirm_booking");
+
+      const result = await provider.generateResponse({
+        business: BAHAMAS_DENTAL_SERVICE,
+        customer: {},
+        history: [],
+        message: "yes",
+        bookingState: confirming.bookingState,
       });
 
       expect(result.actions).toEqual([
@@ -110,7 +125,7 @@ describe("Booking state regression — partial information asks only for what's 
     intent: "book_appointment" as const,
     service: "Basic filling",
     date: "Tuesday",
-    time: "18:00",
+    time: "14:00",
   };
 
   it('"Trevor" alone → asks only for phone, not name again', async () => {

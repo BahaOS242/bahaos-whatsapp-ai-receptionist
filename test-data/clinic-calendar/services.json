@@ -1,0 +1,26 @@
+[
+  {
+    "id": "consultation",
+    "name": "Dental consultation / basic exam",
+    "duration_minutes": 30,
+    "price_bsd": 75
+  },
+  {
+    "id": "cleaning",
+    "name": "Routine cleaning",
+    "duration_minutes": 60,
+    "price_bsd": 125
+  },
+  {
+    "id": "filling",
+    "name": "Basic filling",
+    "duration_minutes": 45,
+    "price_bsd": 175
+  },
+  {
+    "id": "root_canal",
+    "name": "Root canal",
+    "duration_minutes": 90,
+    "price_bsd": 950
+  }
+]

@@ -24,6 +24,7 @@ export class ConversationManager {
   private static readonly MAX_HISTORY_TURNS = 20;
 
   private bookingState: BookingState = {};
+  private handoffActive = false;
 
   getBookingState(): BookingState {
     return { ...this.bookingState };
@@ -33,18 +34,44 @@ export class ConversationManager {
     this.bookingState = { ...next };
   }
 
+  getHandoffActive(): boolean {
+    return this.handoffActive;
+  }
+
+  setHandoffActive(active: boolean): void {
+    this.handoffActive = active;
+  }
+
+  /** The explicit "human/system resumes automation" mechanism required
+   * alongside handoff enforcement — never triggered by anything the
+   * customer says in chat, only by whatever calls this (e.g. a future
+   * staff dashboard action). */
+  resumeAutomation(): void {
+    this.handoffActive = false;
+  }
+
   buildRequest(params: {
     business: BusinessContext;
     customer: CustomerContext;
     history: ConversationTurn[];
     message: string;
+    /** See AIProviderRequest.checkAvailability's own docstring — passed
+     * straight through, undefined for every caller not wiring in the
+     * clinic simulator. */
+    checkAvailability?: AIProviderRequest["checkAvailability"];
+    /** Only for callers that know their tenant (see AIProviderRequest.
+     * tenantId) — omitted for the plain in-memory path. */
+    tenantId?: string;
   }): AIProviderRequest {
     return {
+      ...(params.tenantId ? { tenantId: params.tenantId } : {}),
       business: params.business,
       customer: params.customer,
       history: params.history.slice(-ConversationManager.MAX_HISTORY_TURNS),
       message: params.message,
       bookingState: this.getBookingState(),
+      handoffActive: this.handoffActive,
+      checkAvailability: params.checkAvailability,
     };
   }
 }
