@@ -7,38 +7,19 @@ Unit 1147/1147 · DB 371/371 · lint/typecheck/build clean · fallback eval 37/3
 
 **NL-01 (open, documented, not a release regression):** typos in both the service name and the weekday ("clening on tusday") are not understood by the deterministic matchers, so the bot asks again or escalates; it never books wrongly. Pre-existing since the first eval; unrelated to the name/date fixes. Decision: accept for release, or schedule fuzzy matching as separate work.
 
-## 1. Live Anthropic validation (NOT RUN — needs spend approval)
-**Goal:** show that the corrected name/date behaviour holds with a real model in the loop (the model proposes tool calls; app code still owns extraction/validation). Simulated tools only; no database, no WhatsApp, no real calendar.
+## 1. Live Anthropic validation — EXECUTED 2026-10-09 (owner-approved: Haiku 4.5, cap raised to $10)
+**Lane:** LIVE `claude-haiku-4-5-20251001` (model id reported by the API) driving the real `LLMProvider` + `ReceptionistAgent`; **simulated tools only** (no DB, WhatsApp or real calendar). Clock frozen per case (Fri 2026-10-09T16:00Z; L11 Sun 2026-10-11; L12 Wed 2026-12-30). Harness: `scripts/eval-live-corrections.ts` (budget-gated before every call; gate proven to block with a tiny cap and zero calls). Raw synthetic transcripts and payloads: `evidence/live-anthropic-haiku-4-5-2026-10-09.json`.
 
-**Harness (to write after approval, ~1 small script):** reuse `tests/torture/helpers.ts` `TortureConversation` with the real `AnthropicChatClient` (`ANTHROPIC_MODEL`, default `claude-haiku-4-5-20251001`) + `createSimulatedReceptionistTools`; freeze only `Date` at `2026-10-09T16:00:00Z` (Fri noon Nassau) per case; log model id/version, clock, tool backend, per-turn state and every `request_appointment` payload to a JSON file (no customer data — all synthetic).
+| Result | Value |
+|---|---|
+| Case runs | 45 (15 cases × 3 passes) |
+| **Hard failures** (wrong name/date/time payload or state, booking before confirmation, duplicate booking) | **0** |
+| Soft shortfalls (no booking completed / errors) | 0 |
+| API calls / tokens | 207 calls · 508,475 input · 12,083 output |
+| **Actual cost** | **$0.5689** (cap $10; first estimate ≈ $2 was ~3.5× too high) |
 
-**Cases (15 conversations; each asserts stored state AND final payload):**
-| # | Transcript (customer turns) | Must hold |
-|---|---|---|
-| L1 | cleaning → yes → Tuesday 2pm → actually 3pm → Trevor 2428012847 → yes | time 15:00; name Trevor (never "Actually"); 1 request, none before the final yes |
-| L2 | … → nah make it 3pm instead → Alicia 2425550100 → yes | name Alicia |
-| L3–L5 | "no, 3pm instead" / "make it 3pm" / "change it to 3pm please" at the correction turn | time 15:00, no name set |
-| L6 | … → actually 3pm → 2428012847 → Trevor → yes | phone before name works |
-| L7 | name+phone known → actually 3pm | name preserved |
-| L8 | … Alicia → "My name is Alisha not Alicia" → yes | payload name exactly `Alisha` |
-| L9 | cleaning → next week Friday at 2pm → Trevor 2428012847 → yes | `preferredDate 2026-10-16`, 14:00 |
-| L10 | "Friday next week at 2pm" | 2026-10-16 |
-| L11 | clock Sun 2026-10-11: next week Friday | 2026-10-16 |
-| L12 | clock Wed 2026-12-30: next week Monday | 2027-01-04 |
-| L13 | control: "next Friday at 2pm" | 2026-10-16 (unchanged rule) |
-| L14 | ambiguous "at 3" | clarifies; no action |
-| L15 | "yes" repeated twice | at most one action |
-
-**Pass bar (RELEASE_GATES hard blocker):** zero incorrect identity/date payloads across all runs; any miss is reported with the exact transcript, not averaged away. Run each case 3× (model variance).
-
-**Estimated cost** (measured prompt: system ≈ 4.8k chars, tools ≈ 2.7k chars ≈ 2.2k input tokens/call; ~3k with history; ≈ 200 output tokens; ~1.3 calls/turn; 15 cases × ~8 turns × 3 repeats ≈ 470 calls → ≈ 1.4M input + 0.1M output tokens). Prices from the cached model table (2026-10-06; re-check before approving):
-| Model | Input/Output per MTok | Estimate (3× repeats) | Single pass |
-|---|---|---|---|
-| `claude-haiku-4-5` (current default) | $1 / $5 | **≈ $2** | ≈ $0.70 |
-| `claude-sonnet-5-5` | $2 / $10 | ≈ $4 | ≈ $1.40 |
-| `claude-opus-5-5` | $4 / $20 | ≈ $8 | ≈ $2.70 |
-Budget cap suggestion: **$10 hard stop** (≈ 2× headroom on the most expensive row). The API key is present in the local `.env` and has **not** been used.
-**DECISION:** (a) approve spend and cap; (b) which model(s) — the production model is the one that matters; (c) approve writing/running the harness.
+Per case (all 3 passes identical): L1–L7 corrected time 15:00 and name Trevor/Alicia, never "Actually"/"Nah…"; L8 booked as exactly `Alisha`; L9–L11 `preferredDate 2026-10-16` 14:00; L12 `2027-01-04` 10:00; L13 control `2026-10-16`; L14 ambiguous "at 3" → no booking (clarified); L15 repeated yes → exactly one booking. Every booking occurred only after the explicit "yes".
+**Not shown by this run (stated plainly):** it validates one model (Haiku 4.5), 15 synthetic conversations, simulated tools — not Sonnet/Opus, not durable persistence, not WhatsApp. For the correction cases the booked date is the bare weekday label `Tuesday` (pre-existing behaviour: the tool resolves it against "now"); only the qualified-date cases carry ISO dates. Three repeats per case is a small sample of model variance, not a statistical guarantee.
 
 ## 2. Missing historical 27-conversation corpus
 **Searched:** the repository (`tests/eval` holds only the 38-scenario corpus), `git log`, the Desktop/Downloads project archives (two Aug-21 snapshots of this repo: same 38-scenario eval, no 27-set), all local Claude session transcripts (the string "14/27" appears only in the pasted Codex text). **Not found.** I cannot see the chat attachment the report came from.
