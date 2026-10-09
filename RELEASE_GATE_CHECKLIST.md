@@ -181,3 +181,14 @@ A fresh Render staging database (PostgreSQL 18.6) was initialised with the 13 co
 Deployed `9113880` to Render (free) and ran: health, webhook security (wrong token 403, unsigned 401, Meta-signed delivery accepted), and one booking conversation from the owner's phone — exactly one correct appointment after the app's confirmation and a separate "yes". Evidence and findings: `evidence/staging-part2-small-test-2026-10-09.md`. **Open blockers surfaced:** the Meta business restriction (replies accepted but not delivered), delivery receipts ignored (`sent` ≠ delivered), no startup indication of the booking backend (a missing `DB_BOOKING_ENABLED` silently used demo tools), out-of-order name dropped plus model-written confirmation prose, 8 npm audit findings. S4–S12 not yet run.
 
 **Real WhatsApp delivery to a customer phone: BLOCKED (Meta business restriction) — not passed.** The fix plan for the findings above (delivery receipts, backend startup guard, app-controlled confirmation prompts, dependency triage) is `FIX_PLAN_STAGING_FINDINGS.md`; nothing in it is implemented yet.
+
+## 9. Fixes for the staging findings (implemented offline; not deployed)
+| Finding | Fix | Commit | Status |
+|---|---|---|---|
+| Dependency audit (8) | `npm audit fix` (non-breaking): production 3 → 0; 4 moderate dev-tooling findings remain (`drizzle-kit` chain; needs a breaking `--force`, not applied). Reachability notes are assessments, not guarantees. Record: `evidence/dependency-audit-2026-10-09.md` | `4f9ff05` | done offline |
+| Silent demo booking tools in production | startup runtime-profile log + production guard (`ALLOW_DEMO_TOOLS_IN_PRODUCTION` override) | `4c2afc2` | done offline |
+| Model-written confirmation prose | model text can only invite a confirmation when it is the app's own prompt for the stored values | `8053431` | done offline |
+| `sent` ≠ delivered | delivery receipts: ledger + `delivery_*` columns (migration 0013), early/duplicate/out-of-order/tenant-isolated | `a78c1e0` | done offline; **0013 not applied to staging** |
+| Real WhatsApp delivery to a customer phone | none possible in code | — | **BLOCKED** by the Meta restriction (not passed) |
+Remaining blockers: Meta business restriction (owner action); applying 0013 and redeploying staging (needs approval); live re-verification of these fixes and of the time-qualifier fix; S4–S12; production migration history; NL-01 acceptance (safe clarification accepted for staging; pilot acceptance undecided); out-of-order name gap (not in this scope); remaining 4 dev-tooling audit findings.
+

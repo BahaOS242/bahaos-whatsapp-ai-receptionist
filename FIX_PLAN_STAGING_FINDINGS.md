@@ -1,4 +1,6 @@
-# Focused fix plan — staging findings (PLAN ONLY; nothing implemented)
+# Focused fix plan — staging findings (IMPLEMENTED offline; NOT deployed, NOT applied to staging)
+
+**Status (see commits on PR #2):** dependencies `4f9ff05` · startup safeguards `4c2afc2` · confirmation prompts `8053431` · delivery receipts `a78c1e0`. All covered by free tests; migration 0013 was applied only to the disposable local test database and to scratch databases. **Not done / needs approval:** applying 0013 to staging, any redeploy (the Render build line should gain `npm prune --omit=dev`), any staging re-run, any paid call. Real WhatsApp delivery remains **BLOCKED** (Meta restriction), not passed. The inbox/UI display of delivery state is a separate future PR.
 
 Scope approved for planning: delivery receipts, booking-backend startup safeguards, app-controlled confirmation prompts, dependency triage. **Out of scope:** the out-of-order name gap (finding 5) and the Meta restriction (owner action). PR #2 stays draft. No deploy, paid call, database change, merge or Phase 6 without a new approval.
 

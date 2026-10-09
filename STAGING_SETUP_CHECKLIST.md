@@ -9,7 +9,7 @@
 **Secret rules.** Secrets are typed only into Render's screens, Meta's dashboard, or hidden terminal prompts (`read -s`); never into chat, a PR, a commit or a screenshot. When a step involves a secret, report "done", not the value.
 
 ---
-# PART 1 — Database only (EXECUTED and verified 2026-10-09; see `evidence/staging-part1-database-2026-10-09.md`)
+# PART 1 — Database only (EXECUTED and verified 2026-10-09 at migrations 0000–0012; see `evidence/staging-part1-database-2026-10-09.md`). Note: the code now also contains migration 0013 (delivery receipts); after it is applied to staging (separate approval) the expected structure is 23 tables and 14 migration rows
 
 ## 1.0 Approved database identity
 The scripts will only touch the one database you approve, identified by its **host name** and **database name** (neither is a secret; copy them from the Render database page, "Hostname" and "Database"). Write them into your approval message. Every script checks both, plus asks the server which database it is connected to, and refuses on any mismatch. There is no override flag.
