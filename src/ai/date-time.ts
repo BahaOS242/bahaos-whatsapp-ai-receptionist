@@ -43,6 +43,13 @@ const YESTERDAY_RE = /\byesterday\b/i;
 const NEXT_WEEKDAY_RE =
   /\bnext\s+(mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:rs(?:day)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i;
 
+/** "next week Friday", "next week on Friday", "Friday next week". The qualifier is NOT optional
+ * decoration: dropping it silently books the wrong week. Policy: weeks run Monday–Sunday and
+ * "next week" is the calendar week after the current one; the named weekday is that week's. */
+const WEEKDAY_ALT = "(mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:rs(?:day)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)";
+const NEXT_WEEK_WEEKDAY_RE = new RegExp(`\\bnext\\s+week\\b[\\s,]*(?:on\\s+|for\\s+)?${WEEKDAY_ALT}\\b`, "i");
+const WEEKDAY_NEXT_WEEK_RE = new RegExp(`\\b${WEEKDAY_ALT}\\b[\\s,]*(?:of\\s+|in\\s+)?next\\s+week\\b`, "i");
+
 function isoDateFromYMD(year: number, month: number, day: number): string {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
@@ -91,6 +98,17 @@ function resolveRelativeDateWord(text: string, now: Date, timeZone: string): str
   if (YESTERDAY_RE.test(lower)) {
     const d = addCalendarDays(today.year, today.month, today.day, -1);
     return isoDateFromYMD(d.year, d.month, d.day);
+  }
+  const nextWeek = lower.match(NEXT_WEEK_WEEKDAY_RE) ?? lower.match(WEEKDAY_NEXT_WEEK_RE);
+  if (nextWeek) {
+    const targetIndex = WEEKDAY_PREFIX_TO_INDEX[nextWeek[1].slice(0, 3)];
+    if (targetIndex !== undefined) {
+      const todayIndex = new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay();
+      const sinceMonday = (todayIndex + 6) % 7; // Monday = 0 … Sunday = 6
+      const targetFromMonday = (targetIndex + 6) % 7;
+      const d = addCalendarDays(today.year, today.month, today.day, 7 - sinceMonday + targetFromMonday);
+      return isoDateFromYMD(d.year, d.month, d.day);
+    }
   }
   const nextMatch = lower.match(NEXT_WEEKDAY_RE);
   if (nextMatch) {
@@ -422,6 +440,9 @@ export function stripRecognizedDateTime(text: string): string {
   return text
     .replace(TIME_WITH_MERIDIEM_RE, " ")
     .replace(DAY_AFTER_TOMORROW_RE, " ")
+    .replace(new RegExp(NEXT_WEEK_WEEKDAY_RE.source, "gi"), " ")
+    .replace(new RegExp(WEEKDAY_NEXT_WEEK_RE.source, "gi"), " ")
+    .replace(/\bnext\s+week\b/gi, " ")
     .replace(new RegExp(NEXT_WEEKDAY_RE.source, "gi"), " ")
     .replace(YESTERDAY_RE, " ")
     .replace(TODAY_WORD_RE, " ")
