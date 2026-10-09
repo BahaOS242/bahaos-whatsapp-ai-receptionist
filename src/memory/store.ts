@@ -240,3 +240,20 @@ export async function deleteByKinds(db: Db, scope: MemoryScope, kinds: MemoryKin
   }
   return r.rows.length;
 }
+
+/**
+ * Retires up to `limit` expired ACTIVE memories of ONE tenant (any customer). Retrieval already ignores
+ * expired rows, so this changes nothing user-visible; it frees slots and scrubs content. Idempotent.
+ */
+export async function sweepExpiredForTenant(db: Db, tenantId: string, now: Date, limit = 500): Promise<number> {
+  const r = await db.execute(sql`
+    UPDATE customer_memories
+       SET status = 'deleted', status_reason = 'expired', status_changed_at = ${now.toISOString()}::timestamptz,
+           value = '', display = NULL, updated_at = ${now.toISOString()}::timestamptz
+     WHERE id IN (SELECT id FROM customer_memories
+                   WHERE tenant_id = ${tenantId}::uuid AND status = 'active' AND expires_at IS NOT NULL AND expires_at <= ${now.toISOString()}::timestamptz
+                   ORDER BY expires_at LIMIT ${limit} FOR UPDATE SKIP LOCKED)
+       AND tenant_id = ${tenantId}::uuid
+ RETURNING id`);
+  return r.rows.length;
+}

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import {
   bigserial,
+  check,
   boolean,
   foreignKey,
   index,
@@ -941,4 +942,78 @@ export const customerMemories = pgTable(
       .where(sql`${table.status} = 'active'`),
     index("customer_memories_customer_idx").on(table.tenantId, table.customerId, table.status),
   ],
+);
+
+// --- Durable background jobs (Phase 5; see BACKGROUND_JOBS.md) --------------
+
+export const jobStatusEnum = pgEnum("job_status", ["pending", "running", "completed", "failed", "cancelled"]);
+
+/**
+ * One logical unit of background work for ONE tenant. Postgres is the source
+ * of truth; workers claim rows with SKIP LOCKED, hold a lease, and fence every
+ * write with `claim_token`. "Retrying" is `pending` with attempt_count > 0.
+ */
+export const backgroundJobs = pgTable(
+  "background_jobs",
+  {
+    id: id(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    jobType: varchar("job_type", { length: 64 }).notNull(),
+    payloadVersion: integer("payload_version").notNull().default(1),
+    payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+    /** SHA-256 over (type, version, canonical payload): detects a reused idempotency key with different content. */
+    payloadHash: varchar("payload_hash", { length: 64 }).notNull(),
+    status: jobStatusEnum("status").notNull().default("pending"),
+    runAt: timestamp("run_at", { withTimezone: true }).notNull().defaultNow(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    leaseOwner: varchar("lease_owner", { length: 100 }),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    claimToken: uuid("claim_token"),
+    idempotencyKey: varchar("idempotency_key", { length: 200 }).notNull(),
+    requeueCount: integer("requeue_count").notNull().default(0),
+    /** Safe, small summary written by the handler (counts, "skipped: reason"). Never customer content. */
+    result: jsonb("result").$type<Record<string, unknown>>(),
+    errorCode: varchar("error_code", { length: 64 }),
+    lastError: text("last_error"),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    cancelledAt: timestamp("cancelled_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("background_jobs_tenant_idempotency_key").on(table.tenantId, table.idempotencyKey),
+    index("background_jobs_due_idx").on(table.runAt).where(sql`${table.status} = 'pending'`),
+    index("background_jobs_lease_idx").on(table.leaseExpiresAt).where(sql`${table.status} = 'running'`),
+    index("background_jobs_tenant_status_idx").on(table.tenantId, table.status, table.runAt),
+    check("background_jobs_attempts_ck", sql`${table.attemptCount} >= 0 AND ${table.maxAttempts} >= 1`),
+    check(
+      "background_jobs_running_has_lease_ck",
+      sql`${table.status} <> 'running' OR (${table.claimToken} IS NOT NULL AND ${table.leaseExpiresAt} IS NOT NULL)`,
+    ),
+  ],
+);
+
+/** Append-only execution history: one row per finished (or lost) attempt. Safe metadata only. */
+export const backgroundJobAttempts = pgTable(
+  "background_job_attempts",
+  {
+    id: id(),
+    jobId: uuid("job_id")
+      .notNull()
+      .references(() => backgroundJobs.id),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    attempt: integer("attempt").notNull(),
+    outcome: varchar("outcome", { length: 24 }).notNull(),
+    errorCode: varchar("error_code", { length: 64 }),
+    startedAt: timestamp("started_at", { withTimezone: true }),
+    finishedAt: timestamp("finished_at", { withTimezone: true }).notNull().defaultNow(),
+    durationMs: integer("duration_ms"),
+  },
+  (table) => [index("background_job_attempts_job_idx").on(table.tenantId, table.jobId, table.attempt)],
 );

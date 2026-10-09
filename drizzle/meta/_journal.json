@@ -85,6 +85,13 @@
       "when": 1791512160395,
       "tag": "0011_customer_memory",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1791514938893,
+      "tag": "0012_background_jobs",
+      "breakpoints": true
     }
   ]
 }

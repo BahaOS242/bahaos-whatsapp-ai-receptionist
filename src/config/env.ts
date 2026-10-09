@@ -68,6 +68,16 @@ const envSchema = z.object({
     .optional()
     .default("false")
     .transform((v) => v === "true"),
+  // Durable background jobs — see BACKGROUND_JOBS.md. Explicit opt-in, default
+  // off, independent of MEMORY_ENABLED and of the WhatsApp outbox. Off => no
+  // job worker is started and nothing polls the job table.
+  JOBS_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
+  JOBS_POLL_INTERVAL_MS: z.coerce.number().int().min(250).default(5_000),
+  JOBS_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
   // Optional remote embeddings (Voyage AI — Anthropic's recommended
   // embeddings partner). Absent => the offline hashing embedder, so local
   // dev and every test need no credentials. OpenAI is deliberately not an
