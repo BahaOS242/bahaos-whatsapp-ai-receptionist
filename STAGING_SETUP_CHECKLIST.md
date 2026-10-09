@@ -1,41 +1,81 @@
-# Staging setup checklist (beginner-friendly, Railway)
+# Staging setup on Render (beginner-friendly)
 
-**Host choice:** this repo already names **Railway** as its hosting platform (`PROJECT_CONTEXT.md`, `IMPLEMENTATION_PLAN.md`; no Dockerfile or other host config exists). Staging uses Railway too, in its **own project** so it can never share anything with production.
+**Host:** the repo's docs name Railway, but the owner created staging on **Render**; this file is now Render-specific. Nothing in the app is host-specific. **Nothing below has been run.** No deployment, paid AI calls, database changes, merge or production access are authorised until the owner approves the sequence at the bottom.
 
-**Rules**
-- Secrets (tokens, keys, passwords) are typed ONLY into Railway's *Variables* screen, Meta's dashboard, or a password manager. Never into chat, a PR, a commit or a screenshot. If one leaks, rotate it.
-- Nothing is created, deployed or run until you approve each step. Setup guidance only so far: no paid resources, no deploy, no paid AI calls, no staging tests.
-- Staging never gets production keys, the real clinic's number, or real customer data.
+**Secret rules.** Secrets are typed only into Render's Environment screen, Meta's dashboard, or hidden terminal prompts (`read -s`), never into chat, a PR, a commit or a screenshot. When a step involves a secret, report "done", not the value.
 
-## Step order (one at a time)
-1. **Railway project.** New project named `bahaos-staging` (separate from any production project). Check the plan/price shown before confirming; paid resources need your say-so.
-2. **Postgres.** In that project add the Postgres plugin. Railway generates `DATABASE_URL`; the app will reference it, so you never copy it anywhere.
-3. **App service.** Add a service from GitHub, repo `BahaOS242/bahaos-whatsapp-ai-receptionist`, branch `claude/phase5-jobs-and-receptionist-fixes` (never `main`). Build `npm ci && npm run build`, start `npm start`. Turn **off** auto-deploy on push until the test plan starts. Generate the public domain (gives the https:// address; Railway does the TLS).
-4. **Variables** (service → Variables). Names and staging values:
+## A. Settings check (names only; tick each)
+Render → your web service → *Environment*. Required:
 
-| Variable | Staging value |
+| Name | Must be |
 |---|---|
 | `NODE_ENV` | `production` |
-| `DATABASE_URL` | reference the Postgres plugin's `DATABASE_URL` (Railway "Add reference") |
-| `DB_BOOKING_ENABLED` | `true` (real database booking path) |
-| `ANTHROPIC_API_KEY` | a **new staging-only key** created in the Anthropic console with a low monthly spend limit |
+| `DATABASE_URL` | the staging database's **Internal** URL (the service runs inside Render) |
+| `DB_BOOKING_ENABLED` | `true` (otherwise bookings never touch the database) |
+| `ANTHROPIC_API_KEY` | the staging-only key (the *only* AI key that matters; OpenAI/Gemini/OpenRouter keys are ignored) |
 | `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` |
-| `ADMIN_SESSION_SECRET` | long random string you generate in your own terminal (`openssl rand -base64 48`) and paste straight into Railway |
-| `WHATSAPP_APP_SECRET` | from Meta App settings → Basic → App secret |
-| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | any long random string you invent (reuse it in Meta in step 6) |
-| `WHATSAPP_ACCESS_TOKEN` | Meta API Setup page (temporary token is fine; expires in ~24h) |
-| `WHATSAPP_PHONE_NUMBER_ID` | Meta API Setup page (the numeric id, not the phone number) |
+| `ADMIN_SESSION_SECRET` | long random value (Render can generate one) |
+| `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID` | all four set (without the app secret, signatures are not checked) |
 | `WHATSAPP_API_VERSION` | `v21.0` |
-| `JOBS_ENABLED`, `MEMORY_ENABLED`, `KNOWLEDGE_ENABLED` | leave **unset** (off) until the plan reaches S9/S10 |
-| `PORT` | do not set (Railway supplies it) |
-| OpenAI/Gemini/OpenRouter keys, Google Calendar, SMTP, Voyage | leave **unset** |
 
-5. **Meta test number.** developers.facebook.com → My Apps → Create App → type *Business* → add the **WhatsApp** product. Use the free test number Meta provides. Under *API Setup*, add your own phone as an allowed recipient (enter Meta's code). Keep Meta in *development* mode.
-6. **Webhook.** WhatsApp → Configuration → Callback URL `https://<your-railway-domain>/webhooks/whatsapp`, Verify token = the string from step 4, click *Verify and save*, then subscribe to the **messages** field. Verification only succeeds after the app is deployed, so this is done during the approved run.
-7. **Readiness report to Claude** (check boxes only, never values): project created · Postgres added · variables entered · Anthropic limit set (and the limit amount) · Meta app + test number ready · your phone added.
+Must be **absent**: `JOBS_ENABLED`, `MEMORY_ENABLED`, `KNOWLEDGE_ENABLED`, Google Calendar, SMTP, Voyage, and `PORT` (Render supplies it). Also check: the Meta access token is the *temporary* one (expires in about 24 h; regenerate on test day), and your own phone is on Meta's allowed-recipient list.
 
-## Facts the plan relies on
-- The first inbound message auto-creates the single tenant row. A staff login (`scripts/staff.ts`) can only be created after that, so the inbox test (S7) runs after S3.
-- The app checks every inbound `phone_number_id` against `WHATSAPP_PHONE_NUMBER_ID`; a mismatch rejects all messages.
-- Migrations are run explicitly with `npm run db:migrate` against the staging database only (plan step S1), never automatically.
-- Rollback: set the flags off, or scale the service to zero; the database is disposable and a backup is taken first (S0).
+Possible gaps I cannot see from here: service build command, auto-deploy, plan (free web services sleep and free databases expire/have no backups), database region, and whether the database is empty.
+
+## B. Web service settings (create/edit, but do **not** deploy yet)
+- Repo `BahaOS242/bahaos-whatsapp-ai-receptionist`, branch `claude/phase5-jobs-and-receptionist-fixes` (never `main`).
+- **Build command: `npm ci --include=dev && npm run build`** (the compiler is a dev dependency; with `NODE_ENV=production` plain `npm ci` would skip it and the build would fail).
+- **Start command: `npm start`.** Health check path: `/health`. **Auto-Deploy: off.** Same region as the database.
+
+## C. Initialize the database (laptop, one step at a time; needs approval)
+Why the laptop: the migration tool is a dev dependency and Render shells need a paid plan. The laptop talks to the database's **External** URL.
+1. Render → database → *Access Control*: temporarily allow your own IP. (Remove it at the end.)
+2. In a Terminal in the repo, enter the External URL without showing it:
+```bash
+read -rs "DATABASE_URL?External database URL (hidden): "; export DATABASE_URL PGSSLMODE=require
+```
+3. Read-only sanity check that it is empty and is the right database:
+```bash
+psql "$DATABASE_URL" -X -A -t -c "select current_database(), (select count(*) from information_schema.tables where table_schema='public')"
+```
+Expect `0` tables. Anything else: stop.
+4. Apply the migrations (changes the staging database only):
+```bash
+npm run db:migrate
+```
+5. Compare with the committed migration files (must show 13 rows, hashes match `STAGING_TEST_PLAN.md` S1 notes):
+```bash
+psql "$DATABASE_URL" -X -A -t -f scripts/staging/compare-db.sql
+```
+Expect 22 tables, 82 indexes, 70 constraints, 25 enums, 13 migration rows.
+
+## D. Test clinic and admin login
+The single test clinic is "Bahamas Dental Service". Create its record now (otherwise the first WhatsApp message does it):
+```bash
+STAGING_INIT_CONFIRM=yes npx tsx scripts/staging/init-tenant.ts
+```
+Then the admin login (choose your own email; the password is generated and shown once, so save it in your password manager, not in chat):
+```bash
+npx tsx scripts/staff.ts bahamas-dental-service you@example.com "Your Name" admin
+```
+
+## E. Backup and restore check (S0)
+```bash
+pg_dump -Fc "$DATABASE_URL" -f /tmp/staging.dump
+createdb bahaos_staging_restore_check
+pg_restore --no-owner -d bahaos_staging_restore_check /tmp/staging.dump
+psql "$DATABASE_URL" -X -A -t -f scripts/staging/compare-db.sql > /tmp/src.txt
+psql bahaos_staging_restore_check -X -A -t -f scripts/staging/compare-db.sql > /tmp/restored.txt
+diff /tmp/src.txt /tmp/restored.txt && echo IDENTICAL
+dropdb bahaos_staging_restore_check; rm /tmp/staging.dump
+```
+Local `pg_dump` is v16; it must be at least the Render database's version (check the version on the database page). The restore goes to a throwaway **local** database, so no second paid database is needed. `IDENTICAL` is the pass condition.
+
+## F. Deploy (after approval)
+Manual deploy of the service (auto-deploy stays off) → `GET /health` returns 200 → in Meta set Callback URL `https://<service>.onrender.com/webhooks/whatsapp` and the verify token → *Verify and save* → subscribe to **messages**. Then S2–S12 of `STAGING_TEST_PLAN.md`.
+
+## G. Clean up when finished
+Remove your IP from the database access list, unset the terminal variable (`unset DATABASE_URL`), delete or revoke the temporary Meta token, and suspend the service.
+
+## Proposed AI budget: $1 maximum
+Haiku 4.5 costs about $0.004 per conversation turn (≈3k input and ≈150 output tokens). The plan's AI steps (S3–S9) are about 80 turns ≈ $0.35; a hard ceiling of 200 turns ≈ $0.80 stays under $1. Controls: (1) the Anthropic console spend limit on the staging key set as low as the console allows, (2) I count turns and stop at 150, (3) no automated or looped traffic, only manual messages from your phone. The app itself has no spend cap; the console limit is the backstop. Render's own charges are separate and shown on the plan page.
