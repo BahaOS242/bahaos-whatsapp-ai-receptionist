@@ -17,6 +17,9 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import { BAHAMAS_DENTAL_SERVICE } from "../../src/ai/business-context";
 import { ConversationManager } from "../../src/ai/conversation-manager";
 import { DevRuleBasedAIProvider } from "../../src/ai/providers/dev-rule-based-provider";
+import { LLMProvider } from "../../src/ai/providers/llm-provider";
+import type { AIProvider } from "../../src/ai/types";
+import { LIVE_LABEL, type LiveSession } from "./live-mode";
 import { ReceptionistAgent } from "../../src/ai/receptionist-agent";
 import { createSimulatedReceptionistTools } from "../../src/tools/receptionist-tools";
 import type { BookingState, ConversationTurn } from "../../src/ai/types";
@@ -38,6 +41,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 interface PublicMessage { role: "customer" | "assistant"; text: string }
 interface Conversation {
+  mode: Mode;
   manager: ConversationManager;
   agent: ReceptionistAgent;
   history: ConversationTurn[];
@@ -48,13 +52,18 @@ interface Conversation {
 export interface LocalChatOptions {
   /** Oldest conversations are evicted beyond this many (memory bound). */
   maxConversations?: number;
+  /** Present only when the server was started in live mode with a key; absent => free simulation only. */
+  live?: LiveSession;
 }
+
+type Mode = "free" | "live";
 
 const PAGE_DIR = join(__dirname, "page");
 const asset = (name: string) => readFileSync(join(PAGE_DIR, name), "utf8");
 
 export function createLocalChatApp(options: LocalChatOptions = {}): Express {
   const maxConversations = options.maxConversations ?? 50;
+  const live = options.live;
   const conversations = new Map<string, Conversation>();
   const app = express();
   app.disable("x-powered-by");
@@ -102,21 +111,38 @@ export function createLocalChatApp(options: LocalChatOptions = {}): Express {
   app.get("/app.css", (_req, res) => res.type("text/css").send(asset("app.css")));
 
   app.get("/api/info", (_req, res) => {
-    res.json({ mode: "free_simulation", provider: "DevRuleBasedAIProvider", bookingTools: "simulated", realAi: false, realDatabase: false, realWhatsApp: false });
+    res.json({
+      mode: "free_simulation",
+      provider: "DevRuleBasedAIProvider",
+      bookingTools: "simulated",
+      realAi: false,
+      realDatabase: false,
+      realWhatsApp: false,
+      // live mode: real model calls only; bookings remain simulated, and there is never a database/calendar/WhatsApp
+      live: live ? live.snapshot() : { available: false },
+    });
   });
 
-  app.post("/api/conversations", (_req, res) => {
+  app.post("/api/conversations", (req, res) => {
+    const requested = (req.body as { mode?: unknown } | undefined)?.mode ?? "free";
+    if (requested !== "free" && requested !== "live") { res.status(400).json({ error: "mode must be 'free' or 'live'" }); return; }
+    if (requested === "live" && !live) {
+      res.status(409).json({ error: "Live mode is not enabled on this server (start it with: npm run chat:web:live)" });
+      return;
+    }
     const id = randomUUID();
+    // a fresh provider AND fresh in-memory tools per conversation: nothing is shared between conversations or modes
+    const provider: AIProvider = requested === "live" && live ? new LLMProvider(live.client) : new DevRuleBasedAIProvider();
     conversations.set(id, {
+      mode: requested,
       manager: new ConversationManager(),
-      // a fresh agent AND fresh in-memory tools per conversation: nothing is shared between conversations
-      agent: new ReceptionistAgent(new DevRuleBasedAIProvider(), createSimulatedReceptionistTools(BAHAMAS_DENTAL_SERVICE)),
+      agent: new ReceptionistAgent(provider, createSimulatedReceptionistTools(BAHAMAS_DENTAL_SERVICE)),
       history: [],
       messages: [],
       queue: Promise.resolve(),
     });
     while (conversations.size > maxConversations) conversations.delete(conversations.keys().next().value as string);
-    res.status(201).json({ id });
+    res.status(201).json({ id, mode: requested, ...(requested === "live" && live ? { label: LIVE_LABEL } : {}) });
   });
 
   const lookup = (req: Request, res: Response): Conversation | undefined => {
@@ -129,7 +155,7 @@ export function createLocalChatApp(options: LocalChatOptions = {}): Express {
 
   app.get("/api/conversations/:id", (req, res) => {
     const conv = lookup(req, res);
-    if (conv) res.json({ messages: conv.messages, bookingState: conv.manager.getBookingState() as BookingState });
+    if (conv) res.json({ mode: conv.mode, messages: conv.messages, bookingState: conv.manager.getBookingState() as BookingState });
   });
 
   app.post("/api/conversations/:id/messages", async (req, res, next) => {
@@ -138,6 +164,11 @@ export function createLocalChatApp(options: LocalChatOptions = {}): Express {
     const message = (req.body as { message?: unknown } | undefined)?.message;
     if (typeof message !== "string" || message.trim().length === 0 || message.length > MAX_MESSAGE_CHARS) {
       res.status(400).json({ error: `message must be 1-${MAX_MESSAGE_CHARS} characters` });
+      return;
+    }
+    // Live mode that has halted (budget reached, unknown usage, failed request) sends NOTHING further to the model.
+    if (conv.mode === "live" && live?.isHalted()) {
+      res.status(409).json({ error: "Live mode has stopped for this session. Switch to Free simulation, or restart the server to reset the budget.", live: live.snapshot() });
       return;
     }
     try {
@@ -156,6 +187,8 @@ export function createLocalChatApp(options: LocalChatOptions = {}): Express {
         reply: result.reply,
         bookingState: conv.manager.getBookingState(),
         handoffActive: result.handoffActive,
+        mode: conv.mode,
+        ...(conv.mode === "live" && live ? { live: live.snapshot() } : {}),
         actions: result.actionsTaken.map((a) => ({ type: a.action.type, ok: a.result.success, ...(a.result.success ? {} : { error: a.result.error ?? "unknown" }) })),
       });
     } catch (error) {

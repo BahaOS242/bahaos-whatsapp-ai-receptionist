@@ -23,3 +23,11 @@ button:hover { border-color:var(--accent); }
 .actions { margin:0 0 4px; font-size:.9rem; }
 .foot { margin:0; color:var(--muted); font-size:.8rem; }
 .sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+.controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+select { font:inherit; padding:8px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--ink); max-width:100%; }
+.badge.live { background:#fde8e8; color:#8a1c1c; }
+@media (prefers-color-scheme: dark) { .badge.live { background:#4a1d1d; color:#ffb4b4; } }
+.spend { margin:6px 0 0; font-size:.85rem; color:var(--muted); }
+.halt { margin:0; padding:8px 12px; border-radius:8px; background:#fde8e8; color:#8a1c1c; font-size:.9rem; }
+@media (prefers-color-scheme: dark) { .halt { background:#4a1d1d; color:#ffb4b4; } }
+

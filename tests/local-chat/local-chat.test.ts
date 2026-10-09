@@ -25,7 +25,7 @@ describe("it is clearly a free simulation", () => {
   it("/api/info and the page say so", async () => {
     const app = createLocalChatApp();
     const info = await request(app).get("/api/info");
-    expect(info.body).toEqual({ mode: "free_simulation", provider: "DevRuleBasedAIProvider", bookingTools: "simulated", realAi: false, realDatabase: false, realWhatsApp: false });
+    expect(info.body).toEqual({ mode: "free_simulation", provider: "DevRuleBasedAIProvider", bookingTools: "simulated", realAi: false, realDatabase: false, realWhatsApp: false, live: { available: false } });
     const page = await request(app).get("/");
     expect(page.status).toBe(200);
     expect(page.text).toMatch(/Free simulation/);
@@ -132,14 +132,14 @@ describe("local-only protections", () => {
 });
 
 describe("structural guarantees (static)", () => {
-  const files = readdirSync(join(process.cwd(), "scripts/local-chat")).filter((f) => f.endsWith(".ts"));
+  const files = readdirSync(join(process.cwd(), "scripts/local-chat")).filter((f) => f.endsWith(".ts") && f !== "live-mode.ts"); // live-mode.ts has its own, stricter-scoped rules in live-mode.test.ts
   const strip = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|\s)\/\/.*$/gm, "$1");
   const read = (f: string) => readFileSync(join(process.cwd(), "scripts/local-chat", f), "utf8");
   it("imports no configuration, database, network or provider-SDK code and never reads credentials", () => {
     expect(files.length).toBeGreaterThan(0);
     for (const f of files) {
       const code = strip(read(f));
-      expect(code, f).not.toMatch(/getEnv|loadEnv|getDb|getPool|dotenv|from "pg"|drizzle|googleapis|@anthropic|openai|fetch\(|graph\.facebook|createAiProvider|createReceptionistTools|createMessagingProvider|createLanguageObservationRecorder|process\.env\.(?!NODE_ENV|LOCAL_CHAT_PORT)/);
+      expect(code, f).not.toMatch(/getEnv|loadEnv|getDb|getPool|dotenv|from "pg"|drizzle|googleapis|@anthropic|openai|fetch\(|graph\.facebook|createAiProvider|createReceptionistTools|createMessagingProvider|createLanguageObservationRecorder|process\.env\.(?!NODE_ENV|LOCAL_CHAT_PORT|LOCAL_CHAT_LIVE|LOCAL_CHAT_BUDGET_USD)/);
     }
   });
   it("constructs ONLY the fallback provider and the simulated tools, and listens on 127.0.0.1 only", () => {

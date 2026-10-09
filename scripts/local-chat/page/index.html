@@ -11,10 +11,20 @@
     <header class="top">
       <div>
         <h1>BahaOS test chat</h1>
-        <p class="badge" role="status"><strong>Free simulation</strong> · built-in rule-based replies · simulated booking · no real AI, database, calendar or WhatsApp</p>
+        <p id="badge" class="badge" role="status"><strong>Free simulation</strong> · built-in rule-based replies · simulated booking · no real AI, database, calendar or WhatsApp</p>
+        <p id="spend" class="spend" hidden></p>
       </div>
-      <button id="new" type="button">New conversation</button>
+      <div class="controls">
+        <label for="mode" class="sr">Mode</label>
+        <select id="mode">
+          <option value="free">Free simulation</option>
+          <option value="live" id="live-option" disabled>Live Haiku / simulated bookings (not enabled on this server)</option>
+        </select>
+        <button id="new" type="button">New conversation</button>
+      </div>
     </header>
+
+    <p id="halt" class="halt" role="alert" hidden></p>
 
     <section id="log" class="log" aria-live="polite" aria-label="Conversation"></section>
 
@@ -38,7 +48,7 @@
       <p id="actions" class="actions">No booking actions yet.</p>
     </details>
 
-    <p class="foot">This tests the application's own logic (understanding rules, corrections, confirmation gate). It does <strong>not</strong> test real Haiku understanding or WhatsApp delivery. Nothing is saved; closing the server forgets everything.</p>
+    <p class="foot">Free mode tests the application's own logic (understanding rules, corrections, confirmation gate), <strong>not</strong> real Haiku understanding. Live mode uses real Haiku for the replies but bookings are still simulated and nothing is sent to WhatsApp. Neither tests WhatsApp delivery. Nothing is saved; stopping the server forgets everything.</p>
   </main>
   <script src="/app.js"></script>
 </body>
