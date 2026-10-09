@@ -1,6 +1,6 @@
 # Release-gate checklist — remaining evidence (PR #2)
 
-Status: **NOT approved for merge or production.** Updated after the SECOND live Haiku 4.5 run (corrected harness, tested commit `dd47d7f`, 2026-10-09) and Codex's review of `7fb93d7`. Dates and SHAs below identify what was true when each item was done. Completed here: live run (limited observation, §1), harness corrections with offline regressions (§1). **Run 2 (§1b) found two wrong-data bookings (R21 name, R22 phone). FIXED (§1c) and RE-VERIFIED live by a NEW focused run (run 3, §1d): 30/30 clean.** **Still open:** original 27-conversation corpus (replacement now run, §2), real-environment migration history (§3), staging/Meta/TLS/backup/rollback evidence (§4), owner disposition of NL-01 (§5). No merge, deployment, production access or Phase 6 work is authorized by this document.
+Status: **NOT approved for merge or production.** Updated again for the access/staging/limitations review (§3b, §4a, §6, `STAGING_TEST_PLAN.md`). Updated after the SECOND live Haiku 4.5 run (corrected harness, tested commit `dd47d7f`, 2026-10-09) and Codex's review of `7fb93d7`. Dates and SHAs below identify what was true when each item was done. Completed here: live run (limited observation, §1), harness corrections with offline regressions (§1). **Run 2 (§1b) found two wrong-data bookings (R21 name, R22 phone). FIXED (§1c) and RE-VERIFIED live by a NEW focused run (run 3, §1d): 30/30 clean.** **Still open:** original 27-conversation corpus (replacement now run, §2), real-environment migration history (§3), staging/Meta/TLS/backup/rollback evidence (§4), owner disposition of NL-01 (§5). No merge, deployment, production access or Phase 6 work is authorized by this document.
 
 ## 0. Evidence already in hand (not repeated)
 Unit 1147/1147 · DB 371/371 · lint/typecheck/build clean · fallback eval 37/38 · calendar hash `6e7e48e1…` unchanged · Codex independently re-ran the targeted suites at `de21ad5`. Lanes: fallback provider and scripted-LLM tests exercise **application logic**, not Anthropic's language understanding; DB tests use a disposable local Postgres.
@@ -99,6 +99,15 @@ git show 0bb6106:drizzle/0008_durable_outbox.sql | shasum -a 256   # current tex
 Real example of why this matters: the disposable local test database recorded `5b2d4a63…` for 0008, which matches **neither** committed text — it ran an earlier, uncommitted draft (the one missing the backfill `id`; it passed there only because the database held no legacy `retry_pending` rows). For any unknown environment also inspect the actual state rather than trusting the row: `\d outbox_messages` (columns/indexes present), `SELECT count(*) FROM outbox_messages WHERE idempotency_key LIKE 'legacy-retry:%'` versus `SELECT count(*) FROM messages WHERE status = 'retry_pending'`, and compare message/outbox counts. An environment whose hash matches neither candidate, or whose backfill state is inconsistent, is **not cleared** — report it rather than assuming.
 If an environment already lists 0008 with a matching hash: nothing to do (no rerun; no checksum check; semantics identical). If it lists only ≤0007: it will apply the current text. Either way no history rewrite is needed; do **not** edit 0008 again. Test evidence: `tests/db/migrations-fresh.test.ts` (fresh install; Phase 4→5 upgrade with data snapshot; rollback SQL).
 
+### 3b. Read-only migration-hash check — what was actually reachable (done)
+**Real environments reachable from here: NONE.** There is no Railway/remote host configured (README says Railway is not configured), no hosting CLI is installed or logged in, and `.env` holds only local keys: its `DATABASE_URL` names `bahaos_dev` on localhost, which **does not exist** (the local server lists only `bahaos_concurrency_test` — the disposable test DB — plus unrelated `brandforge_*` databases that were not touched). So **no real-environment migration history could be checked**; that remains open and needs the owner (see `STAGING_TEST_PLAN.md`, "What I need").
+The one reachable database (disposable, read-only comparison of all 13 `drizzle.__drizzle_migrations` rows against the repo files and journal): **11 match; 2 mismatch, both explained by pre-commit edits, neither matching any committed text:**
+| Migration | DB hash | Repo hash (HEAD) | Explanation |
+|---|---|---|---|
+| 0008 `durable_outbox` | `5b2d4a63739d` | `66437feb031f` | the test DB ran the first draft (backfill without `id`); committed texts are `aae128a2a8ce` (`9365683`) and `66437feb031f` (`0bb6106`+) |
+| 0010 `human_inbox` | `8fa1b6164c83` | `e176dcbb0856` | the test DB ran the draft **before** the audit added the `last_activity_at` backfill; the single committed text is `e176dcbb0856` |
+Journal `when` timestamps all match. Implication for a real environment: **0008 has two committed texts, 0010 one**; any real DB must be compared against those (commands above). A real DB whose stored hash matches none of them ran an uncommitted draft and must be inspected, not assumed fine. No database was modified.
+
 ## 4. Staging validation and rollback plan
 **Preconditions:** staging is a *copy* of production data (or a realistic seed), isolated from production credentials; a point-in-time backup/snapshot exists and a restore was **tested**; Meta uses a **test** phone number/WABA, never the production number.
 
@@ -133,10 +142,35 @@ If an environment already lists 0008 with a matching hash: nothing to do (no rer
 | 0008–0010 (outbox/inbox) | **no clean down-migration** (enum values cannot be removed, legacy retry rows were copied into the outbox) | restore the pre-migration snapshot; this is why step 1 requires a tested restore |
 Also: remove the migration rows from `drizzle.__drizzle_migrations` only when re-applying after a manual drop.
 
+### 4a. Staging inputs — available vs missing (verified, names only; no secret values read)
+| Input | Available? | Detail |
+|---|---|---|
+| Isolated staging database | **MISSING** | only the local disposable DB; `bahaos_dev` in `.env` does not exist |
+| Hosting target with HTTPS/TLS | **MISSING** | Railway not configured; no CLI/login |
+| Meta test number, token, App Secret, verify token, webhook target | **MISSING** | no `WHATSAPP_*` variable exists anywhere |
+| Anthropic key | local key exists; **no staging key / no staging spend approval** | `.env` also holds GEMINI/OPENROUTER names (unused by this plan) |
+| Test phone numbers | **MISSING** | owner-controlled numbers needed |
+| Backup/restore **procedure** | **PROVEN LOCALLY** | `pg_dump -Fc` → restore into a scratch DB → identical (22 tables, 13 migration rows, 25 enums, 82 indexes, 70 constraints, all sampled row counts equal); dump 1 s / restore < 1 s on the tiny test DB. This proves the commands and the check, **not** production-size timing or provider-snapshot behaviour |
+| Backup/restore on real infrastructure | **NOT TESTED** | needs the staging DB |
+Concrete sequence for approval (not run): **`STAGING_TEST_PLAN.md`** — S0 backup/restore · S1 migration rehearsal · S2 flags-off deploy + signed/unsigned webhook + TLS · S3 booking · S4 corrections (R21/R22 variants) · S5 duplicate/replayed messages · S6 ambiguous-time check · S7 takeover · S8 WhatsApp window/delivery limits · S9 memory · S10 jobs (SIGTERM, DB blip, standalone worker) · S11 soak · S12 rollback drill.
+
 ## 5. Decisions needed from the owner
-0. **R21/R22:** fixed and live-reverified (§1d). Decide whether the confirmation summary should echo name/phone (pre-existing UX/safety gap).
+0. **Class-A time qualifiers (§6):** approve a small fix (clarify instead of guess) before any pilot? Recommended: yes.
+0b. **R21/R22:** fixed and live-reverified (§1d). Decide whether the confirmation summary should echo name/phone (pre-existing UX/safety gap).
 1. Approve (or decline) the live Anthropic run: model(s), cap (suggest $10), harness.
 2. Corpus: supply the original 27, or approve `REPLACEMENT-27` (labelled as such).
 3. Run the §3 read-only SQL against each real environment and report the result.
 4. Provide/approve a staging environment, a Meta test number, and a tested backup; then authorize the §4 sequence.
 5. Accept or schedule NL-01.
+
+## 6. Remaining time-format / typo / slang limitations and release recommendation
+Evidence: live run 2 soft shortfalls plus a free offline probe of the application layer (fallback and shared LLM pre-extraction agree on every row; clock Mon 2026-10-12). "Safe" = the bot re-asks and never stores a wrong value.
+| Class | Examples (probe result) | Behaviour | Recommendation |
+|---|---|---|---|
+| **A. Silent WRONG time (qualifier ignored)** | `quarter to 3 pm`→15:00 (should be 14:45); `half past 3pm`/`quarter past 3pm`/`10 to 3pm`→15:00; **`not 3pm`→15:00**; `before/after/around 3pm`→15:00; `3pm or 4pm`→15:00, `3 or 4pm`→16:00; `from 2pm to 4pm`→14:00; `3pm tomorrow` takes 3pm | wrong data stored; mitigated only because the summary shows the time and needs a separate yes | **BLOCK the production pilot** (same defect class as the fixed next-week/name bugs; zero-tolerance bar). Fix = *clarify, don't guess*: if a time is accompanied by a qualifier (quarter/half/to/past/not/before/after/around/or/-ish/range), ask which exact time. Small, no new features. Not a blocker for **staging** (S6 records it). |
+| **B. Unsupported but SAFE (re-asked)** | `15:00`, `1500`, `14h`, `noon`, `midnight`, `half past two`, `2 o'clock`, `around 3`, `at 2 in the afternoon`, `mornin 10`, bare `9`/`3` (am/pm asked by design), ISO `2026-10-14`, `the 20th` (no month), `Oct 20th 14:00` (date taken, time not) | conversation stalls or loops; no wrong data. Live run: R02 `15:00`, R03 noon, R06 ISO, R08 never completed in 3/3 passes | **Do not block** staging. Block a *broad public launch* only if the owner's customers commonly type 24-hour times (`15:00`/ISO are cheap to add: a strict parser for `HH:MM` and `YYYY-MM-DD`). Ask the owner. |
+| **C. Service typos (NL-01)** | `clening`, `fillin`, `rootcanal`, `cleening`, `I want my teeth cleaned` → no service | re-asks "which service?"; never books a wrong service | **Do not block.** Accepted limitation; schedule fuzzy matching later. |
+| **D. Slang / dialect** | `I wanna book a cleanin` (intent, no service), `tryna`, `gimme`, `tmrw 3pm` | mixed: intents often recognised; live R12–R14 stalled in 3/3 passes | **Do not block.** Pilot with a human-handoff-friendly script; collect real transcripts for a corpus. |
+Also not blocking, but note: the confirmation summary does not echo name/phone (product decision); status/delivery receipts are ignored; free-form WhatsApp text only.
+**Bottom line:** block the pilot on **Class A** only; everything else is safe-failure coverage to monitor.
+
