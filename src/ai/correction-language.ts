@@ -12,7 +12,7 @@
  *      name is judged ("actually Trevor" -> "Trevor").
  */
 const CORRECTION_LANGUAGE_RE =
-  /\b(actually|instead|rather|i meant|scratch that|correction|make it|let'?s (?:do|go with|say|try)|change (?:it|that|this|the \w+)(?: to)?|switch (?:it |that )?(?:to)?|nah|nope|sorry|oops|wait|hold on|never ?mind|on second thought)\b|^\s*no[\s,.!]/i;
+  /\b(actually|instead|rather|i meant|scratch that|correction|make it|let'?s (?:do|go with|say|try)|change (?:it|that|this|the \w+)(?: to)?|switch (?:it |that )?(?:to)?|nah|nope|sorry|oops|wait|hold on|never ?mind|on second thought|wrong (?:number|phone(?: number)?|name|date|time)|not the (?:right|correct) (?:number|phone|name))\b|^\s*no[\s,.!]/i;
 
 export function hasCorrectionLanguage(message: string): boolean {
   return CORRECTION_LANGUAGE_RE.test(message);
@@ -68,4 +68,32 @@ export function trimNameAtBoundary(candidate: string): string {
     kept.push(word.replace(/[.,;:!?]+$/, ""));
   }
   return kept.join(" ");
+}
+
+const CONTRAST_LEAD_INS = new Set(["it's", "its", "it", "is", "i'm", "im", "i", "am", "this", "name", "my", "call", "me", "sorry", "actually", "no", "nope", "nah", "oops", "wait", "um", "uh", "its'"]);
+
+/**
+ * An explicit name CONTRAST against the name we already hold: "It's Alisha, not Alicia", "Alisha not Alicia",
+ * "sorry, I'm Alisha not Alicia". The correction is trusted ONLY because the rejected name ("not Y") equals the
+ * name currently on file — "Tuesday not Wednesday" can never match. Returns the corrected, title-cased name, or null.
+ */
+export function extractNameContrast(message: string, currentName: string | undefined): string | null {
+  if (!currentName) return null;
+  const cur = currentName.trim().toLowerCase();
+  if (!cur) return null;
+  const re = /\bnot\s+([A-Za-z][A-Za-z'’-]*(?:\s+[A-Za-z][A-Za-z'’-]*)?)/gi;
+  for (const m of message.matchAll(re)) {
+    const rejected = m[1].trim().toLowerCase();
+    if (rejected !== cur && !rejected.startsWith(`${cur} `) && !cur.startsWith(`${rejected} `)) continue;
+    const words = message.slice(0, m.index).replace(/[,;.!?]+/g, " ").trim().split(/\s+/).filter(Boolean);
+    let tail = words.slice(-2);
+    while (tail.length && CONTRAST_LEAD_INS.has(tail[0].toLowerCase())) tail = tail.slice(1);
+    if (tail.length && CONTRAST_LEAD_INS.has(tail[tail.length - 1].toLowerCase())) continue;
+    const candidate = tail.join(" ");
+    if (!candidate || !/^[A-Za-z][A-Za-z'’-]*(?:\s+[A-Za-z][A-Za-z'’-]*)?$/.test(candidate)) continue;
+    if (trimNameAtBoundary(candidate) !== candidate) continue;
+    if (candidate.toLowerCase() === cur) continue;
+    return candidate.split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  }
+  return null;
 }

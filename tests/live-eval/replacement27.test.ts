@@ -43,15 +43,10 @@ describe("REPLACEMENT-27 is clearly a replacement and well formed", () => {
 // (e.g. NL-01 typos), reported by the live run, not asserted here.
 describe("both sets run end to end on the fallback provider (no network) with no safety violations", () => {
   const agent = () => new ReceptionistAgent(new DevRuleBasedAIProvider(), createSimulatedReceptionistTools(BAHAMAS_DENTAL_SERVICE));
-  // KNOWN fallback-provider gap (an open FINDING, not a regression): "It's Alisha, not Alicia" with no "my name is"
-  // does not replace the earlier name, so the fallback would book "Alicia". The test pins that it IS still a hard
-  // failure so it flips loudly when someone fixes it. The live-model run reports its own result for this case.
-  const KNOWN_FALLBACK_GAPS = new Set(["R21 'It's Alisha, not Alicia'"]);
   for (const c of [...CASES, ...REPLACEMENT_27]) {
     it(c.id, async () => {
       const r = await runCase(c, 1, agent(), () => null);
-      if (KNOWN_FALLBACK_GAPS.has(c.id)) expect(r.hard.length, "known gap appears fixed — remove it from KNOWN_FALLBACK_GAPS").toBeGreaterThan(0);
-      else expect(r.hard, JSON.stringify(r.steps.map((s) => [s.in, s.state]))).toEqual([]);
+      expect(r.hard, JSON.stringify(r.steps.map((s) => [s.in, s.state]))).toEqual([]);
     });
   }
 });

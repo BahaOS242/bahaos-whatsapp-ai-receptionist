@@ -1,4 +1,4 @@
-import { correctionBlocksBareName, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "./correction-language";
+import { correctionBlocksBareName, extractNameContrast, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "./correction-language";
 import {
   combineBareTime,
   decodeBareTime,
@@ -547,7 +547,11 @@ export function extractStatedFields(
   // guard exists to prevent.
   // An explicit introduction ("my name is X") is an identity statement in its own right and may
   // replace an earlier name without correction wording.
-  if (!currentState.name || hasCorrection || HIGH_CONFIDENCE_NAME_RE.test(message)) {
+  const nameContrast = extractNameContrast(message, currentState.name);
+  if (nameContrast) {
+    // "It's Alisha, not Alicia": the rejected name equals the one on file, so the correction is explicit.
+    extracted.name = nameContrast;
+  } else if (!currentState.name || hasCorrection || HIGH_CONFIDENCE_NAME_RE.test(message)) {
     const highConfidence = message.match(HIGH_CONFIDENCE_NAME_RE);
     if (highConfidence) {
       const trimmed = trimNameAtBoundary(trimToLeadingNameWords(highConfidence[1]));

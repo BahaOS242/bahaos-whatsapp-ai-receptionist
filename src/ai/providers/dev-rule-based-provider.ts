@@ -1,4 +1,4 @@
-import { correctionBlocksBareName, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "../correction-language";
+import { correctionBlocksBareName, extractNameContrast, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "../correction-language";
 import {
   resolveDateWord,
   parseTime,
@@ -657,9 +657,10 @@ function detectYesNo(text: string): "yes" | "no" | undefined {
  * word — a service/date/time/phone/name, or a bare hour like "3"? Used to
  * tell "nah, lemme change that to 3" (a correction, not a decline) apart
  * from a flat "no". */
-function hasCorrectionContent(business: BusinessContext, message: string): boolean {
+function hasCorrectionContent(business: BusinessContext, message: string, currentName?: string): boolean {
   const stated = extractStatedFields(business, message, { allowLowConfidenceName: false });
   if (Object.keys(stated).length > 0) return true;
+  if (extractNameContrast(message, currentName)) return true; // "It's Alisha, not Alicia"
   return parseBareHour(message) !== undefined;
 }
 
@@ -692,7 +693,7 @@ function handleServiceConfirmation(
   const answer = detectYesNo(message);
 
   if (answer === "no") {
-    if (hasCorrectionContent(business, message)) {
+    if (hasCorrectionContent(business, message, state.name)) {
       const { pendingAction: _pendingAction, ...confirmed } = state;
       return handleFlowTurn(business, confirmed, message, checkAvailability);
     }
@@ -717,7 +718,7 @@ function handleServiceConfirmation(
   // pass exists to close, just at this EARLIER confirm_service gate
   // rather than the final hard-confirmation one (see
   // handleBookingConfirmation, which already had this exact check).
-  if (hasCorrectionContent(business, message)) {
+  if (hasCorrectionContent(business, message, state.name)) {
     const { pendingAction: _pendingAction, ...confirmed } = state;
     return handleFlowTurn(business, confirmed, message, checkAvailability);
   }
@@ -889,7 +890,7 @@ function handleBookingConfirmation(
   message: string,
   checkAvailability: AIProviderRequest["checkAvailability"],
 ): AIProviderResponse {
-  if (hasCorrectionContent(business, message)) {
+  if (hasCorrectionContent(business, message, state.name)) {
     const { pendingAction: _pendingAction, ...rest } = state;
     return handleFlowTurn(business, rest, message, checkAvailability);
   }
@@ -955,6 +956,10 @@ function handleFlowTurn(
   const stated = extractStatedFields(business, message, {
     allowLowConfidenceName: nameCurrentlyAsked,
   });
+  // An explicit contrast with the name on file ("It's Alisha, not Alicia") REPLACES it (provenance: the rejected
+  // name equals the stored one). Treated as an explicit name statement, so no other correction wording is needed.
+  const nameContrast = extractNameContrast(message, incomingState.name);
+  if (nameContrast) stated.name = nameContrast;
   const hasCorrectionMarker = CORRECTION_MARKER_RE.test(message) || hasCorrectionLanguage(message);
   // justDeclined (see BookingState's docstring) gives the customer's
   // very next word after an explicit decline the SAME license an
@@ -982,7 +987,7 @@ function handleFlowTurn(
     const currentlyAsked = isFieldCurrentlyAsked(incomingState, key);
     // "My name is X" is an explicit identity statement: it may replace an earlier name
     // without any correction wording (explicit provenance beats a previously captured value).
-    const explicitNameIntro = key === "name" && HIGH_CONFIDENCE_NAME_RE.test(message);
+    const explicitNameIntro = key === "name" && (HIGH_CONFIDENCE_NAME_RE.test(message) || Boolean(nameContrast));
     if (!alreadySet || currentlyAsked || hasCorrectionMarker || justDeclined || explicitNameIntro) {
       (merged as Record<string, unknown>)[key] = value;
     }
