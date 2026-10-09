@@ -9,7 +9,7 @@ import { BudgetExceeded, Ledger, MAX_OUTPUT_TOKENS } from "./config";
 
 /** The slice of the Anthropic SDK this harness uses — injectable so every control is testable with NO network. */
 export interface MessagesSdk {
-  messages: { create(body: Record<string, unknown>): Promise<{ model: string; content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }>; usage?: { input_tokens?: unknown; output_tokens?: unknown } }> };
+  messages: { countTokens(body: Record<string, unknown>): Promise<{ input_tokens?: unknown }>; create(body: Record<string, unknown>): Promise<{ model: string; content: Array<{ type: string; text?: string; id?: string; name?: string; input?: unknown }>; usage?: { input_tokens?: unknown; output_tokens?: unknown } }> };
 }
 
 const TOOLS = RECEPTIONIST_TOOL_DEFINITIONS.filter((t): t is Extract<typeof t, { type: "function" }> => t.type === "function").map((t) => ({
@@ -22,16 +22,20 @@ export class CappedClient implements LlmChatClient {
   constructor(private readonly sdk: MessagesSdk, private readonly ledger: Ledger) {}
 
   async chat(p: { systemPrompt: string; messages: LlmChatMessage[] }): Promise<LlmChatResult> {
-    const chars = p.systemPrompt.length + JSON.stringify(p.messages).length + JSON.stringify(TOOLS).length;
-    const worst = this.ledger.gate(chars);
+    const body = { model: this.ledger.cfg.model, system: p.systemPrompt, messages: p.messages.map((m) => ({ role: m.role, content: m.content })), tools: TOOLS };
+    // AUTHORITATIVE pre-call input count (provider's free count_tokens endpoint) for the exact request.
+    let counted: unknown;
+    try { counted = (await this.sdk.messages.countTokens(body)).input_tokens; } catch { counted = undefined; }
+    const worst = this.ledger.gate(counted);
+    const input = counted as number;
     let r;
     try {
-      r = await this.sdk.messages.create({ model: this.ledger.cfg.model, max_tokens: MAX_OUTPUT_TOKENS, system: p.systemPrompt, messages: p.messages.map((m) => ({ role: m.role, content: m.content })), tools: TOOLS });
+      r = await this.sdk.messages.create({ ...body, max_tokens: MAX_OUTPUT_TOKENS });
     } catch (e) {
       this.ledger.failed(worst, e instanceof Error ? e.name : "unknown");
       throw new BudgetExceeded(this.ledger.haltedReason!); // halts the whole run: an uncertain-usage failure is never retried
     }
-    this.ledger.settle(r.usage, chars, worst);
+    this.ledger.settle(r.usage, input, worst);
     this.modelsSeen.add(r.model);
     const text = r.content.filter((b) => b.type === "text").map((b) => b.text ?? "").join("\n").trim();
     const toolCalls = r.content.filter((b) => b.type === "tool_use").map((b) => ({ id: String(b.id), name: String(b.name), argumentsJson: JSON.stringify(b.input) }));
@@ -70,7 +74,7 @@ export interface Case {
   checkAfterSetup?: Record<number, (t: Turn) => string[]>;
   /** payload expectations once everything ran; `exactlyOne` additionally REQUIRES one successful booking */
   expectBookings: number | "atMostOne" | "exactlyOne" | 0;
-  expectPayload?: { name?: string; preferredTime?: string; preferredDate?: string };
+  expectPayload?: { name?: string; preferredTime?: string; preferredDate?: string; service?: string; phone?: string };
 }
 
 const actionsOf = (t: Turn): ActionRecord[] => t.actionsTaken.map((a) => ({ type: a.action.type, success: a.result.success }));
@@ -101,7 +105,7 @@ export function scoreCase(c: Case, steps: StepRecord[], payloads: Payload[]): { 
   }
   if (c.expectPayload && payloads.length) {
     const p = payloads[0];
-    for (const k of ["name", "preferredTime", "preferredDate"] as const) {
+    for (const k of ["name", "preferredTime", "preferredDate", "service", "phone"] as const) {
       const want = c.expectPayload[k];
       if (want !== undefined && p[k] !== want) hard.push(`payload ${k} ${JSON.stringify(p[k])} != ${JSON.stringify(want)}`);
     }

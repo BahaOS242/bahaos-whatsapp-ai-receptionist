@@ -17,7 +17,7 @@ export const MAX_CAP_USD = 25; // absolute ceiling this script will ever accept,
 export const MAX_PASSES = 10;
 export const MAX_OUTPUT_TOKENS = 1024; // identical to the production client's max_tokens
 
-export interface RunConfig { capUsd: number; passes: number; model: string; price: PriceSnapshot }
+export interface RunConfig { capUsd: number; /** soft stop: no call is made whose worst case would cross this */ stopUsd: number; passes: number; model: string; price: PriceSnapshot }
 
 export class ConfigError extends Error {}
 
@@ -34,6 +34,10 @@ export function parseConfig(argv: string[], env: Record<string, string | undefin
   if (!/^\d+(\.\d+)?$/.test(capRaw)) throw new ConfigError(`--cap must be a plain positive decimal number, got ${JSON.stringify(capRaw)}`);
   const capUsd = Number(capRaw);
   if (!Number.isFinite(capUsd) || capUsd <= 0 || capUsd > MAX_CAP_USD) throw new ConfigError(`--cap must be > 0 and <= ${MAX_CAP_USD}`);
+  const stopRaw = flag(argv, "stop");
+  if (stopRaw !== undefined && !/^\d+(\.\d+)?$/.test(stopRaw)) throw new ConfigError(`--stop must be a plain positive decimal number, got ${JSON.stringify(stopRaw)}`);
+  const stopUsd = stopRaw === undefined ? Number((capUsd * 0.8).toFixed(4)) : Number(stopRaw);
+  if (!Number.isFinite(stopUsd) || stopUsd <= 0 || stopUsd > capUsd) throw new ConfigError("--stop must be > 0 and <= --cap");
   const passes = passRaw === undefined ? 1 : Number(passRaw);
   if (passRaw !== undefined && !/^\d+$/.test(passRaw)) throw new ConfigError(`--passes must be a positive integer, got ${JSON.stringify(passRaw)}`);
   if (!Number.isInteger(passes) || passes < 1 || passes > MAX_PASSES) throw new ConfigError(`--passes must be an integer in 1..${MAX_PASSES}`);
@@ -41,19 +45,24 @@ export function parseConfig(argv: string[], env: Record<string, string | undefin
   if (!(APPROVED_MODELS as readonly string[]).includes(model)) throw new ConfigError(`model ${JSON.stringify(model)} is not on the approved list ${JSON.stringify(APPROVED_MODELS)}`);
   const price = PRICE_SNAPSHOTS[model];
   if (!price) throw new ConfigError(`no price snapshot for ${model}`);
-  return { capUsd, passes, model, price };
+  return { capUsd, stopUsd, passes, model, price };
 }
 
 export class BudgetExceeded extends Error {}
 export class UsageUnknown extends Error {}
 
-/**
- * Conservative INPUT-token upper bound: one token per 2 characters. English/JSON average ~3.5-4 chars per
- * token, so this over-reserves ~2x. It is a defensible bound, not a proof — which is why every settled call
- * is also compared against it (see settle): an under-estimate halts the run.
- */
-export function inputTokenUpperBound(chars: number): number { return Math.ceil(chars / 2) + 64; }
+/** Tolerance when comparing the AUTHORITATIVE pre-call count (`messages.count_tokens`) with the billed input tokens. */
+export function countTolerance(counted: number): number { return Math.ceil(counted * 0.02) + 8; }
 
+/**
+ * Spend ledger. The pre-call check uses the AUTHORITATIVE input-token count from the provider's free
+ * `count_tokens` endpoint for the exact request, plus the FULL max_tokens output reservation:
+ *     worst = counted_input x input_price + max_tokens x output_price
+ * and refuses when spent + worst would cross the SOFT STOP (below the hard cap, leaving a buffer).
+ * Because the output reservation is the maximum the call can produce, a call can only bill MORE than
+ * `worst` if the provider's billed input differs from its own count — which settle() checks and halts on.
+ * Residual (unavoidable, stated plainly): the figure is an estimate (usage x price snapshot), not a receipt.
+ */
 export class Ledger {
   spentUsd = 0;
   calls = 0;
@@ -63,21 +72,25 @@ export class Ledger {
   constructor(readonly cfg: RunConfig) {}
 
   private cost(inTok: number, outTok: number) { return (inTok * this.cfg.price.inputUsdPerMTok + outTok * this.cfg.price.outputUsdPerMTok) / 1e6; }
-  worstCaseCost(requestChars: number) { return this.cost(inputTokenUpperBound(requestChars), MAX_OUTPUT_TOKENS); }
+  worstCaseCost(countedInputTokens: number) { return this.cost(countedInputTokens, MAX_OUTPUT_TOKENS); }
 
-  /** Call BEFORE every request. Reserves nothing, but refuses if the worst case would cross the cap. */
-  gate(requestChars: number): number {
+  /** Call BEFORE every request with the authoritative counted input tokens. */
+  gate(countedInputTokens: unknown): number {
     if (this.haltedReason) throw new BudgetExceeded(this.haltedReason);
-    const worst = this.worstCaseCost(requestChars);
-    if (!Number.isFinite(worst) || this.spentUsd + worst > this.cfg.capUsd) {
-      this.haltedReason = `next call could cost up to $${worst.toFixed(4)}; spent $${this.spentUsd.toFixed(4)} of $${this.cfg.capUsd}`;
+    if (typeof countedInputTokens !== "number" || !Number.isFinite(countedInputTokens) || countedInputTokens < 0) {
+      this.haltedReason = "authoritative token count unavailable or invalid; refusing to send an unmeasured request";
+      throw new BudgetExceeded(this.haltedReason);
+    }
+    const worst = this.worstCaseCost(countedInputTokens);
+    if (this.spentUsd + worst > this.cfg.stopUsd) {
+      this.haltedReason = `next call could cost up to $${worst.toFixed(4)}; spent $${this.spentUsd.toFixed(4)}; soft stop $${this.cfg.stopUsd} (hard cap $${this.cfg.capUsd})`;
       throw new BudgetExceeded(this.haltedReason);
     }
     return worst;
   }
 
-  /** Settle a SUCCESSFUL response. Missing/garbled usage, or usage above our own bound, halts the run. */
-  settle(usage: { input_tokens?: unknown; output_tokens?: unknown } | undefined, requestChars: number, reservedWorst: number): void {
+  /** Settle a SUCCESSFUL response. Missing/garbled usage, or billed input above the authoritative count, halts the run. */
+  settle(usage: { input_tokens?: unknown; output_tokens?: unknown } | undefined, countedInputTokens: number, reservedWorst: number): void {
     const i = usage?.input_tokens, o = usage?.output_tokens;
     if (typeof i !== "number" || typeof o !== "number" || !Number.isFinite(i) || !Number.isFinite(o) || i < 0 || o < 0) {
       this.chargeWorst(reservedWorst, "response had no usable usage numbers");
@@ -85,8 +98,8 @@ export class Ledger {
     }
     this.calls++; this.inputTokens += i; this.outputTokens += o;
     this.spentUsd += this.cost(i, o);
-    if (i > inputTokenUpperBound(requestChars)) {
-      this.haltedReason = `input token bound under-estimated (actual ${i} > bound ${inputTokenUpperBound(requestChars)}); halting`;
+    if (i > countedInputTokens + countTolerance(countedInputTokens)) {
+      this.haltedReason = `billed input ${i} exceeded the authoritative count ${countedInputTokens}; halting`;
       throw new UsageUnknown(this.haltedReason);
     }
   }

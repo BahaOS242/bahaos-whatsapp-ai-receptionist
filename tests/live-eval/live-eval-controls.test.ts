@@ -3,7 +3,7 @@ import { BAHAMAS_DENTAL_SERVICE } from "../../src/ai/business-context";
 import { ReceptionistAgent } from "../../src/ai/receptionist-agent";
 import type { AIProvider, AIProviderResponse } from "../../src/ai/types";
 import { createSimulatedReceptionistTools } from "../../src/tools/receptionist-tools";
-import { APPROVED_MODELS, BudgetExceeded, ConfigError, inputTokenUpperBound, Ledger, MAX_CAP_USD, parseConfig, UsageUnknown } from "../../scripts/live-eval/config";
+import { APPROVED_MODELS, BudgetExceeded, ConfigError, countTolerance, Ledger, MAX_CAP_USD, parseConfig, UsageUnknown } from "../../scripts/live-eval/config";
 import { CappedClient, CASES, restoreClock, runCase, scoreCase, type Case, type MessagesSdk, type StepRecord } from "../../scripts/live-eval/harness";
 
 /**
@@ -24,6 +24,13 @@ describe("run configuration cannot be silently coerced", () => {
   it.each(["0", "-1", "11", "1.5", "abc", "Infinity", "NaN", ""])("rejects --passes=%j", (p) => {
     expect(() => parseConfig(["--cap=1", `--passes=${p}`], ENV)).toThrow(ConfigError);
   });
+  it.each(["abc", "-1", "0", "NaN", "Infinity", "6"])("rejects --stop=%j (must be positive, finite and <= the cap)", (stop) => {
+    expect(() => parseConfig(["--cap=5", `--stop=${stop}`], ENV)).toThrow(ConfigError);
+  });
+  it("soft stop defaults to 80% of the cap and can be set explicitly below it", () => {
+    expect(parseConfig(["--cap=5"], ENV).stopUsd).toBe(4);
+    expect(parseConfig(["--cap=5", "--stop=3.5"], ENV)).toMatchObject({ capUsd: 5, stopUsd: 3.5 });
+  });
   it("accepts a sane configuration and defaults passes to 1", () => {
     const c = OK("1.48");
     expect(c).toMatchObject({ capUsd: 1.48, passes: 1, model: APPROVED_MODELS[0] });
@@ -35,59 +42,89 @@ describe("run configuration cannot be silently coerced", () => {
   });
 });
 
-const sdkReturning = (usage: unknown, extra: Partial<Awaited<ReturnType<MessagesSdk["messages"]["create"]>>> = {}) => {
+/** Mock SDK: countTokens returns `counted` (default 400); create returns `usage`. Counts calls to each. */
+const sdkReturning = (usage: unknown, opts: { counted?: unknown; countThrows?: boolean } = {}) => {
   const calls: Array<Record<string, unknown>> = [];
-  const sdk: MessagesSdk = { messages: { create: async (b) => { calls.push(b); return { model: "claude-haiku-4-5-20251001", content: [{ type: "text", text: "ok" }], usage: usage as never, ...extra }; } } };
-  return { sdk, calls };
+  let counts = 0;
+  const sdk: MessagesSdk = {
+    messages: {
+      countTokens: async () => { counts++; if (opts.countThrows) throw new Error("count unavailable"); return { input_tokens: "counted" in opts ? opts.counted : 400 }; },
+      create: async (b) => { calls.push(b); return { model: "claude-haiku-4-5-20251001", content: [{ type: "text", text: "ok" }], usage: usage as never }; },
+    },
+  };
+  return { sdk, calls, counts: () => counts };
 };
 const chat = (c: CappedClient, text = "hi") => c.chat({ systemPrompt: "system prompt ".repeat(50), messages: [{ role: "user", content: text }] });
+const cfg = (cap: string, stop?: string) => parseConfig([`--cap=${cap}`, ...(stop ? [`--stop=${stop}`] : [])], ENV);
 
 describe("spend ledger and gate (mock SDK, no network)", () => {
   it("settles real usage at the named price snapshot", async () => {
-    const l = new Ledger(OK("5"));
-    const { sdk } = sdkReturning({ input_tokens: 1000, output_tokens: 100 });
+    const l = new Ledger(cfg("5"));
+    const { sdk } = sdkReturning({ input_tokens: 400, output_tokens: 100 });
     await chat(new CappedClient(sdk, l));
-    expect(l.spentUsd).toBeCloseTo((1000 * 1 + 100 * 5) / 1e6, 10);
-    expect([l.calls, l.inputTokens, l.outputTokens]).toEqual([1, 1000, 100]);
+    expect(l.spentUsd).toBeCloseTo((400 * 1 + 100 * 5) / 1e6, 10);
+    expect([l.calls, l.inputTokens, l.outputTokens]).toEqual([1, 400, 100]);
   });
-  it("EXHAUSTED budget: refuses before any request is sent", async () => {
-    const l = new Ledger(OK("0.001"));
-    const { sdk, calls } = sdkReturning({ input_tokens: 1, output_tokens: 1 });
+  it("uses the AUTHORITATIVE count: the reservation is counted input x $1 + the FULL 1024-token output x $5", () => {
+    const l = new Ledger(cfg("5"));
+    expect(l.worstCaseCost(2000)).toBeCloseTo((2000 * 1 + 1024 * 5) / 1e6, 10);
+  });
+  it("a request is counted BEFORE it is sent, and refused (never sent) once the soft stop would be crossed", async () => {
+    const l = new Ledger(cfg("5", "0.005")); // worst case for 400 tokens = $0.00552 > $0.005
+    const { sdk, calls, counts } = sdkReturning({ input_tokens: 400, output_tokens: 1 });
     await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(BudgetExceeded);
+    expect(counts()).toBe(1);
     expect(calls).toHaveLength(0);
-    expect(l.haltedReason).toMatch(/could cost up to/);
+    expect(l.haltedReason).toMatch(/soft stop \$0\.005 \(hard cap \$5\)/);
     await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(BudgetExceeded); // stays halted
   });
-  it("stops mid-run once cumulative spend + worst case would cross the cap", async () => {
-    const l = new Ledger(OK("0.02"));
-    const { sdk, calls } = sdkReturning({ input_tokens: 300, output_tokens: 1000 }); // ≈ $0.0053 per call, inside the input bound
+  it("stops at the SOFT stop, leaving the buffer to the hard cap, mid-run", async () => {
+    const l = new Ledger(cfg("0.02", "0.015"));
+    const { sdk, calls } = sdkReturning({ input_tokens: 400, output_tokens: 1000 }); // ≈ $0.0054 per call
     const c = new CappedClient(sdk, l);
     let sent = 0;
     for (let i = 0; i < 10; i++) { try { await chat(c); sent++; } catch (e) { expect(e).toBeInstanceOf(BudgetExceeded); break; } }
     expect(calls.length).toBe(sent);
+    expect(sent).toBeGreaterThan(0);
     expect(sent).toBeLessThan(10);
-    expect(l.spentUsd).toBeLessThanOrEqual(0.02);
+    expect(l.spentUsd).toBeLessThanOrEqual(0.015);
   });
-  it("UNDER-ESTIMATED token count (actual usage above our own bound) halts the run", async () => {
-    const l = new Ledger(OK("5"));
-    const chars = "system prompt ".repeat(50).length + JSON.stringify([{ role: "user", content: "hi" }]).length;
-    const { sdk } = sdkReturning({ input_tokens: 10_000_000, output_tokens: 1 });
+  it.each([undefined, null, "400", NaN, Infinity, -5])("an UNMEASURED request (count_tokens returned %j) is never sent", async (counted) => {
+    const l = new Ledger(cfg("5"));
+    const { sdk, calls } = sdkReturning({ input_tokens: 1, output_tokens: 1 }, { counted });
+    await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(BudgetExceeded);
+    expect(calls).toHaveLength(0);
+    expect(l.haltedReason).toMatch(/token count unavailable/);
+  });
+  it("if count_tokens itself FAILS, nothing is sent and the run halts", async () => {
+    const l = new Ledger(cfg("5"));
+    const { sdk, calls } = sdkReturning({ input_tokens: 1, output_tokens: 1 }, { countThrows: true });
+    await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(BudgetExceeded);
+    expect(calls).toHaveLength(0);
+  });
+  it("BILLED input above the authoritative count (beyond tolerance) halts the run", async () => {
+    const l = new Ledger(cfg("5"));
+    const { sdk } = sdkReturning({ input_tokens: 400 + countTolerance(400) + 1, output_tokens: 1 });
     await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(UsageUnknown);
-    expect(l.haltedReason).toMatch(/under-estimated/);
-    expect(chars).toBeGreaterThan(0);
+    expect(l.haltedReason).toMatch(/exceeded the authoritative count/);
     await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(BudgetExceeded); // nothing further is sent
   });
+  it("billed input within the tolerance of the count is accepted", async () => {
+    const l = new Ledger(cfg("5"));
+    const { sdk } = sdkReturning({ input_tokens: 400 + countTolerance(400), output_tokens: 1 });
+    await expect(chat(new CappedClient(sdk, l))).resolves.toBeTruthy();
+  });
   it.each([undefined, {}, { input_tokens: "12", output_tokens: 3 }, { input_tokens: NaN, output_tokens: 3 }, { input_tokens: 3, output_tokens: -1 }])("UNKNOWN/garbled usage %j: worst case is charged and the run halts", async (usage) => {
-    const l = new Ledger(OK("5"));
+    const l = new Ledger(cfg("5"));
     const { sdk } = sdkReturning(usage);
     await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(UsageUnknown);
     expect(l.spentUsd).toBeGreaterThan(0.005); // the reserved worst case, not zero
     expect(l.haltedReason).toMatch(/usage unknown|no usable usage/);
   });
   it("TRANSPORT failure: charged at worst case, run halts, nothing is retried", async () => {
-    const l = new Ledger(OK("5"));
+    const l = new Ledger(cfg("5"));
     let n = 0;
-    const sdk: MessagesSdk = { messages: { create: async () => { n++; throw new Error("socket hang up"); } } };
+    const sdk: MessagesSdk = { messages: { countTokens: async () => ({ input_tokens: 400 }), create: async () => { n++; throw new Error("socket hang up"); } } };
     await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(BudgetExceeded);
     expect(n).toBe(1);
     expect(l.spentUsd).toBeGreaterThan(0.005);
@@ -95,8 +132,13 @@ describe("spend ledger and gate (mock SDK, no network)", () => {
     await expect(chat(new CappedClient(sdk, l))).rejects.toBeInstanceOf(BudgetExceeded);
     expect(n).toBe(1);
   });
-  it("the input bound over-reserves (≥ chars/2) so ordinary prompts are comfortably inside it", () => {
-    expect(inputTokenUpperBound(8000)).toBeGreaterThanOrEqual(4000);
+  it("the cumulative worst case can never exceed the HARD cap while the soft stop is below it", async () => {
+    const l = new Ledger(cfg("0.05", "0.04"));
+    const { sdk } = sdkReturning({ input_tokens: 400, output_tokens: 1024 }); // every call bills the maximum
+    const c = new CappedClient(sdk, l);
+    for (let i = 0; i < 50; i++) { try { await chat(c); } catch { break; } }
+    expect(l.spentUsd).toBeLessThanOrEqual(0.04);
+    expect(l.spentUsd).toBeLessThan(0.05);
   });
 });
 
