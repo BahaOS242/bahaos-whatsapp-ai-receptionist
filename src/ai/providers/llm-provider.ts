@@ -519,8 +519,6 @@ export class LLMProvider implements AIProvider {
     let declineOverrideReply: string | undefined;
     let duplicateBookingReply: string | undefined;
     let confirmationRequiredReply: string | undefined;
-    // A qualified time arrived this turn: the reply is the application's, never the model's.
-    const timeClarificationReply = extractedThisTurn.timeClarification ? TIME_CLARIFICATION_REPLY : undefined;
 
     for (const toolCall of result.toolCalls) {
       if (toolCall.name === "update_booking_progress") {
@@ -871,8 +869,12 @@ export class LLMProvider implements AIProvider {
       }
     }
 
+    // An unresolved time clarification outranks every confirmation prompt and all model text: never invite a "yes"
+    // while the stored time is in doubt. (Escalation to a human still comes first.)
+    const timeClarificationReply = bookingState.timeClarification ? TIME_CLARIFICATION_REPLY : undefined;
     const reply: string | null =
       escalationSafetyReply ??
+      timeClarificationReply ??
       declineOverrideReply ??
       duplicateBookingReply ??
       confirmationRequiredReply ??
@@ -880,7 +882,6 @@ export class LLMProvider implements AIProvider {
       availabilityRejectionReply ??
       phoneRejectionReply ??
       timeRejectionReply ??
-      timeClarificationReply ??
       freshConfirmationReply ??
       (claimsCompletionWithoutAction ? null : result.content) ??
       // The model made a tool call but returned no text at all (observed

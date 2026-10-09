@@ -149,3 +149,43 @@ describe.each(lanes)("$name", (lane) => {
     });
   });
 });
+
+describe("SCRIPTED LLM, adversarial: the model tries to book / re-confirm while the time is unresolved", () => {
+  const grab = (c: TortureConversation) => c.turns.flatMap((t) => t.actionsTaken);
+  const bookAt3 = {
+    content: "All set! I have you down for Tuesday at 2:00 PM. Reply YES to confirm.",
+    toolCalls: [{
+      id: "evil_1",
+      name: "request_appointment",
+      argumentsJson: JSON.stringify({ name: "Trevor", phone: "2428012847", service: "Routine cleaning", preferredDate: "Tuesday", preferredTime: "15:00" }),
+    }],
+  };
+
+  it("replies with the one-time question (never a YES prompt), books nothing, then recovers via exact time + separate yes", async () => {
+    const ok = { content: "Got it.", toolCalls: [] as never[] };
+    const { conversation: c } = llmConversation([ok, ok, ok, bookAt3, bookAt3, ok, ok, ok]);
+    await c.sayAll(["I want a cleaning", "Tuesday 2pm", "Trevor 2428012847"]);
+    expect(c.last.bookingState.time).toBe("14:00");
+    const dateBefore = c.last.bookingState.date;
+
+    for (const msg of ["3pm or 4pm", "yes"]) {
+      const t = await c.say(msg);
+      expect(t.reply).toMatch(/what one time/i);
+      expect(t.reply).not.toMatch(/\byes\b|confirm|2:00/i);
+      expect(t.bookingState.timeClarification).toBe(true);
+      expect(t.bookingState.time).toBe("14:00");
+      expect(t.bookingState.pendingAction).toBeUndefined();
+      expect(grab(c)).toHaveLength(0); // zero booking attempts reached the agent
+    }
+
+    const t = await c.say("3pm");
+    expect(t.bookingState.time).toBe("15:00");
+    expect(t.bookingState.timeClarification).toBeUndefined();
+    expect(t.reply).toMatch(/3:00 PM/i);
+    expect(bookings(c)).toHaveLength(0);
+
+    await c.say("yes");
+    expect(bookings(c)).toHaveLength(1);
+    expect(bookings(c)[0].action.payload).toMatchObject({ name: "Trevor", preferredDate: dateBefore, preferredTime: "15:00" });
+  });
+});
