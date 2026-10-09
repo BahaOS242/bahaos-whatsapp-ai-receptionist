@@ -1,28 +1,41 @@
-# Staging setup checklist (beginner-friendly)
+# Staging setup checklist (beginner-friendly, Railway)
 
-Goal: a safe copy of BahaOS that only your own test phone talks to. **Nothing here touches production or real customers.**
-**Credentials rule:** passwords, tokens and API keys go ONLY into the host's "Environment variables / Secrets" screen (or a password manager). Never paste them in chat, a PR, a commit, or a screenshot. If one leaks, rotate it.
+**Host choice:** this repo already names **Railway** as its hosting platform (`PROJECT_CONTEXT.md`, `IMPLEMENTATION_PLAN.md`; no Dockerfile or other host config exists). Staging uses Railway too, in its **own project** so it can never share anything with production.
 
-## 1. Staging host (where the app runs)
-- [ ] Pick one host that gives you an **https://** address automatically (examples: Render, Railway, Fly.io). Name it clearly, e.g. `bahaos-staging`.
-- [ ] Create a service from branch `claude/phase5-jobs-and-receptionist-fixes` (never `main`). Build `npm ci && npm run build`, start `npm start`.
-- [ ] In the host's Secrets/Environment screen add the variables listed in `.env.example` (see the staging list below). The names to fill in: `DATABASE_URL`, `ANTHROPIC_API_KEY`, `ADMIN_SESSION_SECRET`, `WHATSAPP_APP_SECRET`, `WHATSAPP_WEBHOOK_VERIFY_TOKEN`, `WHATSAPP_ACCESS_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`. Leave `JOBS_ENABLED` and `MEMORY_ENABLED` **false** until the test plan says otherwise.
-- [ ] Confirm `https://<your-staging-address>/health` shows OK in a browser.
+**Rules**
+- Secrets (tokens, keys, passwords) are typed ONLY into Railway's *Variables* screen, Meta's dashboard, or a password manager. Never into chat, a PR, a commit or a screenshot. If one leaks, rotate it.
+- Nothing is created, deployed or run until you approve each step. Setup guidance only so far: no paid resources, no deploy, no paid AI calls, no staging tests.
+- Staging never gets production keys, the real clinic's number, or real customer data.
 
-## 2. Staging database (separate from everything else)
-- [ ] Create a **new** Postgres database on the same provider, named `bahaos_staging`. Never reuse a production or personal database.
-- [ ] Copy its connection string straight into the host's `DATABASE_URL` secret (do not paste it anywhere else).
-- [ ] Turn on automatic backups, and note the date of the first backup. Run the S0 backup/restore rehearsal in `STAGING_TEST_PLAN.md` before any other step.
-- [ ] Run migrations only on this database (`npm run db:migrate`) once S1 says to.
+## Step order (one at a time)
+1. **Railway project.** New project named `bahaos-staging` (separate from any production project). Check the plan/price shown before confirming; paid resources need your say-so.
+2. **Postgres.** In that project add the Postgres plugin. Railway generates `DATABASE_URL`; the app will reference it, so you never copy it anywhere.
+3. **App service.** Add a service from GitHub, repo `BahaOS242/bahaos-whatsapp-ai-receptionist`, branch `claude/phase5-jobs-and-receptionist-fixes` (never `main`). Build `npm ci && npm run build`, start `npm start`. Turn **off** auto-deploy on push until the test plan starts. Generate the public domain (gives the https:// address; Railway does the TLS).
+4. **Variables** (service → Variables). Names and staging values:
 
-## 3. Meta (WhatsApp) test number
-- [ ] Sign in to developers.facebook.com → create an app of type "Business" → add the **WhatsApp** product. Meta gives you a free **test phone number**.
-- [ ] Add your own phone as an allowed recipient (Meta sends a code to confirm it).
-- [ ] From the WhatsApp → API Setup page, put these into the host's secrets: the access token (a *temporary* one is fine), the phone number ID, the app secret, and a verify token you invent yourself (any long random string).
-- [ ] In WhatsApp → Configuration set the **Callback URL** to `https://<your-staging-address>/webhooks/whatsapp` and the Verify token to your invented string; click Verify. Subscribe to the `messages` field.
-- [ ] Send "hi" from your phone to the test number. Seeing the message arrive in the staging logs means the pipe works.
+| Variable | Staging value |
+|---|---|
+| `NODE_ENV` | `production` |
+| `DATABASE_URL` | reference the Postgres plugin's `DATABASE_URL` (Railway "Add reference") |
+| `DB_BOOKING_ENABLED` | `true` (real database booking path) |
+| `ANTHROPIC_API_KEY` | a **new staging-only key** created in the Anthropic console with a low monthly spend limit |
+| `ANTHROPIC_MODEL` | `claude-haiku-4-5-20251001` |
+| `ADMIN_SESSION_SECRET` | long random string you generate in your own terminal (`openssl rand -base64 48`) and paste straight into Railway |
+| `WHATSAPP_APP_SECRET` | from Meta App settings → Basic → App secret |
+| `WHATSAPP_WEBHOOK_VERIFY_TOKEN` | any long random string you invent (reuse it in Meta in step 6) |
+| `WHATSAPP_ACCESS_TOKEN` | Meta API Setup page (temporary token is fine; expires in ~24h) |
+| `WHATSAPP_PHONE_NUMBER_ID` | Meta API Setup page (the numeric id, not the phone number) |
+| `WHATSAPP_API_VERSION` | `v21.0` |
+| `JOBS_ENABLED`, `MEMORY_ENABLED`, `KNOWLEDGE_ENABLED` | leave **unset** (off) until the plan reaches S9/S10 |
+| `PORT` | do not set (Railway supplies it) |
+| OpenAI/Gemini/OpenRouter keys, Google Calendar, SMTP, Voyage | leave **unset** |
 
-## 4. Safety stops
-- [ ] Use a **separate Anthropic API key with a low spending limit** for staging only (about $5 is plenty for the plan).
-- [ ] Production keys, the real clinic's number, and real customer data are never added to staging.
-- [ ] When done, tell Claude which boxes are checked (not the values). Staging does not run until you approve `STAGING_TEST_PLAN.md`.
+5. **Meta test number.** developers.facebook.com → My Apps → Create App → type *Business* → add the **WhatsApp** product. Use the free test number Meta provides. Under *API Setup*, add your own phone as an allowed recipient (enter Meta's code). Keep Meta in *development* mode.
+6. **Webhook.** WhatsApp → Configuration → Callback URL `https://<your-railway-domain>/webhooks/whatsapp`, Verify token = the string from step 4, click *Verify and save*, then subscribe to the **messages** field. Verification only succeeds after the app is deployed, so this is done during the approved run.
+7. **Readiness report to Claude** (check boxes only, never values): project created · Postgres added · variables entered · Anthropic limit set (and the limit amount) · Meta app + test number ready · your phone added.
+
+## Facts the plan relies on
+- The first inbound message auto-creates the single tenant row. A staff login (`scripts/staff.ts`) can only be created after that, so the inbox test (S7) runs after S3.
+- The app checks every inbound `phone_number_id` against `WHATSAPP_PHONE_NUMBER_ID`; a mismatch rejects all messages.
+- Migrations are run explicitly with `npm run db:migrate` against the staging database only (plan step S1), never automatically.
+- Rollback: set the flags off, or scale the service to zero; the database is disposable and a backup is taken first (S0).
