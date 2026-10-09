@@ -9,7 +9,7 @@
 **Secret rules.** Secrets are typed only into Render's screens, Meta's dashboard, or hidden terminal prompts (`read -s`); never into chat, a PR, a commit or a screenshot. When a step involves a secret, report "done", not the value.
 
 ---
-# PART 1 — Database only (approval requested)
+# PART 1 — Database only (EXECUTED and verified 2026-10-09; see `evidence/staging-part1-database-2026-10-09.md`)
 
 ## 1.0 Approved database identity
 The scripts will only touch the one database you approve, identified by its **host name** and **database name** (neither is a secret; copy them from the Render database page, "Hostname" and "Database"). Write them into your approval message. Every script checks both, plus asks the server which database it is connected to, and refuses on any mismatch. There is no override flag.
@@ -38,7 +38,7 @@ Expect `0`. Anything else: stop and report.
 ```bash
 npx tsx scripts/staging/db-identity.ts && npm run db:migrate
 ```
-Then the read-only fingerprint (expect 22 tables, 82 indexes, 70 constraints, 25 enums, 13 migration rows):
+Then the read-only fingerprint (expect 22 tables, 82 indexes, 70 constraints plus 201 `not_null_constraints` on PostgreSQL 18, 25 enums, 13 migration rows, migration fingerprint `b008423228a63dd4c5386b14895d8c0b`):
 ```bash
 psql "$DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -f scripts/staging/compare-db.sql | head -6
 ```

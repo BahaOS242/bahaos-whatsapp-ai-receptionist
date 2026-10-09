@@ -174,3 +174,6 @@ Evidence: live run 2 soft shortfalls plus a free offline probe of the applicatio
 Also not blocking, but note: the confirmation summary does not echo name/phone (product decision); status/delivery receipts are ignored; free-form WhatsApp text only.
 **Bottom line:** Class A is fixed offline; keep it as a pilot gate until S6 passes on staging. Everything else is safe-failure coverage to monitor.
 
+## 7. Staging Part 1 result (2026-10-09, database only)
+A fresh Render staging database (PostgreSQL 18.6) was initialised with the 13 committed migrations; its migration fingerprint equals the committed files exactly, the clinic and an admin login were created, and a backup was restored into a local PostgreSQL 18.6 and verified (schema definitions, counts and per-table content hashes identical). Evidence: `evidence/staging-part1-database-2026-10-09.md`. This is a **new staging database, not a production or pre-existing environment**, so the "real-environment migration history" blocker (§3) is still open for production. Deploy, WhatsApp and the S2–S12 tests have not run.
+
