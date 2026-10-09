@@ -19,7 +19,7 @@ Status: **proposed, not approved, not run.** No environment, number, credential 
 3. Flags all off: `MEMORY_ENABLED=false JOBS_ENABLED=false KNOWLEDGE_ENABLED=false`; `WHATSAPP_APP_SECRET` set.
 
 ## Sequence
-**S0 — Backup + restore rehearsal (no traffic).** *Exact commands: `STAGING_SETUP_CHECKLIST.md` §C–E (on a fresh database the migrations run first, then this check).* `pg_dump -Fc` the staging DB; restore into a scratch DB; compare table/index/constraint/enum counts, migration rows and row counts of tenants, customers, conversations, messages, outbox, memories, jobs, appointments. *Expect* identical. *Evidence:* the comparison output + timings. *Abort:* any difference or a restore error.
+**S0 — Backup + restore rehearsal (no traffic).** *Exact commands: `STAGING_SETUP_CHECKLIST.md` Part 1 §1.3–1.5 (on a fresh database the migrations run first, then `scripts/staging/backup-verify.sh`, which now diffs schema and per-table content hashes). Part 1 is a separate, earlier approval from deployment and paid testing.* `pg_dump -Fc` the staging DB; restore into a scratch DB; compare table/index/constraint/enum counts, migration rows and row counts of tenants, customers, conversations, messages, outbox, memories, jobs, appointments. *Expect* identical. *Evidence:* the comparison output + timings. *Abort:* any difference or a restore error.
 **S1 — Migration rehearsal on the restored copy.** Apply 0008→0012 with `drizzle-kit migrate`; record duration; run the §3 SQL; verify legacy-retry backfill counts (`outbox_messages WHERE idempotency_key LIKE 'legacy-retry:%'` = `messages WHERE status='retry_pending'` before); run the `INBOX.md` follow-up SQL for legacy `staff_owned` rows. *Expect* no data loss, no lock > 5 s. *Abort:* any row-count diff.
 **S2 — Deploy with all flags off.** `GET /health` 200; Meta webhook GET verification succeeds; **unsigned** POST ⇒ rejected (4xx); signed POST from the Meta test number ⇒ 200. TLS: certificate valid, HTTP→HTTPS redirect, `curl -sI https://…/inbox/` shows `Strict-Transport-Security`, `/api/inbox/*` unreachable over plain HTTP. *Abort:* an unsigned POST is accepted.
 **S3 — Booking happy path (real model, simulated nothing: real DB + outbox + Meta sandbox).** From phone A: `I want a cleaning` → `yes` → `Tuesday 2pm` → `Trevor <phone>` → `yes`. *Expect:* exactly one `appointments` row (correct service/UTC start/customer), `messages` outbound rows `sent`, `outbox_messages.status='sent'` with a `provider_message_id`, no duplicate reply. *Capture:* SQL output + the WhatsApp screenshots.
@@ -34,7 +34,7 @@ Status: **proposed, not approved, not run.** No environment, number, credential 
 **S12 — Rollback drill.** (1) flags off ⇒ behaviour returns to Phase 3, no job polling; (2) drop 0012/0011 objects per `RELEASE_GATE_CHECKLIST.md` §4 ⇒ app still serves; (3) restore the S0 snapshot ⇒ row counts equal S0. *Pass:* all three work.
 
 ## Cost / risk
-Paid AI: S3–S9 only, ≈ 200 calls ≈ $0.35 (Haiku 4.5) — needs your approval and a staging key with a limit. Customer impact: none (test numbers only). Production: **never touched**.
+Paid AI: S3–S9 only, an **estimate** of ≈ $0.35 to ≈ $1 (Haiku 4.5); not a hard cap unless an Anthropic-side limit is verified (see `STAGING_SETUP_CHECKLIST.md` §2.4). Needs your approval. Customer impact: none (test numbers only). Production: **never touched**.
 
 ## Sign-off
 Each step: pass / fail / skipped-with-reason, evidence attached to the PR. Merge/production remain the owner's decision; passing staging does not authorize them.

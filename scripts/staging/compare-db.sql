@@ -8,3 +8,7 @@ select 'migration_rows', count(*) from drizzle.__drizzle_migrations;
 select 'migration_hashes', md5(string_agg(hash, ',' order by created_at)) from drizzle.__drizzle_migrations;
 select 'rows:' || table_name, (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', table_schema, table_name), false, true, '')))[1]::text
 from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' order by table_name;
+-- Content fingerprints: an order-independent md5 of every row's full text, per table (detects changed data, not just counts).
+select 'hash:' || table_name, (xpath('/row/c/text()', query_to_xml(format('select md5(coalesce(string_agg(t::text, %L order by t::text), %L)) as c from %I.%I t', '|', '', table_schema, table_name), false, true, '')))[1]::text
+from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE' order by table_name;
+select 'hash:drizzle.__drizzle_migrations', md5(coalesce(string_agg(t::text, '|' order by t::text), '')) from drizzle.__drizzle_migrations t;
