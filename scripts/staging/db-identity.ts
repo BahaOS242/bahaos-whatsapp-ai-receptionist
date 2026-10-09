@@ -27,8 +27,11 @@ export function assertApprovedStagingDb(url: string | undefined, env: NodeJS.Pro
   if (!url) throw new Error("Refusing: DATABASE_URL is not set.");
   const actual = parseDbIdentity(url);
   if (actual.host !== approvedHost || actual.database !== approvedName) {
+    // Print only values that look like plain names: a malformed or doubled URL can put credentials in either part.
+    const safe = (v: string, re: RegExp) => (re.test(v) ? v : "(unrecognised value, not shown)");
     throw new Error(
-      `Refusing: DATABASE_URL points at ${actual.host}/${actual.database}, not the approved ${approvedHost}/${approvedName}.`,
+      `Refusing: DATABASE_URL points at ${safe(actual.host, /^[a-z0-9.-]{1,253}$/)}/${safe(actual.database, /^[A-Za-z0-9_-]{1,63}$/)}, ` +
+        `not the approved ${approvedHost}/${approvedName}. Re-enter the URL once (a single paste).`,
     );
   }
   return actual;

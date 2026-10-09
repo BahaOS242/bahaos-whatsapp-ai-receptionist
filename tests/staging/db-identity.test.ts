@@ -21,6 +21,15 @@ describe("staging database identity guard", () => {
   it("has no override: the old STAGING_INIT_CONFIRM flag changes nothing", () => {
     expect(() => assertApprovedStagingDb(URL.replace("bahaos_staging", "prod"), { ...ENV, STAGING_INIT_CONFIRM: "yes" })).toThrow(/Refusing/);
   });
+  it("never echoes credentials from a doubled/malformed URL", () => {
+    const doubled = URL + URL; // the real-world mistake: the URL pasted twice
+    let msg = "";
+    try { assertApprovedStagingDb(doubled, ENV); } catch (e) { msg = String(e); }
+    expect(msg).toMatch(/Refusing/);
+    expect(msg).not.toContain("secret");
+    expect(msg).not.toContain("postgres://");
+    expect(msg).toContain("not shown");
+  });
   it("never echoes the password", () => {
     try { assertApprovedStagingDb(URL.replace("bahaos_staging", "prod"), ENV); } catch (e) { expect(String(e)).not.toContain("secret"); }
   });
