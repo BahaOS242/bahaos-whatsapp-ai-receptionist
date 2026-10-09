@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../../src/app";
 import { loadEnv } from "../../src/config/env";
@@ -35,6 +35,8 @@ describe("Webhook torture tests — real Meta-shaped payloads through the full H
   beforeEach(async () => {
     await resetTestData(db);
   });
+
+  afterEach(() => { vi.useRealTimers(); });
 
   afterAll(async () => {
     await pool.end();
@@ -228,6 +230,10 @@ describe("Webhook torture tests — real Meta-shaped payloads through the full H
   });
 
   it("RESCHEDULE: change my appointment -> tomorrow -> 2am -> yes never books an invalid 2 AM appointment", async () => {
+    // "tomorrow" is relative to the business clock. Freeze it (Date only) on a Thursday so
+    // "tomorrow" is an open weekday; on a real-clock Friday it is Saturday (closed) and the
+    // reply is legitimately "we're closed" instead of an hours rejection.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-08-20T15:00:00Z") });
     const { app, messaging } = buildApp();
     const phone = "12428017008";
 
