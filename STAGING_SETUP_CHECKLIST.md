@@ -92,6 +92,11 @@ Must be absent: Google Calendar, SMTP, Voyage, and `PORT` (Render supplies it). 
 ## 2.2 Web service settings
 Repo branch `claude/phase5-jobs-and-receptionist-fixes` (never `main`). **Build:** `npm ci --include=dev && npm run build` (the compiler is a dev dependency). **Start:** `npm start`. Health check `/health`. **Auto-Deploy off.** Same region as the database.
 
+## 2.2b Lessons from the first run (do these in order)
+1. After the webhook is saved in Meta, **subscribe the WhatsApp account to your app** (Meta's use-case page does not always do it): with a real access token (starts `EAA`, hundreds of characters, entered through a hidden prompt) run `POST https://graph.facebook.com/v25.0/<WABA id>/subscribed_apps`, then `GET` the same URL and confirm your app is listed. Without it Meta shows your messages on its test page but never sends them to the service.
+2. After the first deploy, send one message and check the Render log for `accepted delivery`, then confirm the log does **not** say `[simulated tool]` (that means `DB_BOOKING_ENABLED` is not `true`).
+3. A Meta business that needs verification can accept your messages but not deliver replies: the outbox will say `sent` while the phone receives nothing.
+
 ## 2.3 Deploy, then test
 Manual deploy → `GET /health` 200 → in Meta set Callback URL `https://<service>.onrender.com/webhooks/whatsapp` + verify token → *Verify and save* → subscribe to **messages** → `STAGING_TEST_PLAN.md` S2–S12 (S0/S1 are covered by Part 1). Cleanup: remove the IP, revoke the temporary Meta token, suspend the service.
 
