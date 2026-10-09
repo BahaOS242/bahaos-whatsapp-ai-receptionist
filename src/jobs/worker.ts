@@ -258,6 +258,11 @@ export interface JobPollerOptions extends JobWorkerOptions {
   pollIntervalMs: number;
   /** Max jobs executing at once in this process (backpressure: no claim beyond it). */
   concurrency: number;
+  /**
+   * Keep the process alive while polling. Off for in-process use (the web server keeps the loop alive itself);
+   * the STANDALONE worker has nothing else holding the event loop open during database downtime, so it sets this.
+   */
+  keepAlive?: boolean;
   /** On stop(), wait at most this long for in-flight jobs, then abort them (leases recover the rest). */
   drainTimeoutMs?: number;
 }
@@ -326,7 +331,7 @@ export function startJobWorker(db: Db, opts: JobPollerOptions): { stop: () => Pr
   };
 
   const timer = setInterval(() => void tick(), opts.pollIntervalMs);
-  timer.unref?.();
+  if (!opts.keepAlive) timer.unref?.();
   const wake = () => setImmediate(() => void tick());
   wakeListeners.add(wake);
   tel.emit("worker_started", { workerId, concurrency: opts.concurrency, types: opts.registry.types().length });

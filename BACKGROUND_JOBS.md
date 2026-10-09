@@ -84,6 +84,8 @@ Claim = one statement (`SELECT … FOR UPDATE SKIP LOCKED` → `UPDATE`): status
 - **Development**: `JOBS_ENABLED=true npm run dev` (worker runs in the web process) or `npm run jobs -- …` to inspect.
 - **Production (current Railway single process)**: set `JOBS_ENABLED=true`; the web process runs the worker, many replicas are safe. **Isolation option**: `npm run build && JOBS_ENABLED=true npm run worker` as a second service (refuses to start when the flag is off).
 - Shutdown: SIGTERM/SIGINT ⇒ stop claiming, wait up to 20 s for in-flight jobs, then abort their signals; anything unfinished is recovered by lease expiry. Polling backs off exponentially (0.5 s → 30 s) on database errors and never crashes; state lives in Postgres so nothing is lost.
+- Shutdown ordering: `stop()` first resolves any claim still in flight (rows claimed after shutdown began are released untouched — never executed), then drains running handlers.
+- Standalone worker (`src/worker.ts`) keeps the process alive during database downtime (ref'd poll timer), logs pool errors instead of crashing, and exits 0 only after SIGTERM/SIGINT; a disabled flag exits 1. Verified by running the real entry point against a database that is down, restored, and dropped mid-run.
 - Backpressure: a process never has more than `JOBS_CONCURRENCY` handlers running and claims only the free capacity.
 - Staging first: apply migration `0012` (additive), enable the flag in staging, enqueue `memory.expire_sweep` with `npm run jobs -- enqueue-memory-sweep <tenant>`, watch the `{scope:"jobs"}` log lines.
 

@@ -1,5 +1,5 @@
 import { getEnv } from "./config/env";
-import { getDb } from "./db/client";
+import { getDb, getPool } from "./db/client";
 import { createDefaultJobRegistry } from "./jobs/default-registry";
 import { consoleJobTelemetry } from "./jobs/telemetry";
 import { startJobWorker } from "./jobs/worker";
@@ -15,7 +15,16 @@ if (!env.JOBS_ENABLED) {
   process.exit(1);
 }
 
+// An idle pooled connection dying (database restart, network drop) emits 'error' on the pool; with no
+// listener Node would crash. The poller already backs off and retries, so just record it.
+getPool().on("error", (e) => console.error(JSON.stringify({ scope: "jobs", event: "pool_error", error: e.name })));
+process.on("unhandledRejection", (e) => console.error(JSON.stringify({ scope: "jobs", event: "unhandled_rejection", error: e instanceof Error ? e.name : "unknown" })));
+
+// keepAlive: this process has nothing else holding the event loop open. Without it, a database that is
+// DOWN (no sockets, only an unref'd timer) lets Node exit with code 0 — a supervisor would see a clean
+// exit instead of a worker that should be retrying.
 const worker = startJobWorker(getDb(), {
+  keepAlive: true,
   registry: createDefaultJobRegistry(),
   pollIntervalMs: env.JOBS_POLL_INTERVAL_MS,
   concurrency: env.JOBS_CONCURRENCY,
