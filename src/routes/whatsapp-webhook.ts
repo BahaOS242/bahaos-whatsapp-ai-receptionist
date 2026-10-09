@@ -11,7 +11,9 @@ import { createMemoryService } from "../memory/create-memory-service";
 import type { MemoryService } from "../memory/service";
 import { createKnowledgeService } from "../knowledge/create-knowledge-service";
 import { ReceptionistAgent } from "../ai/receptionist-agent";
-import { parseVerificationQuery, parseWebhookPayload } from "../whatsapp/webhook-payload";
+import { parseVerificationQuery, parseWebhookPayload, parseWebhookStatuses } from "../whatsapp/webhook-payload";
+import { recordDeliveryReceipts } from "../messaging/delivery-receipts";
+import { resolveTenant } from "../db/domain-resolution";
 import { verifyWebhookSignature } from "../whatsapp/webhook-signature";
 import { processInboundWhatsAppMessage, processUnsupportedInboundMessage } from "../whatsapp/webhook-processing";
 import { wakeOutboxWorkers } from "../messaging/outbox-worker";
@@ -262,6 +264,33 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
     // returned) once every message in this delivery has been attempted.
     let firstError: unknown;
     let queuedAny = false;
+
+    // Delivery receipts (Meta `statuses`): what happened AFTER the provider's API accepted one of our replies. Never a
+    // conversation turn: no reply, no AI call. Same phone_number_id rule as messages; recorded in an idempotent ledger and
+    // applied to the outbox row's delivery_* columns (API acceptance in `status` is untouched). A processing failure is
+    // surfaced as a 500 so Meta redelivers (receipts are idempotent, so that is safe).
+    const receipts = parseWebhookStatuses(req.body);
+    if (receipts.length > 0) {
+      try {
+        const forUs = receipts.filter((r) => !env.WHATSAPP_PHONE_NUMBER_ID || r.phoneNumberId === env.WHATSAPP_PHONE_NUMBER_ID);
+        const rejected = receipts.length - forUs.length;
+        if (forUs.length > 0) {
+          const tenantId = await resolveTenant(db, business);
+          const r = await recordDeliveryReceipts(db, tenantId, forUs);
+          const failedCodes = [...new Set(forUs.filter((x) => x.status === "failed").map((x) => x.errorCode ?? "unknown"))];
+          console.log(
+            `[whatsapp webhook] delivery receipts: received=${r.received} recorded=${r.recorded} duplicates=${r.duplicates} ` +
+              `matched=${r.matched} awaitingProviderId=${r.awaitingProviderId} failed=${r.failedReceipts}` +
+              `${failedCodes.length > 0 ? ` failedCodes=${failedCodes.join(",")}` : ""}${rejected > 0 ? ` rejectedForOtherPhoneNumberId=${rejected}` : ""}`,
+          );
+        } else if (rejected > 0) {
+          console.error(`[whatsapp webhook] ignored ${rejected} delivery receipt(s) for an unexpected phone_number_id`);
+        }
+      } catch (error) {
+        console.error("[whatsapp webhook] error processing delivery receipts (will trigger a Meta retry):", error);
+        firstError ??= error;
+      }
+    }
     // After the response (success OR error) has been flushed, wake the
     // worker if any reply was committed to the outbox. Never delivers,
     // never awaited, never on the request path.

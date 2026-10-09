@@ -667,6 +667,15 @@ export const outboxMessages = pgTable(
     lastError: text("last_error"),
     errorCode: varchar("error_code", { length: 64 }),
     errorMetadata: jsonb("error_metadata").$type<Record<string, unknown>>(),
+    // --- delivery (Meta status webhooks) — SEPARATE from `status` above ----------------------------
+    // `status = 'sent'` means ONLY "the provider's API accepted the message". What actually happened to it
+    // afterwards (the customer's phone received it, read it, or the provider reported a failure) arrives later as
+    // status webhooks and lives here, derived from outbox_delivery_receipts. NULL = no receipt seen yet.
+    deliveryStatus: varchar("delivery_status", { length: 16 }), // provider_sent | delivered | read | failed
+    deliveryUpdatedAt: timestamp("delivery_updated_at", { withTimezone: true }),
+    deliveredAt: timestamp("delivered_at", { withTimezone: true }),
+    deliveryErrorCode: varchar("delivery_error_code", { length: 64 }),
+    deliveryErrorTitle: text("delivery_error_title"),
     ...timestamps,
   },
   (table) => [
@@ -685,6 +694,34 @@ export const outboxMessages = pgTable(
       .on(table.conversationId, table.seq)
       .where(sql`${table.status} in ('pending','processing','retry_wait')`),
     index("outbox_messages_tenant_status_idx").on(table.tenantId, table.status),
+    // Receipts find their row by the provider's id (tenant-scoped; NULL while accepted-without-id).
+    index("outbox_messages_tenant_provider_message_idx")
+      .on(table.tenantId, table.providerMessageId)
+      .where(sql`${table.providerMessageId} is not null`),
+  ],
+);
+
+// Append-only ledger of provider delivery receipts (Meta `statuses`). Receipts can arrive BEFORE the worker has
+// saved provider_message_id on the outbox row, twice, or out of order, so they are always recorded here first and
+// the outbox row's delivery_* columns are DERIVED from the ledger (order-independent and idempotent). Tenant-scoped.
+export const outboxDeliveryReceipts = pgTable(
+  "outbox_delivery_receipts",
+  {
+    id: id(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    providerMessageId: varchar("provider_message_id", { length: 255 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull(), // sent | delivered | read | failed
+    eventAt: timestamp("event_at", { withTimezone: true }).notNull(),
+    recipient: varchar("recipient", { length: 64 }),
+    errorCode: varchar("error_code", { length: 64 }),
+    errorTitle: text("error_title"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("outbox_delivery_receipts_event_key").on(table.tenantId, table.providerMessageId, table.status, table.eventAt),
+    index("outbox_delivery_receipts_message_idx").on(table.tenantId, table.providerMessageId),
   ],
 );
 

@@ -268,8 +268,9 @@ one-sentence `explanation`. Tenant-scoped.
 * Using the **mock transport in production** (unset WhatsApp credentials)
   *consumes* queued messages and marks them `sent` without reaching a phone —
   never use it to "pause" real traffic.
-* Delivery/read **status webhooks** are still ignored (so `sent` means
-  "accepted by Meta", not "delivered to the handset").
+* Delivery/read **status webhooks** are now recorded (migration 0013, see "Delivery receipts" below) in
+  `delivery_status`; `status = 'sent'` still means only "accepted by Meta", never "delivered to the handset". Showing
+  delivery state in the staff inbox is not built (separate future PR).
 * Only WhatsApp **text** messages; the model is channel-aware but no other
   channel/type exists.
 * The legacy `messages.outbound_attempts` / `next_retry_at` columns are kept
@@ -277,8 +278,33 @@ one-sentence `explanation`. Tenant-scoped.
 
 ## Backlog (not built, on purpose)
 
-Delivery-status webhooks (`delivered` / `read`);
+Inbox display of delivery state and an automatic-resend policy for failed receipts;
 metrics/alerting on dead letters and queue age; a proper pause switch for the
 worker; templates/media; business-event emission for external integrations
 (Zapier/CRM) — the outbox is a separate concern from those events and does not
 block them.
+
+## Delivery receipts: API acceptance vs actual delivery (migration 0013)
+
+`outbox_messages.status = 'sent'` means **only** that the provider's API accepted the message. It does not mean the customer's phone received it (observed on staging: a restricted Meta business account accepts sends, then reports `failed` / "Business Account locked" afterwards, and nothing reaches the phone).
+
+What happened afterwards arrives as Meta status webhooks (`value.statuses`), recorded separately:
+
+| Column on `outbox_messages` | Meaning |
+|---|---|
+| `delivery_status` | `NULL` (no receipt seen) · `provider_sent` · `delivered` · `read` · `failed` |
+| `delivered_at` | first `delivered`/`read` event time |
+| `delivery_error_code` / `delivery_error_title` | the provider's reason for a `failed` receipt (e.g. `meta_131031`) |
+| `delivery_updated_at` | when the derived value last changed |
+
+How it works (`src/messaging/delivery-receipts.ts`):
+- Every receipt is appended to `outbox_delivery_receipts` (unique on tenant + provider message id + status + event time, so a redelivered receipt is a no-op) and the outbox columns are **derived** from that ledger, so the result does not depend on arrival order: `read > delivered > failed > provider_sent` (a later or older `delivered`/`read` beats a contradicting `failed`).
+- **Early receipts:** a receipt can arrive before the worker has saved `provider_message_id`. It stays in the ledger and is applied the moment the worker saves the id. A per-(tenant, provider id) advisory lock serialises "receipt recorded" against "worker saved the id", so neither can miss the other (tested with a 30-round race, and by mutation).
+- **Tenant isolation:** every query is tenant-scoped; a receipt for another tenant's id changes nothing.
+- The webhook route handles receipts after the signature and `phone_number_id` checks. A receipt never creates a conversation turn, a reply, or an AI call; a processing error returns 500 so Meta redelivers (idempotent).
+- The log line `delivery receipts: received=… recorded=… duplicates=… matched=… awaitingProviderId=… failed=… failedCodes=…` contains no personal data.
+- **Not included (separate future PR):** showing "not delivered" in the staff inbox / any UI; automatic resend policy.
+
+Manual rollback of migration 0013 (additive; existing outbox data untouched): `drop table outbox_delivery_receipts; alter table outbox_messages drop column delivery_status, drop column delivery_updated_at, drop column delivered_at, drop column delivery_error_code, drop column delivery_error_title; drop index if exists outbox_messages_tenant_provider_message_idx;`
+**Staging has NOT had 0013 applied** (needs a separate approval); after it is applied the expected structure is 23 tables and 14 migration rows.
+

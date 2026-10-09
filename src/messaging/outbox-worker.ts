@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { cancelSupersededAiRows } from "./outbox-supersede";
 import type { Db } from "../db/client";
+import { lockProviderMessage, reconcileDeliveryForProviderMessage } from "./delivery-receipts";
 import type { MessagingProvider, OutboundMessageResult } from "./messaging-provider";
 import {
   decideAfterFailure,
@@ -306,6 +307,9 @@ async function recordOutcome(
 
   if (result.success) {
     return db.transaction(async (tx) => {
+      // Serialise with a receipt for this provider id being recorded right now (see delivery-receipts.ts): whichever side
+      // commits second sees the other's work, so an early receipt is never lost.
+      if (result.providerMessageId) await lockProviderMessage(tx, row.tenantId, result.providerMessageId);
       const updated = await tx.execute(sql`
         UPDATE outbox_messages
            SET status = 'sent', sent_at = ${t}::timestamptz, provider_message_id = ${result.providerMessageId ?? null},
@@ -315,6 +319,8 @@ async function recordOutcome(
          WHERE ${fence} RETURNING id`);
       if (updated.rows.length === 0) return "lost_lease";
       await tx.execute(sql`UPDATE messages SET status = 'sent', outbound_attempts = ${row.attemptCount}, next_retry_at = NULL, last_error = NULL WHERE id = ${row.messageId}::uuid`);
+      // A receipt may have arrived before this id was saved: apply anything already in the ledger.
+      if (result.providerMessageId) await reconcileDeliveryForProviderMessage(tx, row.tenantId, result.providerMessageId);
       return "sent";
     });
   }

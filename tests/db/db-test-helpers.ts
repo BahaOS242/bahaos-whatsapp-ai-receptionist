@@ -28,6 +28,7 @@ export function createTestDb() {
  * else). */
 export async function resetTestData(db: ReturnType<typeof createTestDb>["db"]): Promise<void> {
   // Outbox rows reference messages/conversations/customers.
+  await db.delete(schema.outboxDeliveryReceipts);
   await db.delete(schema.outboxMessages);
   // Knowledge-engine tables (they reference tenants/conversations).
   await db.delete(schema.knowledgeRetrievalLogs);

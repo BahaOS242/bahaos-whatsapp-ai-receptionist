@@ -43,13 +43,14 @@ describe("fresh-install migrations (REQUIRES a real Postgres)", () => {
     const pool = new Pool({ connectionString: new URL(`/${name}`, base).toString() });
     const phase4 = mkdtempSync(join(tmpdir(), "phase4-migrations-"));
     try {
-      // a migrations folder as it was at Phase 4: everything except 0012
+      // a migrations folder as it was at Phase 4: everything except 0012 and later
       cpSync(join(process.cwd(), "drizzle"), phase4, { recursive: true });
       const journalPath = join(phase4, "meta", "_journal.json");
       const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: Array<{ tag: string }> };
-      journal.entries = journal.entries.filter((e) => !e.tag.startsWith("0012"));
+      journal.entries = journal.entries.filter((e) => !e.tag.startsWith("0012") && !e.tag.startsWith("0013"));
       writeFileSync(journalPath, JSON.stringify(journal));
       rmSync(join(phase4, "0012_background_jobs.sql"));
+      rmSync(join(phase4, "0013_delivery_receipts.sql")); // a Phase 4 folder has neither 0012 nor anything after it
       await migrate(drizzle(pool), { migrationsFolder: phase4 });
       expect((await pool.query("select to_regclass('public.background_jobs') as t")).rows[0].t).toBeNull();
 
@@ -85,6 +86,58 @@ describe("fresh-install migrations (REQUIRES a real Postgres)", () => {
       expect(await snap()).toBe(before);
     } finally {
       rmSync(phase4, { recursive: true, force: true });
+      await pool.end();
+      await admin.query(`DROP DATABASE IF EXISTS ${name}`);
+      await admin.end();
+    }
+  }, 120_000);
+
+  it("0013 (delivery receipts) is additive: upgrades a 0012 database keeping every outbox row and value; new columns NULL; ledger constraints real; manual rollback is clean", async () => {
+    const base = new URL(process.env.TEST_DATABASE_URL ?? "postgres://localhost:5432/bahaos_concurrency_test");
+    const name = `bahaos_upg13_${process.pid}_${Date.now()}`;
+    const admin = new Pool({ connectionString: new URL("/postgres", base).toString() });
+    await admin.query(`CREATE DATABASE ${name}`);
+    const pool = new Pool({ connectionString: new URL(`/${name}`, base).toString() });
+    const upTo12 = mkdtempSync(join(tmpdir(), "to12-migrations-"));
+    try {
+      cpSync(join(process.cwd(), "drizzle"), upTo12, { recursive: true });
+      const journalPath = join(upTo12, "meta", "_journal.json");
+      const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: Array<{ tag: string }> };
+      journal.entries = journal.entries.filter((e) => !e.tag.startsWith("0013"));
+      writeFileSync(journalPath, JSON.stringify(journal));
+      rmSync(join(upTo12, "0013_delivery_receipts.sql"));
+      await migrate(drizzle(pool), { migrationsFolder: upTo12 });
+      expect((await pool.query("select to_regclass('public.outbox_delivery_receipts') as t")).rows[0].t).toBeNull();
+
+      const T = "11111111-1111-4111-8111-111111111111", C = "c1111111-1111-4111-8111-111111111111", V = "d1111111-1111-4111-8111-111111111111", M = "e1111111-1111-4111-8111-111111111111";
+      await pool.query(`insert into tenants(id,slug,name,timezone) values ('${T}','t1','T1','UTC')`);
+      await pool.query(`insert into customers(id,tenant_id,whatsapp_id) values ('${C}','${T}','+12425550001')`);
+      await pool.query(`insert into conversations(id,tenant_id,customer_id,status) values ('${V}','${T}','${C}','ai_active')`);
+      await pool.query(`insert into messages(id,tenant_id,conversation_id,direction,sender_type,content) values ('${M}','${T}','${V}','outbound','ai','hello')`);
+      await pool.query(`insert into outbox_messages(id,tenant_id,conversation_id,customer_id,message_id,recipient,payload,status,idempotency_key,provider_message_id,sent_at) values (gen_random_uuid(),'${T}','${V}','${C}','${M}','+12425550001','{"body":"hello"}','sent','k1','wamid.OLD', now())`);
+      const cols = "id, tenant_id, status, provider_message_id, idempotency_key, payload, sent_at";
+      const before = JSON.stringify((await pool.query(`select ${cols} from outbox_messages order by 1`)).rows);
+
+      await migrate(drizzle(pool), { migrationsFolder: join(process.cwd(), "drizzle") });
+      expect(JSON.stringify((await pool.query(`select ${cols} from outbox_messages order by 1`)).rows)).toBe(before);
+      const added = (await pool.query("select delivery_status, delivery_updated_at, delivered_at, delivery_error_code, delivery_error_title from outbox_messages")).rows[0];
+      expect(Object.values(added).every((v) => v === null)).toBe(true);
+
+      // ledger: tenant FK is real, and (tenant, id, status, event time) is unique
+      const ins = (t: string) => pool.query(`insert into outbox_delivery_receipts(id,tenant_id,provider_message_id,status,event_at) values (gen_random_uuid(),'${t}','wamid.OLD','delivered','2026-01-01T00:00:00Z')`);
+      await expect(ins("99999999-9999-4999-8999-999999999999")).rejects.toThrow();
+      await ins(T);
+      await expect(ins(T)).rejects.toThrow();
+      const idx = (await pool.query("select indexname from pg_indexes where tablename in ('outbox_delivery_receipts','outbox_messages') order by 1")).rows.map((r) => r.indexname);
+      expect(idx).toEqual(expect.arrayContaining(["outbox_delivery_receipts_event_key", "outbox_delivery_receipts_message_idx", "outbox_messages_tenant_provider_message_idx"]));
+
+      // documented manual rollback: drop the ledger and the five columns; existing outbox data untouched
+      await pool.query(
+        "drop table outbox_delivery_receipts; alter table outbox_messages drop column delivery_status, drop column delivery_updated_at, drop column delivered_at, drop column delivery_error_code, drop column delivery_error_title; drop index if exists outbox_messages_tenant_provider_message_idx;",
+      );
+      expect(JSON.stringify((await pool.query(`select ${cols} from outbox_messages order by 1`)).rows)).toBe(before);
+    } finally {
+      rmSync(upTo12, { recursive: true, force: true });
       await pool.end();
       await admin.query(`DROP DATABASE IF EXISTS ${name}`);
       await admin.end();
