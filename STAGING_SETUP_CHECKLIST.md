@@ -94,7 +94,7 @@ Repo branch `claude/phase5-jobs-and-receptionist-fixes` (never `main`). **Build:
 
 ## 2.2b Lessons from the first run (do these in order)
 1. After the webhook is saved in Meta, **subscribe the WhatsApp account to your app** (Meta's use-case page does not always do it): with a real access token (starts `EAA`, hundreds of characters, entered through a hidden prompt) run `POST https://graph.facebook.com/v25.0/<WABA id>/subscribed_apps`, then `GET` the same URL and confirm your app is listed. Without it Meta shows your messages on its test page but never sends them to the service.
-2. After the first deploy, send one message and check the Render log for `accepted delivery`, then confirm the log does **not** say `[simulated tool]` (that means `DB_BOOKING_ENABLED` is not `true`).
+2. From the version with the startup guard onward, the service **refuses to start** in production when booking would use demo tools, and logs one line `[startup] runtime profile: … bookingBackend=database …` (no secrets) — check it after each deploy. Before that version: after the first deploy, send one message and check the Render log for `accepted delivery`, then confirm the log does **not** say `[simulated tool]` (that means `DB_BOOKING_ENABLED` is not `true`).
 3. A Meta business that needs verification can accept your messages but not deliver replies: the outbox will say `sent` while the phone receives nothing.
 
 ## 2.3 Deploy, then test

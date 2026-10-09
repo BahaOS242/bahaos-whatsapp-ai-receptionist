@@ -1,5 +1,6 @@
 import { createApp } from "./app";
 import { getEnv } from "./config/env";
+import { assertSafeRuntimeProfile, describeRuntimeProfile, resolveRuntimeProfile } from "./config/runtime-profile";
 import { getDb } from "./db/client";
 import { createMessagingProvider } from "./messaging/create-messaging-provider";
 import { createDefaultJobRegistry } from "./jobs/default-registry";
@@ -8,6 +9,11 @@ import { startJobWorker } from "./jobs/worker";
 import { startOutboxPoller } from "./messaging/outbox-worker";
 
 const env = getEnv();
+
+// Say what this process will really run with (no secrets) and refuse unsafe production profiles before touching anything.
+const runtimeProfile = resolveRuntimeProfile(env);
+console.log(describeRuntimeProfile(runtimeProfile));
+assertSafeRuntimeProfile(runtimeProfile, env);
 const app = createApp();
 
 // Durable outbound delivery (see src/messaging/outbox.ts and OUTBOX.md).

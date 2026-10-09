@@ -76,6 +76,13 @@ const envSchema = z.object({
     .optional()
     .default("false")
     .transform((v) => v === "true"),
+  // Explicit override for the production startup guard (src/config/runtime-profile.ts). Off by default: in production the
+  // app refuses to start with demo/in-memory booking tools or an inbound webhook with the mock outbound transport.
+  ALLOW_DEMO_TOOLS_IN_PRODUCTION: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
   JOBS_POLL_INTERVAL_MS: z.coerce.number().int().min(250).default(5_000),
   JOBS_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
   // Upper bound on graceful shutdown (pending claim + running handlers). Beyond it work is abandoned to lease recovery.
