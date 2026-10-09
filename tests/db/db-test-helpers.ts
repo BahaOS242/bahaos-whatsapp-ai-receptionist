@@ -35,6 +35,7 @@ export async function resetTestData(db: ReturnType<typeof createTestDb>["db"]): 
   await db.delete(schema.knowledgeDocuments);
   await db.delete(schema.knowledgeSources);
   await db.delete(schema.knowledgeConflicts);
+  await db.delete(schema.customerMemories);
   await db.delete(schema.auditEvents);
   await db.delete(schema.appointments);
   await db.delete(schema.leads);

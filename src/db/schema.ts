@@ -889,3 +889,56 @@ export const auditEvents = pgTable(
     index("audit_events_entity_idx").on(table.entityType, table.entityId),
   ],
 );
+
+// --- Customer memory (Phase 4; see MEMORY_ENGINE.md) -----------------------
+
+export const memoryKindEnum = pgEnum("memory_kind", [
+  "preferred_name",
+  "preferred_language",
+  "scheduling_preference",
+  "service_interest",
+  "continuity",
+]);
+export const memoryStatusEnum = pgEnum("memory_status", ["active", "superseded", "invalidated", "deleted"]);
+export const memorySourceEnum = pgEnum("memory_source", ["customer_stated", "staff_entered", "system_derived"]);
+
+/**
+ * One durable, provenance-bearing fact about ONE customer of ONE tenant.
+ * At most one ACTIVE row per (tenant, customer, kind, slot) — enforced by the
+ * partial unique index, so concurrent writers cannot create conflicting
+ * active facts. Rows that leave `active` are scrubbed (value/display blanked)
+ * and kept only as tombstones for accountability.
+ */
+export const customerMemories = pgTable(
+  "customer_memories",
+  {
+    id: id(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id),
+    kind: memoryKindEnum("kind").notNull(),
+    slot: varchar("slot", { length: 80 }).notNull(),
+    value: varchar("value", { length: 200 }).notNull(),
+    display: varchar("display", { length: 200 }),
+    status: memoryStatusEnum("status").notNull().default("active"),
+    source: memorySourceEnum("source").notNull(),
+    /** Phase 4 stores explicit statements only; inferred traits are never persisted. */
+    provenance: varchar("provenance", { length: 16 }).notNull().default("explicit"),
+    sourceMessageId: uuid("source_message_id").references(() => messages.id),
+    conversationId: uuid("conversation_id").references(() => conversations.id),
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    statusChangedAt: timestamp("status_changed_at", { withTimezone: true }),
+    statusReason: varchar("status_reason", { length: 64 }),
+    supersededById: uuid("superseded_by_id"),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("customer_memories_active_slot_key")
+      .on(table.tenantId, table.customerId, table.kind, table.slot)
+      .where(sql`${table.status} = 'active'`),
+    index("customer_memories_customer_idx").on(table.tenantId, table.customerId, table.status),
+  ],
+);

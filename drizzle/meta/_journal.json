@@ -78,6 +78,13 @@
       "when": 1791506654491,
       "tag": "0010_human_inbox",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791512160395,
+      "tag": "0011_customer_memory",
+      "breakpoints": true
     }
   ]
 }

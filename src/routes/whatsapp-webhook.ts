@@ -7,6 +7,8 @@ import {
   createLanguageObservationRecorder,
   createReceptionistTools,
 } from "../ai/create-provider";
+import { createMemoryService } from "../memory/create-memory-service";
+import type { MemoryService } from "../memory/service";
 import { createKnowledgeService } from "../knowledge/create-knowledge-service";
 import { ReceptionistAgent } from "../ai/receptionist-agent";
 import { parseVerificationQuery, parseWebhookPayload } from "../whatsapp/webhook-payload";
@@ -77,6 +79,8 @@ export interface WhatsAppWebhookDeps {
   db?: ReturnType<typeof getDb>;
   business?: BusinessContext;
   agent?: ReceptionistAgent;
+  /** Injected in tests; by default built from MEMORY_ENABLED (undefined when off). */
+  memory?: MemoryService;
 }
 
 interface RequestWithRawBody extends Request {
@@ -94,6 +98,8 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
   const agent =
     deps.agent ??
     new ReceptionistAgent(createAiProvider(env), createReceptionistTools(env, db), createLanguageObservationRecorder(env, db), createKnowledgeService(env, db));
+
+  const memory = deps.memory ?? createMemoryService(business, env);
 
   if (env.NODE_ENV === "production" && env.WHATSAPP_WEBHOOK_VERIFY_TOKEN && !env.WHATSAPP_APP_SECRET) {
     // Genuine "accidental insecure default" found in this hardening
@@ -365,7 +371,7 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
     if (!message.text) return false; // unreachable in practice — text is always set unless unsupportedType is
 
     const outcome = await processInboundWhatsAppMessage(
-      { db, business, agent },
+      { db, business, agent, memory },
       {
         phone,
         message: message.text,

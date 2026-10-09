@@ -395,6 +395,11 @@ export interface AIProviderRequest {
    * any other application state. Undefined when the engine is off, in
    * which case providers behave exactly as they did before it existed. */
   knowledge?: KnowledgeLookup;
+  /** Pre-rendered, bounded, delimited customer-memory block (see src/memory).
+   * Supporting DATA only — never instructions, never authority over tools,
+   * availability, prices, hours, ownership or sends. Undefined when memory is
+   * off or nothing relevant exists; providers then behave exactly as before. */
+  memory?: string;
   /** The durable conversation this turn belongs to, when the caller uses
    * persistence (PersistedConversationManager — see src/db/persisted-conversation.ts).
    * Never read by any AIProvider implementation itself; ReceptionistAgent

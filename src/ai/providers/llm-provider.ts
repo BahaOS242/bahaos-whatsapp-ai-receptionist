@@ -31,6 +31,7 @@ import { extractPhone } from "../phone";
 import { flipMeridiemHour, normalizeTime } from "../date-time";
 import { truncatePhrase } from "../unclear-phrase";
 import { generateOccurrenceDates, RECURRING_OCCURRENCE_COUNT } from "../recurrence";
+import { MAX_MEMORY_PROMPT_CHARS } from "../../memory/types";
 import { verifyReplyGrounding } from "../../knowledge/answer-guard";
 import { parseMoneyCents } from "../../knowledge/claims";
 import { buildKnowledgeSection, KNOWLEDGE_GROUNDING_RULES } from "../../knowledge/evidence-prompt";
@@ -429,6 +430,8 @@ export class LLMProvider implements AIProvider {
         : undefined;
 
     let systemPrompt = buildSystemPrompt({ ...request, bookingState });
+    // Customer memory: low-authority, delimited DATA appended after every rule. Absent => prompt unchanged.
+    if (request.memory && request.memory.length <= MAX_MEMORY_PROMPT_CHARS) systemPrompt = `${systemPrompt}\n\n${request.memory}`;
     const messages: LlmChatMessage[] = [
       ...request.history.map((turn): LlmChatMessage => ({
         role: turn.role === "customer" ? "user" : "assistant",

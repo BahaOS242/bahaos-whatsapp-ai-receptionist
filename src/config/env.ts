@@ -60,6 +60,14 @@ const envSchema = z.object({
     .optional()
     .default("false")
     .transform((v) => v === "true"),
+  // Customer & conversation memory — see MEMORY_ENGINE.md. Explicit opt-in,
+  // default off, same shape as KNOWLEDGE_ENABLED. Off => no extraction, no
+  // retrieval, no prompt change, no queries against customer_memories.
+  MEMORY_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
   // Optional remote embeddings (Voyage AI — Anthropic's recommended
   // embeddings partner). Absent => the offline hashing embedder, so local
   // dev and every test need no credentials. OpenAI is deliberately not an

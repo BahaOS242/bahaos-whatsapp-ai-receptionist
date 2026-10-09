@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { PersistedConversationManager } from "../db/persisted-conversation";
+import type { MemoryService } from "../memory/service";
 import { isHumanOwned } from "../db/conversations";
 import { recordAudit } from "../inbox/audit";
 import { findOrCreateActiveConversation } from "../db/conversations";
@@ -153,6 +154,8 @@ export interface WebhookProcessingDeps {
   db: Db;
   business: BusinessContext;
   agent: ReceptionistAgent;
+  /** Customer memory (MEMORY_ENABLED). Absent => no extraction, no retrieval, nothing changes. */
+  memory?: MemoryService;
 }
 
 /**
@@ -254,6 +257,13 @@ export async function processInboundWhatsAppMessage(
       };
     }
 
+    // CUSTOMER MEMORY — extraction. Runs for any non-duplicate customer message,
+    // including while a human owns the conversation (same validation, and it
+    // sends nothing). Only the CUSTOMER's words are ever considered; failures
+    // are contained in a savepoint and never affect the turn.
+    const memoryScope = { tenantId: manager.tenantId, customerId: manager.customerId, conversationId: manager.conversationId, sourceMessageId: inboundMessageId };
+    if (deps.memory) await deps.memory.processCustomerMessage(tx, memoryScope, input.message);
+
     // HUMAN OWNERSHIP GATE (Phase 3). If a person owns — or has been asked
     // to own — this conversation, the AI must not reply. The status is
     // re-read UNDER A ROW LOCK so the decision is race-free against a staff
@@ -282,6 +292,12 @@ export async function processInboundWhatsAppMessage(
       ...manager.buildRequest({ customer: {}, history, message: input.message }),
       conversationId: manager.conversationId,
     };
+
+    // CUSTOMER MEMORY — retrieval. Only reached when the AI is allowed to reply.
+    const memoryBlock = deps.memory
+      ? await deps.memory.contextFor(tx, memoryScope, input.message, manager.getBookingState())
+      : undefined;
+    if (memoryBlock) request.memory = memoryBlock;
 
     await manager.markTurnStart();
     const result = await deps.agent.handleMessage(request);
@@ -322,6 +338,15 @@ export async function processInboundWhatsAppMessage(
     const escalation = result.actionsTaken.find((a) => a.action.type === "escalate" && a.result.success);
     const handoffReason = escalation && escalation.action.type === "escalate" ? escalation.action.payload.reason : undefined;
     await manager.commitTurn(result.bookingState, result.handoffActive, handoffReason);
+    if (deps.memory) {
+      // Application-derived continuity from deterministic signals (never from the model's text).
+      // Only when the CUSTOMER asked for a person — not for emergencies or "could not understand" escalations.
+      if (result.handoffActive && handoffReason === "customer explicitly asked for a person") {
+        await deps.memory.recordContinuity(tx, memoryScope, { type: "requested_human" });
+      }
+      const booked = result.actionsTaken.some((a) => a.action.type === "request_appointment" && a.result.success);
+      if (!booked) await deps.memory.recordContinuity(tx, memoryScope, { type: "service_inquiry", message: input.message });
+    }
     if (result.handoffActive) {
       await recordAudit(tx, {
         tenantId: manager.tenantId,

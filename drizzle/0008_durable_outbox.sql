@@ -56,6 +56,6 @@ SELECT gen_random_uuid(), m."tenant_id", m."conversation_id", c."customer_id", m
 FROM "messages" m
 JOIN "conversations" c ON c."id" = m."conversation_id"
 JOIN "customers" cu ON cu."id" = c."customer_id"
-WHERE m."direction" = 'outbound' AND m."status" = 'retry_pending'
+WHERE m."direction" = 'outbound' AND m."status"::text = 'retry_pending'  -- ::text: a fresh install adds this enum value earlier in the SAME migration transaction, where using the enum literal is illegal
 ORDER BY m."created_at", m."id"  -- seq is assigned in insert order: keep per-conversation message order
 ON CONFLICT DO NOTHING;
