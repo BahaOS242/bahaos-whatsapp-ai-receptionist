@@ -70,7 +70,14 @@ export function trimNameAtBoundary(candidate: string): string {
   return kept.join(" ");
 }
 
-const CONTRAST_LEAD_INS = new Set(["it's", "its", "it", "is", "i'm", "im", "i", "am", "this", "name", "my", "call", "me", "sorry", "actually", "no", "nope", "nah", "oops", "wait", "um", "uh", "its'"]);
+/** Words that may precede the corrected name: pronoun/copula lead-ins, correction vocabulary AND confirmation/filler words
+ * ("yes, Alisha not Alicia", "ok it's Alisha, not Alicia"). */
+const CONTRAST_LEAD_INS = new Set([
+  "it's", "its", "it", "is", "i'm", "im", "i", "am", "this", "name", "my", "call", "me", "sorry", "actually", "no", "nope", "nah", "oops", "wait", "um", "uh",
+  "yes", "yeah", "yep", "yup", "ya", "yea", "ok", "okay", "k", "sure", "right", "correct", "hey", "hi", "hello", "well", "so", "oh", "please", "pls", "thanks", "thank", "you", "and", "but",
+]);
+/** Curly/modifier/backtick apostrophes -> ASCII, so "It’s" == "It's". */
+export const normalizeApostrophes = (text: string) => text.replace(/[\u2018\u2019\u02bc\u2032`´]/g, "'");
 
 /**
  * An explicit name CONTRAST against the name we already hold: "It's Alisha, not Alicia", "Alisha not Alicia",
@@ -79,7 +86,8 @@ const CONTRAST_LEAD_INS = new Set(["it's", "its", "it", "is", "i'm", "im", "i", 
  */
 export function extractNameContrast(message: string, currentName: string | undefined): string | null {
   if (!currentName) return null;
-  const cur = currentName.trim().toLowerCase();
+  message = normalizeApostrophes(message);
+  const cur = normalizeApostrophes(currentName).trim().toLowerCase();
   if (!cur) return null;
   const re = /\bnot\s+([A-Za-z][A-Za-z'’-]*(?:\s+[A-Za-z][A-Za-z'’-]*)?)/gi;
   for (const m of message.matchAll(re)) {
