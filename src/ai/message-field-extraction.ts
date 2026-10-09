@@ -1,4 +1,4 @@
-import { correctionBlocksBareName, hasCorrectionLanguage, stripCorrectionLanguage } from "./correction-language";
+import { correctionBlocksBareName, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "./correction-language";
 import {
   combineBareTime,
   decodeBareTime,
@@ -550,7 +550,7 @@ export function extractStatedFields(
   if (!currentState.name || hasCorrection || HIGH_CONFIDENCE_NAME_RE.test(message)) {
     const highConfidence = message.match(HIGH_CONFIDENCE_NAME_RE);
     if (highConfidence) {
-      const trimmed = trimToLeadingNameWords(highConfidence[1]);
+      const trimmed = trimNameAtBoundary(trimToLeadingNameWords(highConfidence[1]));
       if (trimmed) extracted.name = titleCase(trimmed);
     } else if (next === "name" && !correctionBlocksBareName(message, extracted)) {
       // (a date/time change phrased as a correction is a schedule update, never an identity answer)

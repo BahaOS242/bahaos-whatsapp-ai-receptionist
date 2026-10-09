@@ -1,4 +1,4 @@
-import { correctionBlocksBareName, hasCorrectionLanguage, stripCorrectionLanguage } from "../correction-language";
+import { correctionBlocksBareName, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "../correction-language";
 import {
   resolveDateWord,
   parseTime,
@@ -581,7 +581,8 @@ function extractStatedFields(
 
   const highConfidenceName = text.match(HIGH_CONFIDENCE_NAME_RE);
   if (highConfidenceName) {
-    fields.name = titleCase(highConfidenceName[1].trim());
+    const introduced = trimNameAtBoundary(highConfidenceName[1]);
+    if (introduced) fields.name = titleCase(introduced);
   } else if (options.allowLowConfidenceName) {
     const lowConfidenceName = text.match(LOW_CONFIDENCE_NAME_RE);
     if (lowConfidenceName) fields.name = titleCase(lowConfidenceName[1].trim());

@@ -39,3 +39,26 @@ export function correctionBlocksBareName(
 ): boolean {
   return hasCorrectionLanguage(message) && Boolean(stated.date || stated.time) && !stated.phone;
 }
+
+/**
+ * Words that END a name introduced with "my name is …". A CLOSED grammatical class
+ * (negations, conjunctions, pronouns, auxiliaries, correction vocabulary) — not a list
+ * of things that "aren't names" — so the boundary never depends on comma punctuation:
+ * "my name is Alisha not Alicia" -> "Alisha", "my name is Sarah and I want…" -> "Sarah".
+ */
+const NAME_BOUNDARY_WORDS = new Set([
+  "not", "no", "nor", "never", "isn't", "isnt", "and", "but", "or", "so", "because", "though", "although", "while", "then",
+  "i", "i'm", "im", "i'd", "i'll", "my", "me", "you", "we", "it", "its", "it's", "is", "was", "are", "am", "be",
+  "actually", "instead", "rather", "sorry", "please", "pls", "thanks", "thank", "wait", "oops", "nah", "nope",
+  "want", "need", "would", "like", "can", "could", "for", "to", "at", "on", "in", "with", "from",
+]);
+
+/** Cuts an introduced-name candidate at the first boundary word; returns "" if the first word is one. */
+export function trimNameAtBoundary(candidate: string): string {
+  const kept: string[] = [];
+  for (const word of candidate.trim().split(/\s+/)) {
+    if (NAME_BOUNDARY_WORDS.has(word.toLowerCase().replace(/[.,;:!?]+$/, ""))) break;
+    kept.push(word.replace(/[.,;:!?]+$/, ""));
+  }
+  return kept.join(" ");
+}

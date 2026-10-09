@@ -43,7 +43,7 @@ const WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday"];
 const SCHEDULING_WORD = /\b(appointments?|visits?|bookings?|times?|slots?|schedul\w+|come in)\b/i;
 const INTEREST_LEAD = /\b(?:i'?m|i am|i was|i have been|i've been) (?:interested in|looking (?:for|into)|thinking (?:about|of))\b|\binterested in\b/i;
 
-const NAME_CONNECTORS = new Set(["and", "but", "or", "so", "because", "i", "i'm", "im", "my", "please", "thanks", "thank", "also", "then", "when", "if"]);
+const NAME_CONNECTORS = new Set(["not", "no", "nor", "is", "was", "are", "and", "but", "or", "so", "because", "i", "i'm", "im", "my", "please", "thanks", "thank", "also", "then", "when", "if"]);
 
 /** Cuts a captured name at the first connector word ("Pat and I prefer…" -> "Pat"). */
 function cutAtConnector(raw: string): string | null {
