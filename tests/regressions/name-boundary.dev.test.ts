@@ -20,6 +20,8 @@ describe.each([
   ["My name is Alisha instead of Alicia", "Alisha"],
   ["My name is Sarah and I want a cleaning", "Sarah"],
   ["My name is Mary Jane", "Mary Jane"],
+  ["my name is actually Trevon", "Trevon"],
+  ["My name is actually Alisha not Alicia", "Alisha"],
 ])("introduction %j", (message, expected) => {
   it("fallback: stored name is exact, and the booked payload carries it", async () => {
     const c = devConversation();

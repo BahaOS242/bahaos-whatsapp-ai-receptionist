@@ -53,10 +53,17 @@ const NAME_BOUNDARY_WORDS = new Set([
   "want", "need", "would", "like", "can", "could", "for", "to", "at", "on", "in", "with", "from",
 ]);
 
+/** Emphasis words that may sit between "my name is" and the name itself. */
+const NAME_LEAD_IN_WORDS = new Set(["actually", "really", "just", "now", "sorry", "um", "uh", "well", "honestly"]);
+
 /** Cuts an introduced-name candidate at the first boundary word; returns "" if the first word is one. */
 export function trimNameAtBoundary(candidate: string): string {
   const kept: string[] = [];
+  let leading = true;
   for (const word of candidate.trim().split(/\s+/)) {
+    // "my name is ACTUALLY Trevon": emphasis words BEFORE the name are skipped (a negation such as "not" is not).
+    if (leading && NAME_LEAD_IN_WORDS.has(word.toLowerCase().replace(/[.,;:!?]+$/, ""))) continue;
+    leading = false;
     if (NAME_BOUNDARY_WORDS.has(word.toLowerCase().replace(/[.,;:!?]+$/, ""))) break;
     kept.push(word.replace(/[.,;:!?]+$/, ""));
   }
