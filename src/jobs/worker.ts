@@ -19,6 +19,8 @@ import { TransientJobError, type JobContext, type JobOutcome, type JobRow } from
 
 export const DEFAULT_LEASE_SECONDS = 120;
 const LEASE_TIMEOUT_MARGIN_MS = 5_000;
+/** Upper bound on handing ONE unexecuted claim back during shutdown. */
+const RELEASE_TIMEOUT_MS = 2_000;
 
 export interface JobWorkerOptions {
   registry: JobRegistry;
@@ -29,6 +31,8 @@ export interface JobWorkerOptions {
   tenantId?: string;
   telemetry?: JobTelemetry;
   rng?: () => number;
+  /** Polled between database steps of a claim: once true, no further claim statement is issued. */
+  shouldStop?: () => boolean;
 }
 
 const iso = (d: Date) => d.toISOString();
@@ -64,6 +68,7 @@ export async function claimJobs(db: Db, opts: JobWorkerOptions, limit: number): 
   const lease = opts.leaseSeconds ?? DEFAULT_LEASE_SECONDS;
   const owner = (opts.workerId ?? "worker").slice(0, 100);
   await failExhausted(db, types, now, opts.tenantId);
+  if (opts.shouldStop?.()) return []; // shutdown began while the previous step was running: claim nothing
 
   const result = await db.execute(sql`
     WITH c AS (
@@ -275,7 +280,7 @@ export function startJobWorker(db: Db, opts: JobPollerOptions): { stop: () => Pr
     if (def.timeoutMs + LEASE_TIMEOUT_MARGIN_MS >= lease * 1000) throw new Error(`job type ${type}: timeoutMs must be well below the ${lease}s lease`);
   }
   const workerId = opts.workerId ?? `w-${process.pid}-${randomUUID().slice(0, 8)}`;
-  const shared: JobWorkerOptions = { ...opts, workerId };
+  const shared: JobWorkerOptions = { ...opts, workerId, shouldStop: () => stopped };
   const inflight = new Set<Promise<void>>();
   const shutdown = new AbortController();
   let stopped = false;
@@ -297,7 +302,8 @@ export function startJobWorker(db: Db, opts: JobPollerOptions): { stop: () => Pr
           // Shutdown raced a claim that was already in flight: NEVER start a handler now. Give the
           // rows back untouched (fenced, attempt un-counted) so another worker takes them at once.
           const now = (opts.clock ?? (() => new Date()))();
-          for (const row of rows) await releaseClaim(db, row, now).catch(() => undefined); // a failed release is recovered by lease expiry
+          // Bounded: if the database is stalled the release is abandoned and lease expiry recovers the row.
+          for (const row of rows) await Promise.race([releaseClaim(db, row, now).catch(() => undefined), new Promise((r) => setTimeout(r, RELEASE_TIMEOUT_MS).unref?.())]);
           break;
         }
         for (const row of rows) {
@@ -339,19 +345,26 @@ export function startJobWorker(db: Db, opts: JobPollerOptions): { stop: () => Pr
 
   return {
     inFlight: () => inflight.size,
+    /**
+     * Total time is BOUNDED by ~ drainTimeoutMs + 2s (abort grace), however stalled the database is:
+     * the pending claim, running handlers and claim cleanup all share one deadline. Nothing starts after
+     * stop(); anything abandoned (a claim whose statement is stuck, a handler that ignores abort) is left
+     * as `running` with a lease and is recovered by the next worker once the lease expires.
+     */
     stop: async () => {
       stopped = true;
       clearInterval(timer);
       wakeListeners.delete(wake);
-      if (currentTick) await currentTick; // a claim still in flight is resolved (released) BEFORE we drain
-      const drain = Promise.allSettled([...inflight]);
-      const deadline = opts.drainTimeoutMs ?? 20_000;
-      await Promise.race([drain, new Promise((r) => setTimeout(r, deadline).unref?.())]);
-      if (inflight.size > 0) {
+      const deadline = Date.now() + (opts.drainTimeoutMs ?? 20_000);
+      const within = (p: Promise<unknown>, ms: number) => Promise.race([p.then(() => true), new Promise<boolean>((r) => setTimeout(() => r(false), Math.max(0, ms)).unref?.())]);
+      // a claim still in flight is resolved (released, bounded) BEFORE we drain — but never waited on forever
+      const tickSettled = currentTick ? await within(currentTick, deadline - Date.now()) : true;
+      const drained = await within(Promise.allSettled([...inflight]), deadline - Date.now());
+      if (!drained || inflight.size > 0) {
         shutdown.abort(); // handlers see the signal; anything unfinished is recovered by lease expiry
-        await Promise.race([Promise.allSettled([...inflight]), new Promise((r) => setTimeout(r, 2_000).unref?.())]);
+        await within(Promise.allSettled([...inflight]), 2_000);
       }
-      tel.emit("worker_stopped", { workerId, abandoned: inflight.size });
+      tel.emit("worker_stopped", { workerId, abandoned: inflight.size, claimAbandoned: !tickSettled });
     },
   };
 }

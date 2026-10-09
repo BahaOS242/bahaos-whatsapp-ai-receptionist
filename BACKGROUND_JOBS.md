@@ -80,11 +80,11 @@ Claim = one statement (`SELECT … FOR UPDATE SKIP LOCKED` → `UPDATE`): status
 
 ## 10. Process lifecycle and deployment
 
-- Flags: `JOBS_ENABLED` (default **false**), `JOBS_POLL_INTERVAL_MS` (5000, min 250), `JOBS_CONCURRENCY` (4, 1–32). Independent of `MEMORY_ENABLED` and of the WhatsApp outbox, which still starts unconditionally.
+- Flags: `JOBS_ENABLED` (default **false**), `JOBS_POLL_INTERVAL_MS` (5000, min 250), `JOBS_CONCURRENCY` (4, 1–32), `JOBS_SHUTDOWN_TIMEOUT_MS` (20000, 100–120000). Independent of `MEMORY_ENABLED` and of the WhatsApp outbox, which still starts unconditionally.
 - **Development**: `JOBS_ENABLED=true npm run dev` (worker runs in the web process) or `npm run jobs -- …` to inspect.
 - **Production (current Railway single process)**: set `JOBS_ENABLED=true`; the web process runs the worker, many replicas are safe. **Isolation option**: `npm run build && JOBS_ENABLED=true npm run worker` as a second service (refuses to start when the flag is off).
 - Shutdown: SIGTERM/SIGINT ⇒ stop claiming, wait up to 20 s for in-flight jobs, then abort their signals; anything unfinished is recovered by lease expiry. Polling backs off exponentially (0.5 s → 30 s) on database errors and never crashes; state lives in Postgres so nothing is lost.
-- Shutdown ordering: `stop()` first resolves any claim still in flight (rows claimed after shutdown began are released untouched — never executed), then drains running handlers.
+- Shutdown (bounded): `stop()` shares ONE deadline (`JOBS_SHUTDOWN_TIMEOUT_MS`, default 20 s) across the pending claim, running handlers and claim cleanup, plus ≤ 2 s abort grace — it cannot hang on a stalled database. No claim statement is issued after stop; a claim that resolves late is released untouched (bounded to 2 s) or, if the database is stuck, left `running` with its lease and recovered by the next worker after the lease expires (≤ 120 s). A handler never starts after stop.
 - Standalone worker (`src/worker.ts`) keeps the process alive during database downtime (ref'd poll timer), logs pool errors instead of crashing, and exits 0 only after SIGTERM/SIGINT; a disabled flag exits 1. Verified by running the real entry point against a database that is down, restored, and dropped mid-run.
 - Backpressure: a process never has more than `JOBS_CONCURRENCY` handlers running and claims only the free capacity.
 - Staging first: apply migration `0012` (additive), enable the flag in staging, enqueue `memory.expire_sweep` with `npm run jobs -- enqueue-memory-sweep <tenant>`, watch the `{scope:"jobs"}` log lines.

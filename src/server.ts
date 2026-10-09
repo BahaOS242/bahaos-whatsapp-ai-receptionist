@@ -29,6 +29,7 @@ if (env.JOBS_ENABLED) {
     registry: createDefaultJobRegistry(),
     pollIntervalMs: env.JOBS_POLL_INTERVAL_MS,
     concurrency: env.JOBS_CONCURRENCY,
+  drainTimeoutMs: env.JOBS_SHUTDOWN_TIMEOUT_MS,
     telemetry: consoleJobTelemetry,
   });
 }
