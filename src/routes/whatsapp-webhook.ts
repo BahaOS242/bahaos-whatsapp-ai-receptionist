@@ -174,6 +174,8 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
       const signature = req.header("x-hub-signature-256");
       const bodyForSignature = req.rawBody ?? Buffer.from(JSON.stringify(req.body ?? {}));
       if (!verifyWebhookSignature(env.WHATSAPP_APP_SECRET, bodyForSignature, signature)) {
+        // Operator diagnostics only: never logs the secret, the signature value or the body.
+        console.warn(`[whatsapp webhook] rejected: invalid signature (signature header present: ${signature ? "yes" : "no"})`);
         res.status(401).json({ error: "invalid_signature" });
         return;
       }
@@ -189,6 +191,7 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
     // at all) simply yields no messages, handled identically to "nothing
     // to do" below.
     const normalizedMessages = parseWebhookPayload(req.body);
+    console.log(`[whatsapp webhook] accepted delivery: ${normalizedMessages.length} message(s) to process`);
 
     // WEBHOOK LATENCY DECISION (production-hardening audit): processed
     // IN SEQUENCE, awaited, before responding — KEPT synchronous, not
@@ -277,6 +280,9 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
     if (firstError) {
       next(firstError);
       return;
+    }
+    if (normalizedMessages.length > 0) {
+      console.log(`[whatsapp webhook] processed ${normalizedMessages.length} message(s); reply queued: ${queuedAny ? "yes" : "no"}`);
     }
     res.status(200).json({ status: "received" });
   });

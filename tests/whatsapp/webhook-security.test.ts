@@ -96,6 +96,24 @@ describe("SIGNATURE — Phase 11 checklist", () => {
     expect(res.body).toEqual({ error: "invalid_signature" });
   });
 
+  it("a rejected signature is logged for operators, without the secret, the signature or the body", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const app = createApp({ env: loadEnv(BASE_ENV), db: neverCalledDb() });
+      const payload = textPayload({ body: "private customer words" });
+      const badSignature = sign("wrong-secret", JSON.stringify(payload));
+      const res = await request(app).post("/webhooks/whatsapp").set("x-hub-signature-256", badSignature).send(payload);
+      expect(res.status).toBe(401);
+      const logged = warn.mock.calls.map((c) => c.join(" ")).join("\n");
+      expect(logged).toMatch(/rejected: invalid signature \(signature header present: yes\)/);
+      for (const secretish of ["my-app-secret", "wrong-secret", badSignature, "private customer words"]) {
+        expect(logged).not.toContain(secretish);
+      }
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("missing signature header: rejected (401)", async () => {
     const env = loadEnv(BASE_ENV);
     const app = createApp({ env, db: neverCalledDb() });
