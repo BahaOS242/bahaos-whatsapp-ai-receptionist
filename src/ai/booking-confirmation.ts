@@ -370,3 +370,22 @@ export function composeRecurringConfirmationOrConflict(
       "Reply YES to confirm the recurring schedule, or NO to change it.",
   };
 }
+
+/**
+ * Conservative detector for model text that INVITES the customer to confirm a booking ("Reply YES to confirm…", "I have
+ * you down for…", "Shall I go ahead and book that?"). Used by LLMProvider so that such wording only ever reaches a
+ * customer when it is the APP's own prompt for the stored values. Deliberately narrow: ordinary answers that merely
+ * contain the word "confirm" ("we'll confirm by email", "please confirm your phone number") must not match; a false
+ * positive only swaps in the app's own (safe) next question, never changes state.
+ */
+const CONFIRMATION_PROMPT_PATTERNS: RegExp[] = [
+  /\breply\s+(?:with\s+)?["'“]?yes\b/i,
+  /\bi\s+have\s+you\s+down\s+(?:for|to)\b/i,
+  /\b(?:to|please|kindly|can\s+you|could\s+you)\s+confirm\s+(?:the|this|that|your)\s+(?:booking|appointment|reschedule|cancellation|request)\b/i,
+  /\bshall\s+i\s+(?:go\s+ahead(?:\s+and)?\s+)?(?:book|confirm|schedule|submit)\b/i,
+];
+
+export function looksLikeConfirmationPrompt(text: string): boolean {
+  return CONFIRMATION_PROMPT_PATTERNS.some((re) => re.test(text));
+}
+
