@@ -17,13 +17,14 @@ if [ "$client_major" -lt "$server_major" ]; then
   echo "pg_dump v$client_major is older than server v$server_major; install a newer client." >&2; exit 3
 fi
 
-# The throwaway restore target is a LOCAL server (PGHOST/PGPORT select it; default: local socket, port 5432).
+# Applied ONLY to local commands (never exported), so the remote URL is never affected by a local port.
+local_psql() { PGSSLMODE=disable PGHOST="${SCRATCH_PGHOST:-/tmp}" PGPORT="${SCRATCH_PGPORT:-5432}" "$@"; }
+# The throwaway restore target is a LOCAL server (SCRATCH_PGHOST/SCRATCH_PGPORT select it; default: local socket in /tmp, port 5432).
 # It must be at least as new as the staging server, and must not inherit the remote's PGSSLMODE.
-local_major=$(PGSSLMODE=disable psql -X -A -t -d postgres -c "show server_version_num" | cut -c1-2)
+local_major=$(local_psql psql -X -A -t -d postgres -c "show server_version_num" | cut -c1-2)
 if [ "$local_major" -lt "$server_major" ]; then
-  echo "local scratch server v$local_major is older than staging v$server_major; point PGPORT at a v$server_major+ local server." >&2; exit 3
+  echo "local scratch server v$local_major is older than staging v$server_major; set SCRATCH_PGPORT to a v$server_major+ local server." >&2; exit 3
 fi
-local_psql() { PGSSLMODE=disable "$@"; }
 
 dir="${BACKUP_DIR:-$HOME/bahaos-staging-backups}"
 stamp=$(date +%Y%m%dT%H%M%S)
