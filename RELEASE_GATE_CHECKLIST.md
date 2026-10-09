@@ -1,6 +1,6 @@
 # Release-gate checklist — remaining evidence (PR #2)
 
-Status: **NOT approved for merge or production.** Updated after the SECOND live Haiku 4.5 run (corrected harness, tested commit `dd47d7f`, 2026-10-09) and Codex's review of `7fb93d7`. Dates and SHAs below identify what was true when each item was done. Completed here: live run (limited observation, §1), harness corrections with offline regressions (§1). **New blocking findings from run 2 (§1b): two wrong-data bookings (R21 name, R22 phone) — open.** **Still open:** original 27-conversation corpus (replacement now run, §2), real-environment migration history (§3), staging/Meta/TLS/backup/rollback evidence (§4), owner disposition of NL-01 (§5). No merge, deployment, production access or Phase 6 work is authorized by this document.
+Status: **NOT approved for merge or production.** Updated after the SECOND live Haiku 4.5 run (corrected harness, tested commit `dd47d7f`, 2026-10-09) and Codex's review of `7fb93d7`. Dates and SHAs below identify what was true when each item was done. Completed here: live run (limited observation, §1), harness corrections with offline regressions (§1). **Run 2 (§1b) found two wrong-data bookings (R21 name, R22 phone). FIXED and covered by free offline tests (§1c); NOT re-verified with the live model (no paid call authorized).** **Still open:** original 27-conversation corpus (replacement now run, §2), real-environment migration history (§3), staging/Meta/TLS/backup/rollback evidence (§4), owner disposition of NL-01 (§5). No merge, deployment, production access or Phase 6 work is authorized by this document.
 
 ## 0. Evidence already in hand (not repeated)
 Unit 1147/1147 · DB 371/371 · lint/typecheck/build clean · fallback eval 37/38 · calendar hash `6e7e48e1…` unchanged · Codex independently re-ran the targeted suites at `de21ad5`. Lanes: fallback provider and scripted-LLM tests exercise **application logic**, not Anthropic's language understanding; DB tests use a disposable local Postgres.
@@ -50,6 +50,13 @@ Codex found real weaknesses in the harness that produced the run above. Fixed an
 - 10 cases never completed a booking in any pass (SOFT, safe — the bot kept asking or restated the summary): R02 `15:00`, R03 `noon`, R06 ISO date `2026-10-14 at 10:00`, R08 `Oct 20th 14:00` (formats the flow did not accept), R09–R11 service typos (NL-01, expected), R12–R14 dialect (`wanna`, `tryna`, `tmrw`). These are findings about coverage, not wrong bookings.
 
 **What this does NOT show:** one model (Haiku 4.5), synthetic conversations, simulated tools — not durable booking, WhatsApp, other models, or a production reliability percentage. 3 passes is a small variance sample. R21/R22 have not been fixed; no application code changed for this run.
+
+## 1c. R21 / R22 fixes — free tests only (no paid call)
+- **R21 `It's Alisha, not Alicia`:** new `extractNameContrast` (`src/ai/correction-language.ts`) replaces the stored name **only when the rejected name equals the name on file**; wired into the fallback provider (including the confirmation-summary stage) and the shared LLM pre-extraction. "Tuesday not Wednesday", "Alicia, not Alisha", "not Alicia" change nothing.
+- **R22 `wrong number, it's 2428019999`:** "wrong number/phone/name/date/time" and "not the right number" are now correction language, so the shared LLM pre-extraction overwrites the phone (the fallback already did).
+- **Regressions** (`tests/regressions/name-phone-correction.test.ts`, fallback + scripted-LLM, simulated tools, frozen clock): stored state replaced; **no booking on the correction turn**; **a fresh confirmation is re-armed** and the booking after "yes" carries the corrected name/phone exactly once; a "yes" bundled with the correction never books the old name; negative controls; pure-function table. 30 of them fail on the previous code. The R21 known-gap pin was removed from the REPLACEMENT-27 offline smoke, which now asserts **zero hard failures for all 42 cases** on the fallback provider.
+- Observation (unchanged, pre-existing): the confirmation summary lists service/date/time but does **not echo name or phone**, so the customer re-approves without seeing the corrected contact details. Owner may want that changed (UX/safety); not done here.
+- **What this does NOT prove:** the live Haiku model has not been re-run on R21/R22 — the live evidence in §1b still shows the failures at `dd47d7f`. A confirming live re-run needs a new explicit approval.
 
 ## 2. Missing historical 27-conversation corpus
 **Original: still not found** (searched repo, git history, two Aug-21 archives, local transcripts). The historical "14/27" result is **historical only — not rerun, not reproducible**.
@@ -112,7 +119,7 @@ If an environment already lists 0008 with a matching hash: nothing to do (no rer
 Also: remove the migration rows from `drizzle.__drizzle_migrations` only when re-applying after a manual drop.
 
 ## 5. Decisions needed from the owner
-0. **R21/R22 (new, hard failures):** schedule a fix (explicit "X, not Y" name contrast; "wrong number"/phone correction in the shared LLM pre-extraction) — they are wrong-identity/contact bookings under the RELEASE_GATES zero-tolerance bar.
+0. **R21/R22:** fixed offline (§1c). Decide whether to authorize a confirming live re-run (est. ≈ $0.2–0.6 for just these cases) and whether the confirmation summary should echo name/phone.
 1. Approve (or decline) the live Anthropic run: model(s), cap (suggest $10), harness.
 2. Corpus: supply the original 27, or approve `REPLACEMENT-27` (labelled as such).
 3. Run the §3 read-only SQL against each real environment and report the result.
