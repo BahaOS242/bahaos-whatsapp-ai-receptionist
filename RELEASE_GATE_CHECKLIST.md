@@ -1,6 +1,6 @@
 # Release-gate checklist — remaining evidence (PR #2)
 
-Status: **NOT approved for merge or production.** Updated after the live Haiku 4.5 run (2026-10-09) and Codex's review of `5762e25`. Dates and SHAs below identify what was true when each item was done. Completed here: live run (limited observation, §1), harness corrections with offline regressions (§1). **Still open:** original 27-conversation corpus or an approved replacement (§2), real-environment migration history (§3), staging/Meta/TLS/backup/rollback evidence (§4), owner disposition of NL-01 (§5). No merge, deployment, production access or Phase 6 work is authorized by this document.
+Status: **NOT approved for merge or production.** Updated after the SECOND live Haiku 4.5 run (corrected harness, tested commit `dd47d7f`, 2026-10-09) and Codex's review of `7fb93d7`. Dates and SHAs below identify what was true when each item was done. Completed here: live run (limited observation, §1), harness corrections with offline regressions (§1). **New blocking findings from run 2 (§1b): two wrong-data bookings (R21 name, R22 phone) — open.** **Still open:** original 27-conversation corpus (replacement now run, §2), real-environment migration history (§3), staging/Meta/TLS/backup/rollback evidence (§4), owner disposition of NL-01 (§5). No merge, deployment, production access or Phase 6 work is authorized by this document.
 
 ## 0. Evidence already in hand (not repeated)
 Unit 1147/1147 · DB 371/371 · lint/typecheck/build clean · fallback eval 37/38 · calendar hash `6e7e48e1…` unchanged · Codex independently re-ran the targeted suites at `de21ad5`. Lanes: fallback provider and scripted-LLM tests exercise **application logic**, not Anthropic's language understanding; DB tests use a disposable local Postgres.
@@ -29,10 +29,32 @@ Codex found real weaknesses in the harness that produced the run above. Fixed an
 - Mutation-checked: removing each control (last-turn guard hole, L15 zero-allowed, finite/regex cap checks, model allowlist, gate, under-estimate check, failed-request charge) makes a regression fail.
 **Provenance of the saved Haiku evidence:** it was produced by the **pre-correction** harness (no per-turn action records; weaker guard). Codex re-parsed the saved JSON and found it internally consistent (42 single-payload runs, 3 no-booking runs for the ambiguous case, completion only on YES turns), but it remains a **limited, named-model observation by the developer** — not an independent rerun, not a billing receipt, and **not a reliability percentage**. A re-run with the corrected oracle is **not authorized** and may not be needed; decide after reviewing whether existing evidence plus the offline regressions meet the approved scope.
 
+## 1b. Live run 2 — corrected harness, REPLACEMENT-27 included (tested commit `dd47d7f6d9edbd705299751f2136be9aa6303118`)
+**Lane:** LIVE `claude-haiku-4-5-20251001` (API-reported) · **SIMULATED booking tools only** — no database, no WhatsApp, no real calendar, no durable persistence · business clock frozen per case · clean working tree enforced; the exact commit is recorded in the artifact. Owner-approved: ≤ $5 total, soft stop $4. Spending gate: authoritative `count_tokens` for the exact request before every call + full 1024-token output reservation; never sent unmeasured; billed-vs-counted checked. Artifact: `evidence/live-anthropic-haiku-4-5-dd47d7f.json` (per-step actions with success flags, payloads, state, replies truncated to 240 chars; all synthetic).
+
+| Measure | Value |
+|---|---|
+| Runs | 126 = (CORRECTED-15 + REPLACEMENT-27) × 3 passes |
+| API calls · tokens | 593 · 1,463,966 input · 38,630 output |
+| **Estimated cost** | **$1.6571** (usage × named price snapshot; **not** a billing receipt; stop never triggered) |
+| Hard failures (wrong data / booking before approval / duplicate) | **6 runs — 2 cases × 3 passes (R21, R22)** |
+| Soft shortfalls (no booking completed) | 31 runs |
+
+**CORRECTED-15 (name / date / booking confirmation) — rerun with the corrected oracle:** 45 runs, **0 hard failures**; 44 clean; 1 soft (L11 pass 1: the model asked a follow-up, a second approval turn completed the correct booking). Every booking carried the right name/time; qualified dates `2026-10-16` / `2027-01-04`; no booking before the explicit approval turn (now asserted on every setup turn incl. the final identity input, with per-step actions recorded); ambiguous "at 3" never booked; repeated yes → exactly one booking.
+
+**REPLACEMENT-27 — a REPLACEMENT, NOT the original tests.** The historical "14/27" report remains historical: its transcripts were never recovered and it has **not** been rerun; these results must not be compared to it as a like-for-like score.
+- 15 cases clean in all 3 passes: R01 `3 pm`, R04 `2:30pm`, R05 `9am`, R07 `October 14 at 10am`, R15 `yeah man`, R16/R17 appointment inquiries (never started a booking), R18/R19 repeated yes (exactly one booking), R20 `my name is actually Trevon`, R23 service change after details, R24–R26 next-week forms (`2026-10-13`, `2026-10-14`, `2026-10-22`), R27 `sometime next week` (asked for a day).
+- **2 cases produced WRONG data in all 3 passes (HARD) — new blocking findings, not regressions of earlier fixes:**
+  - **R21 `It's Alisha, not Alicia`** (no "my name is"): the booking is made for **Alicia**. Offline probe: neither the fallback nor the shared LLM pre-extraction replaces the name from an explicit "X, not Y" contrast.
+  - **R22 `wrong number, it's 2428019999`**: the booking keeps the **old phone** (`+12428012847`). Offline probe: the fallback path updates it; the shared LLM pre-extraction does **not** (its correction-marker list lacks "wrong number").
+- 10 cases never completed a booking in any pass (SOFT, safe — the bot kept asking or restated the summary): R02 `15:00`, R03 `noon`, R06 ISO date `2026-10-14 at 10:00`, R08 `Oct 20th 14:00` (formats the flow did not accept), R09–R11 service typos (NL-01, expected), R12–R14 dialect (`wanna`, `tryna`, `tmrw`). These are findings about coverage, not wrong bookings.
+
+**What this does NOT show:** one model (Haiku 4.5), synthetic conversations, simulated tools — not durable booking, WhatsApp, other models, or a production reliability percentage. 3 passes is a small variance sample. R21/R22 have not been fixed; no application code changed for this run.
+
 ## 2. Missing historical 27-conversation corpus
-**Searched:** the repository (`tests/eval` holds only the 38-scenario corpus), `git log`, the Desktop/Downloads project archives (two Aug-21 snapshots of this repo: same 38-scenario eval, no 27-set), all local Claude session transcripts (the string "14/27" appears only in the pasted Codex text). **Not found.** I cannot see the chat attachment the report came from.
-**Options (DECISION):** (1) owner/Codex supplies the original transcripts; (2) approve the clearly-labelled replacement below.
-**Proposed `REPLACEMENT-27` (NOT the original — results must never be reported as "the 14/27 rerun")**, authored from TEST_FINDINGS.md categories: natural time formats ×5 (3pm, 3 pm, 15:00, "half three", noon), ISO/24-hour dates ×3, service typos ×3 (overlaps NL-01), Bahamian dialect ×4, appointment inquiry (must not start a booking) ×2, repeated YES ×2, identity corrections ×4 (L1–L8 family), next-week ×4 (L9–L12). Run on the fallback provider first (free, deterministic), then — only if approved — live. Expect some failures; they are findings, not regressions.
+**Original: still not found** (searched repo, git history, two Aug-21 archives, local transcripts). The historical "14/27" result is **historical only — not rerun, not reproducible**.
+**Replacement: authored and RUN (§1b)** as `REPLACEMENT-27` (`scripts/live-eval/replacement27.ts`; owner-approved). Proposed categories: natural time formats ×5, ISO/24-hour dates ×3, service typos ×3, Bahamian dialect ×4, appointment inquiry ×2, repeated YES ×2, corrections ×4, next-week ×4. It is a replacement; do not report its numbers as the original.
+**DECISION still open:** accept REPLACEMENT-27 as the permanent substitute, or supply the original transcripts.
 
 ## 3. Migration history — what is known and unknown
 Migrations 0008–0012 (outbox, requeue, inbox, memory, jobs) are all additive.
@@ -90,6 +112,7 @@ If an environment already lists 0008 with a matching hash: nothing to do (no rer
 Also: remove the migration rows from `drizzle.__drizzle_migrations` only when re-applying after a manual drop.
 
 ## 5. Decisions needed from the owner
+0. **R21/R22 (new, hard failures):** schedule a fix (explicit "X, not Y" name contrast; "wrong number"/phone correction in the shared LLM pre-extraction) — they are wrong-identity/contact bookings under the RELEASE_GATES zero-tolerance bar.
 1. Approve (or decline) the live Anthropic run: model(s), cap (suggest $10), harness.
 2. Corpus: supply the original 27, or approve `REPLACEMENT-27` (labelled as such).
 3. Run the §3 read-only SQL against each real environment and report the result.
