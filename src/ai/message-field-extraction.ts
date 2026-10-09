@@ -1,3 +1,4 @@
+import { correctionBlocksBareName, hasCorrectionLanguage, stripCorrectionLanguage } from "./correction-language";
 import {
   combineBareTime,
   decodeBareTime,
@@ -377,7 +378,7 @@ export function extractStatedFields(
   // CORRECTION_MARKER_RE's comment.
   const hasCorrection =
     Boolean(currentState.intent) &&
-    (CORRECTION_MARKER_RE.test(message) || Boolean(currentState.justDeclined));
+    (CORRECTION_MARKER_RE.test(message) || hasCorrectionLanguage(message) || Boolean(currentState.justDeclined));
   // Consumed unconditionally — a one-shot hint for THIS turn only,
   // regardless of what (if anything) it ends up widening below. Every
   // return path from here on must carry this through so it's never left
@@ -544,19 +545,20 @@ export function extractStatedFields(
   // widened by a correction marker, since a short ambiguous phrase like
   // "actually it's Bob" is exactly the kind of false positive that
   // guard exists to prevent.
-  if (!currentState.name || hasCorrection) {
+  // An explicit introduction ("my name is X") is an identity statement in its own right and may
+  // replace an earlier name without correction wording.
+  if (!currentState.name || hasCorrection || HIGH_CONFIDENCE_NAME_RE.test(message)) {
     const highConfidence = message.match(HIGH_CONFIDENCE_NAME_RE);
     if (highConfidence) {
       const trimmed = trimToLeadingNameWords(highConfidence[1]);
       if (trimmed) extracted.name = titleCase(trimmed);
-    } else if (next === "name") {
+    } else if (next === "name" && !correctionBlocksBareName(message, extracted)) {
+      // (a date/time change phrased as a correction is a schedule update, never an identity answer)
       // Strips phone-like digits, recognized date/time text, and common
       // punctuation ("Trevor, 2428012847" -> "Trevor") before checking
       // whether what's left looks like a name.
       const withoutPhone = message.replace(PHONE_LIKE_SUBSTRING_RE, " ");
-      const remainder = stripRecognizedDateTime(withoutPhone)
-        .replace(/[,.!?;:]/g, " ")
-        .trim();
+      const remainder = stripCorrectionLanguage(stripRecognizedDateTime(withoutPhone).replace(/[,.!?;:]/g, " ")).trim();
       if (looksLikeName(remainder)) extracted.name = titleCase(remainder);
     }
   }

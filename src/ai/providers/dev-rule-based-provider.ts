@@ -1,3 +1,4 @@
+import { correctionBlocksBareName, hasCorrectionLanguage, stripCorrectionLanguage } from "../correction-language";
 import {
   resolveDateWord,
   parseTime,
@@ -953,7 +954,7 @@ function handleFlowTurn(
   const stated = extractStatedFields(business, message, {
     allowLowConfidenceName: nameCurrentlyAsked,
   });
-  const hasCorrectionMarker = CORRECTION_MARKER_RE.test(message);
+  const hasCorrectionMarker = CORRECTION_MARKER_RE.test(message) || hasCorrectionLanguage(message);
   // justDeclined (see BookingState's docstring) gives the customer's
   // very next word after an explicit decline the SAME license an
   // explicit correction marker already has: a bare restatement right
@@ -978,7 +979,10 @@ function handleFlowTurn(
     if (value === undefined) continue;
     const alreadySet = incomingState[key] !== undefined;
     const currentlyAsked = isFieldCurrentlyAsked(incomingState, key);
-    if (!alreadySet || currentlyAsked || hasCorrectionMarker || justDeclined) {
+    // "My name is X" is an explicit identity statement: it may replace an earlier name
+    // without any correction wording (explicit provenance beats a previously captured value).
+    const explicitNameIntro = key === "name" && HIGH_CONFIDENCE_NAME_RE.test(message);
+    if (!alreadySet || currentlyAsked || hasCorrectionMarker || justDeclined || explicitNameIntro) {
       (merged as Record<string, unknown>)[key] = value;
     }
   }
@@ -1031,9 +1035,11 @@ function handleFlowTurn(
   );
   const strongNameSignal = nameCurrentlyAsked || Boolean(stated.phone);
   const weakNameSignal = Boolean(stated.date) || Boolean(stated.time);
-  if (!merged.name && !statedIncompatible && (strongNameSignal || weakNameSignal)) {
+  // PROVENANCE: a date/time change phrased as a correction is a schedule update, never an identity answer.
+  const bareNameBlocked = correctionBlocksBareName(message, stated);
+  if (!merged.name && !statedIncompatible && !bareNameBlocked && (strongNameSignal || weakNameSignal)) {
     const withoutPhone = message.replace(PHONE_SUBSTRING_RE, " ").replace(/,/g, " ");
-    const remainder = stripRecognizedDateTime(withoutPhone).trim();
+    const remainder = stripCorrectionLanguage(stripRecognizedDateTime(withoutPhone)).trim();
     const candidateOk = strongNameSignal
       ? looksLikeBareName(remainder)
       : looksLikeBareNameStrict(remainder);
