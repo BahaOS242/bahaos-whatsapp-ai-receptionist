@@ -108,6 +108,18 @@ export async function claimJobs(db: Db, opts: JobWorkerOptions, limit: number): 
   return rows;
 }
 
+/**
+ * Gives a claim back UNEXECUTED (shutdown raced the claim): fenced by the claim token, the
+ * attempt is un-counted, no attempt row is written — as if the claim never happened.
+ */
+export async function releaseClaim(db: Db, row: JobRow, now: Date): Promise<boolean> {
+  const r = await db.execute(sql`
+    UPDATE background_jobs SET status = 'pending', attempt_count = GREATEST(attempt_count - 1, 0), lease_expires_at = NULL,
+           claim_token = NULL, lease_owner = NULL, started_at = NULL, updated_at = ${iso(now)}::timestamptz
+     WHERE ${FENCE(row)} RETURNING 1`);
+  return r.rows.length > 0;
+}
+
 export type JobRunOutcome = "completed" | "skipped" | "retried" | "failed" | "lost_lease";
 
 async function heartbeat(db: Db, row: JobRow, now: Date, leaseSeconds: number): Promise<boolean> {
@@ -266,15 +278,23 @@ export function startJobWorker(db: Db, opts: JobPollerOptions): { stop: () => Pr
   let errorDelayMs = 0;
   let notBefore = 0;
 
-  const tick = async () => {
-    if (stopped || ticking || Date.now() < notBefore) return;
-    ticking = true;
+  // The in-progress tick (including a claim query that is still pending). stop() awaits it.
+  let currentTick: Promise<void> | null = null;
+
+  const tickBody = async () => {
     try {
       for (;;) {
         const capacity = opts.concurrency - inflight.size;
         if (stopped || capacity <= 0) break;
         const rows = await claimJobs(db, shared, capacity);
         errorDelayMs = 0;
+        if (stopped) {
+          // Shutdown raced a claim that was already in flight: NEVER start a handler now. Give the
+          // rows back untouched (fenced, attempt un-counted) so another worker takes them at once.
+          const now = (opts.clock ?? (() => new Date()))();
+          for (const row of rows) await releaseClaim(db, row, now).catch(() => undefined); // a failed release is recovered by lease expiry
+          break;
+        }
         for (const row of rows) {
           const p = executeJob(db, shared, row, shutdown.signal)
             .then(() => undefined)
@@ -292,9 +312,17 @@ export function startJobWorker(db: Db, opts: JobPollerOptions): { stop: () => Pr
       errorDelayMs = Math.min(errorDelayMs ? errorDelayMs * 2 : 500, 30_000);
       notBefore = Date.now() + errorDelayMs;
       tel.emit("poll_error", { stage: "claim", error: e instanceof Error ? e.name : "unknown", retryInMs: errorDelayMs });
-    } finally {
-      ticking = false;
     }
+  };
+
+  const tick = async () => {
+    if (stopped || ticking || Date.now() < notBefore) return;
+    ticking = true;
+    currentTick = tickBody().finally(() => {
+      ticking = false;
+      currentTick = null;
+    });
+    await currentTick;
   };
 
   const timer = setInterval(() => void tick(), opts.pollIntervalMs);
@@ -310,6 +338,7 @@ export function startJobWorker(db: Db, opts: JobPollerOptions): { stop: () => Pr
       stopped = true;
       clearInterval(timer);
       wakeListeners.delete(wake);
+      if (currentTick) await currentTick; // a claim still in flight is resolved (released) BEFORE we drain
       const drain = Promise.allSettled([...inflight]);
       const deadline = opts.drainTimeoutMs ?? 20_000;
       await Promise.race([drain, new Promise((r) => setTimeout(r, deadline).unref?.())]);
