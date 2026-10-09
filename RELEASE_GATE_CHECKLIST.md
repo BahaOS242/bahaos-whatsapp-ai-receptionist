@@ -1,6 +1,6 @@
 # Release-gate checklist — remaining evidence (PR #2)
 
-Status: **NOT approved for merge or production.** Updated after the SECOND live Haiku 4.5 run (corrected harness, tested commit `dd47d7f`, 2026-10-09) and Codex's review of `7fb93d7`. Dates and SHAs below identify what was true when each item was done. Completed here: live run (limited observation, §1), harness corrections with offline regressions (§1). **Run 2 (§1b) found two wrong-data bookings (R21 name, R22 phone). FIXED and covered by free offline tests (§1c); NOT re-verified with the live model (no paid call authorized).** **Still open:** original 27-conversation corpus (replacement now run, §2), real-environment migration history (§3), staging/Meta/TLS/backup/rollback evidence (§4), owner disposition of NL-01 (§5). No merge, deployment, production access or Phase 6 work is authorized by this document.
+Status: **NOT approved for merge or production.** Updated after the SECOND live Haiku 4.5 run (corrected harness, tested commit `dd47d7f`, 2026-10-09) and Codex's review of `7fb93d7`. Dates and SHAs below identify what was true when each item was done. Completed here: live run (limited observation, §1), harness corrections with offline regressions (§1). **Run 2 (§1b) found two wrong-data bookings (R21 name, R22 phone). FIXED (§1c) and RE-VERIFIED live by a NEW focused run (run 3, §1d): 30/30 clean.** **Still open:** original 27-conversation corpus (replacement now run, §2), real-environment migration history (§3), staging/Meta/TLS/backup/rollback evidence (§4), owner disposition of NL-01 (§5). No merge, deployment, production access or Phase 6 work is authorized by this document.
 
 ## 0. Evidence already in hand (not repeated)
 Unit 1147/1147 · DB 371/371 · lint/typecheck/build clean · fallback eval 37/38 · calendar hash `6e7e48e1…` unchanged · Codex independently re-ran the targeted suites at `de21ad5`. Lanes: fallback provider and scripted-LLM tests exercise **application logic**, not Anthropic's language understanding; DB tests use a disposable local Postgres.
@@ -58,6 +58,20 @@ Codex found real weaknesses in the harness that produced the run above. Fixed an
 - **Follow-up (Codex review of `b833274`, fixed, free tests only):** "yes, Alisha not Alicia" then "yes" booked **"Yes Alisha"**, and "It\u2019s Alisha, not Alicia" (curly apostrophe) then "yes" booked **"It\u2019s Alisha"**, in both lanes. Cause: the contrast parser did not treat confirmation words as lead-ins and did not normalize apostrophe variants. Fixed (confirmation/filler lead-ins; curly/modifier/backtick apostrophes normalized on the message **and** the stored name). Tests now assert the **exact stored name and the exact final booking payload**, and the bundled-confirmation test requires **zero booking attempts on the correction turn, then exactly one booking with the corrected details after a separate confirmation** (name and phone, both lanes). 36 fail on the previous parser; 4 parser mutations are killed.
 - Observation (unchanged, pre-existing): the confirmation summary lists service/date/time but does **not echo name or phone**, so the customer re-approves without seeing the corrected contact details. Owner may want that changed (UX/safety); not done here.
 - **What this does NOT prove:** the live Haiku model has not been re-run on R21/R22 — the live evidence in §1b still shows the failures at `dd47d7f`. A confirming live re-run needs a new explicit approval.
+
+## 1d. Live run 3 — FOCUSED R21/R22 re-verification (a NEW run; run 2's failing evidence is preserved untouched in §1b)
+**Lane:** LIVE `claude-haiku-4-5-20251001` (API-reported), **SIMULATED booking tools only** (no database, WhatsApp, calendar or persistence). **Tested commit `4fcec1a5740f6a08b74a85a1e842fdaa4c65e072`** (clean tree enforced, recorded in the artifact). Owner-approved: ≤ **$1** additional; gate = authoritative `count_tokens` + full output reservation before every request; `--stop-on-hard` (stop at the first wrong-data/safety failure). Artifact: `evidence/live-anthropic-haiku-4-5-focused-r21-r22-4fcec1a.json`.
+
+| Measure | Value |
+|---|---|
+| Cases × passes | 10 variants × 3 = **30 runs** |
+| API calls · tokens | 150 · 370,797 input · 10,295 output |
+| **Estimated cost** | **$0.4223** (usage × named price snapshot; not a billing receipt; budget gate never triggered) |
+| Hard failures · soft shortfalls | **0 · 0** (the run was not stopped early) |
+
+Variants (each 3×): R21 `It's Alisha, not Alicia` · `yes, Alisha not Alicia` · curly `It’s Alisha, not Alicia` · `yes, it’s Alisha, not Alicia` (bundled + curly) · `Yes Alisha not Alicia` · R22 `wrong number, it's 2428019999` · curly `wrong number, it’s …` · bundled `yes, wrong number, it's …` · bundled + curly · `that’s the wrong phone number, 2428019999`.
+Per run (oracle + an independent re-parse of the saved JSON, 0 mismatches): the stored name/phone after the correction turn are **exact** (`Alisha` / `+12425550100`, or `Trevor` / `+12428019999`); the correction turn made **zero booking attempts**; **exactly one** approval turn (a separate "yes"); **exactly one** successful booking, its payload carrying the exact corrected name and phone, time 14:00, Routine cleaning.
+**Not shown:** one model, 10 synthetic phrasings × 3, simulated tools — not durable booking, WhatsApp, other models, or a reliability percentage. It re-verifies the R21/R22 family only; the other run-2 soft shortfalls (formats, NL-01 typos, dialect) were not re-run and remain open findings.
 
 ## 2. Missing historical 27-conversation corpus
 **Original: still not found** (searched repo, git history, two Aug-21 archives, local transcripts). The historical "14/27" result is **historical only — not rerun, not reproducible**.
@@ -120,7 +134,7 @@ If an environment already lists 0008 with a matching hash: nothing to do (no rer
 Also: remove the migration rows from `drizzle.__drizzle_migrations` only when re-applying after a manual drop.
 
 ## 5. Decisions needed from the owner
-0. **R21/R22:** fixed offline (§1c). Decide whether to authorize a confirming live re-run (est. ≈ $0.2–0.6 for just these cases) and whether the confirmation summary should echo name/phone.
+0. **R21/R22:** fixed and live-reverified (§1d). Decide whether the confirmation summary should echo name/phone (pre-existing UX/safety gap).
 1. Approve (or decline) the live Anthropic run: model(s), cap (suggest $10), harness.
 2. Corpus: supply the original 27, or approve `REPLACEMENT-27` (labelled as such).
 3. Run the §3 read-only SQL against each real environment and report the result.
