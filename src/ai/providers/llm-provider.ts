@@ -29,6 +29,7 @@ import {
 import { AFFIRMATIVE_RE, NEGATIVE_RE, extractStatedFields } from "../message-field-extraction";
 import { extractPhone } from "../phone";
 import { flipMeridiemHour, normalizeTime } from "../date-time";
+import { TIME_CLARIFICATION_REPLY } from "../time-clarification";
 import { truncatePhrase } from "../unclear-phrase";
 import { generateOccurrenceDates, RECURRING_OCCURRENCE_COUNT } from "../recurrence";
 import { MAX_MEMORY_PROMPT_CHARS } from "../../memory/types";
@@ -518,6 +519,8 @@ export class LLMProvider implements AIProvider {
     let declineOverrideReply: string | undefined;
     let duplicateBookingReply: string | undefined;
     let confirmationRequiredReply: string | undefined;
+    // A qualified time arrived this turn: the reply is the application's, never the model's.
+    const timeClarificationReply = extractedThisTurn.timeClarification ? TIME_CLARIFICATION_REPLY : undefined;
 
     for (const toolCall of result.toolCalls) {
       if (toolCall.name === "update_booking_progress") {
@@ -877,6 +880,7 @@ export class LLMProvider implements AIProvider {
       availabilityRejectionReply ??
       phoneRejectionReply ??
       timeRejectionReply ??
+      timeClarificationReply ??
       freshConfirmationReply ??
       (claimsCompletionWithoutAction ? null : result.content) ??
       // The model made a tool call but returned no text at all (observed

@@ -145,6 +145,11 @@ export interface BookingState {
    * — see date-time.ts parseBareHour/parseBareMeridiem/combineBareTime.
    * Cleared the moment `time` is resolved through any path. */
   pendingBareTime?: string;
+  /** Set when the customer qualified a time instead of stating one ("quarter to 3pm", "not 3pm", "3pm or 4pm",
+   * "from 2pm to 4pm" — see date-time.ts hasTimeQualifier). Any stored `time` is kept but treated as UNRESOLVED:
+   * `time` counts as missing (nothing can be confirmed or booked) until the customer states one exact time, which
+   * replaces it and clears this flag; a fresh confirmation is then required. */
+  timeClarification?: boolean;
   /** A specific, deterministically-computed corrected time ("HH:MM") the
    * application has proposed in response to an invalid stated time (e.g.
    * customer said "2am", app proposes "14:00" and asks "Did you mean 2 PM

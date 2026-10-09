@@ -39,7 +39,9 @@ const FIELD_ORDER: Record<BookingIntent, BookingProgressionField[]> = {
  * already known (ready to finalize). */
 export function nextRequiredField(state: BookingState): BookingProgressionField | undefined {
   if (!state.intent) return undefined;
-  return FIELD_ORDER[state.intent].find((field) => !state[field]);
+  return FIELD_ORDER[state.intent].find(
+    (field) => !state[field] || (field === "time" && state.timeClarification),
+  );
 }
 
 /** Short, natural-language label for the next field — combines date+time

@@ -303,6 +303,37 @@ export function weekdayForIsoDate(isoDate: string): string {
 
 const TIME_WITH_MERIDIEM_RE = /\b(\d{1,2})(?::(\d{2}))?\s?(am|pm)\b/i;
 
+const CLOCK = String.raw`\d{1,2}(?::\d{2})?(?:\s?(?:am|pm))?`;
+const NEGATED_TIME_RE = /\bnot\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s?(?:am|pm)?\b/i;
+const PRECEDING_TIME_RE = /\d{1,2}(?::\d{2})?\s?(?:am|pm)\b[^\d]*$/i;
+const TIME_QUALIFIER_RES: RegExp[] = [
+  // "quarter to 3pm", "half past 3", "a quarter after 3"
+  /\b(?:quarter|half)\s+(?:to|past|after|till|until|of)\s+\d/i,
+  // "10 to 3pm", "20 past 3pm" — a minutes offset from an hour (needs the am/pm hour right after)
+  /\b\d{1,2}\s+(?:to|past|till|until)\s+\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i,
+  // "around 3pm", "before 3pm", "after 3pm" (a bare "around 2" only asks am/pm, so it is left to parseBareHour)
+  /\b(?:before|after|around|about|roughly|approximately|approx|earlier than|later than|by|until|till)\s+(?:at\s+)?\d{1,2}(?::\d{2})?\s?(?:am|pm)\b/i,
+  // "3pm or 4pm", "3 or 4pm", "3pm/4pm"
+  new RegExp(String.raw`\b${CLOCK}\s*(?:or|/)\s*${CLOCK}\b`, "i"),
+  // "3pm-ish", "3ish"
+  /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)?\s?-?ish\b/i,
+  // ranges: "from 2pm to 4pm", "between 2 and 4pm", "2-4pm", "2pm - 4pm"
+  new RegExp(String.raw`\b(?:from|between)\s+${CLOCK}\s*(?:to|-|–|until|till|and)\s*${CLOCK}\b`, "i"),
+  new RegExp(String.raw`\b${CLOCK}\s*(?:-|–|to|until|till)\s*\d{1,2}(?::\d{2})?\s?(?:am|pm)\b`, "i"),
+];
+
+/** True when a message qualifies a clock time instead of stating ONE exact
+ * time — "quarter to 3pm", "not 3pm", "3pm or 4pm", "from 2pm to 4pm",
+ * "around 3pm". Picking any single hour out of such a message is a guess
+ * (the first "N pm" is often the opposite of what was meant), so the time
+ * parsers return undefined for it and the caller asks for ONE clear time. */
+export function hasTimeQualifier(text: string): boolean {
+  if (TIME_QUALIFIER_RES.some((re) => re.test(text))) return true;
+  // "not 3pm" with no time stated before it. A time BEFORE the "not" is the stated one ("make it 3pm not 2pm").
+  const negated = NEGATED_TIME_RE.exec(text);
+  return negated !== null && !PRECEDING_TIME_RE.test(text.slice(0, negated.index));
+}
+
 /** Parses a time into 24-hour "HH:MM". Requires an explicit am/pm — a
  * bare number like "6" is genuinely ambiguous for a business open past
  * noon, so this returns undefined rather than guessing, and the caller
@@ -310,6 +341,7 @@ const TIME_WITH_MERIDIEM_RE = /\b(\d{1,2})(?::(\d{2}))?\s?(am|pm)\b/i;
 export function parseTime(text: string): string | undefined {
   const match = text.match(TIME_WITH_MERIDIEM_RE);
   if (!match) return undefined;
+  if (hasTimeQualifier(text)) return undefined; // clarify, never guess
 
   let hour = Number.parseInt(match[1], 10);
   if (hour < 1 || hour > 12) return undefined;
@@ -377,7 +409,7 @@ const BARE_HOUR_RE = /\b(1[0-2]|[1-9])(?::([0-5]\d))?\b/;
  * recurrence-interval-shaped ("every 6 months"), OR calendar-date-shaped
  * ("October 5") digit run so none of those can misfire as a bare hour. */
 export function parseBareHour(text: string): { hour: number; minute: number } | undefined {
-  if (parseTime(text)) return undefined;
+  if (parseTime(text) || hasTimeQualifier(text)) return undefined;
   const withoutPhoneLike = text
     .replace(PHONE_LIKE_RE, " ")
     .replace(RECURRENCE_INTERVAL_LIKE_RE, " ")

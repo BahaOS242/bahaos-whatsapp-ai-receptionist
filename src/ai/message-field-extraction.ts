@@ -3,6 +3,7 @@ import {
   combineBareTime,
   decodeBareTime,
   encodeBareTime,
+  hasTimeQualifier,
   parseBareHour,
   parseBareMeridiem,
   parseTime,
@@ -484,16 +485,26 @@ export function extractStatedFields(
         !isSlotAvailable(business, currentState.date, currentState.time)),
   );
 
-  const dateTimeEligible = next === "date" || next === "time" || hasCorrection || hasStaleInvalidSlot;
+  // A QUALIFIED time ("quarter to 3pm", "not 3pm", "3pm or 4pm", "from 2pm to 4pm") is never resolved to an hour:
+  // no time is stored, any existing time is kept but marked unresolved, and the customer is asked for one exact time.
+  const timeQualified = Boolean(currentState.intent ?? extracted.intent) && hasTimeQualifier(message);
+  if (timeQualified) {
+    extracted.timeClarification = true;
+    if (currentState.pendingBareTime) extracted.pendingBareTime = undefined;
+  }
+
+  const dateTimeEligible =
+    next === "date" || next === "time" || hasCorrection || hasStaleInvalidSlot || Boolean(currentState.timeClarification);
   if (dateTimeEligible) {
     if (!currentState.date || hasCorrection || hasStaleInvalidSlot) {
       const date = resolveDateWord(message, new Date(), business.timezone);
       if (date) extracted.date = date;
     }
-    if (!currentState.time || hasCorrection || hasStaleInvalidSlot) {
+    if (!currentState.time || hasCorrection || hasStaleInvalidSlot || currentState.timeClarification) {
       const time = parseTime(message);
       if (time) {
         extracted.time = time;
+        extracted.timeClarification = undefined; // one exact time stated: resolved (a fresh confirmation follows)
         // A full time was stated outright — any bare hour remembered
         // from an earlier turn is now stale, never left to misfire on a
         // LATER, unrelated lone "am"/"pm" reply.

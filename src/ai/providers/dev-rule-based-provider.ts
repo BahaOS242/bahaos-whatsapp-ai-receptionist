@@ -1,8 +1,10 @@
 import { correctionBlocksBareName, extractNameContrast, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "../correction-language";
+import { TIME_CLARIFICATION_REPLY } from "../time-clarification";
 import {
   resolveDateWord,
   parseTime,
   parseBareHour,
+  hasTimeQualifier,
   parseBareMeridiem,
   combineBareTime,
   stripRecognizedDateTime,
@@ -462,7 +464,7 @@ const REQUIRED_FIELDS: Record<BookingIntent, (keyof BookingState)[]> = {
 
 function missingFields(state: BookingState): (keyof BookingState)[] {
   if (!state.intent) return [];
-  return REQUIRED_FIELDS[state.intent].filter((field) => !state[field]);
+  return REQUIRED_FIELDS[state.intent].filter((field) => !state[field] || (field === "time" && state.timeClarification));
 }
 
 /** Only the exact, unambiguous "my name is X" phrasing is trusted
@@ -661,6 +663,7 @@ function hasCorrectionContent(business: BusinessContext, message: string, curren
   const stated = extractStatedFields(business, message, { allowLowConfidenceName: false });
   if (Object.keys(stated).length > 0) return true;
   if (extractNameContrast(message, currentName)) return true; // "It's Alisha, not Alicia"
+  if (hasTimeQualifier(message)) return true; // routes into the flow, which asks for one exact time
   return parseBareHour(message) !== undefined;
 }
 
@@ -790,7 +793,7 @@ function finishFlowTurn(
 ): AIProviderResponse {
   const flow = merged.intent!;
 
-  if (flow !== "cancel_appointment" && merged.date && merged.time) {
+  if (flow !== "cancel_appointment" && merged.date && merged.time && !merged.timeClarification) {
     const validation = validateFlowHours(business, flow, merged.date, merged.time, merged.service);
     if (!validation.valid) {
       return rejectTime(
@@ -988,12 +991,19 @@ function handleFlowTurn(
     // "My name is X" is an explicit identity statement: it may replace an earlier name
     // without any correction wording (explicit provenance beats a previously captured value).
     const explicitNameIntro = key === "name" && (HIGH_CONFIDENCE_NAME_RE.test(message) || Boolean(nameContrast));
-    if (!alreadySet || currentlyAsked || hasCorrectionMarker || justDeclined || explicitNameIntro) {
+    const resolvesTimeClarification = key === "time" && Boolean(incomingState.timeClarification);
+    if (!alreadySet || currentlyAsked || hasCorrectionMarker || justDeclined || explicitNameIntro || resolvesTimeClarification) {
       (merged as Record<string, unknown>)[key] = value;
     }
   }
   // Consumed unconditionally — a one-shot hint for THIS turn only.
   merged.justDeclined = undefined;
+
+  // A qualified time ("quarter to 3pm", "3pm or 4pm") is never resolved to an hour. Any stored time is kept but marked
+  // unresolved (it counts as missing, so nothing is confirmed or booked); one exact time clears the mark.
+  const timeQualified = merged.intent !== undefined && merged.intent !== "cancel_appointment" && hasTimeQualifier(message);
+  if (timeQualified) merged.timeClarification = true;
+  else if (stated.time) delete merged.timeClarification;
 
   // Section 9: recurring scheduling can only be safely completed when a
   // clinic simulator is wired in (checkAvailability present) — every
@@ -1043,7 +1053,7 @@ function handleFlowTurn(
   const weakNameSignal = Boolean(stated.date) || Boolean(stated.time);
   // PROVENANCE: a date/time change phrased as a correction is a schedule update, never an identity answer.
   const bareNameBlocked = correctionBlocksBareName(message, stated);
-  if (!merged.name && !statedIncompatible && !bareNameBlocked && (strongNameSignal || weakNameSignal)) {
+  if (!merged.name && !statedIncompatible && !bareNameBlocked && !timeQualified && (strongNameSignal || weakNameSignal)) {
     const withoutPhone = message.replace(PHONE_SUBSTRING_RE, " ").replace(/,/g, " ");
     const remainder = stripCorrectionLanguage(stripRecognizedDateTime(withoutPhone)).trim();
     const candidateOk = strongNameSignal
@@ -1091,7 +1101,12 @@ function handleFlowTurn(
       }
     : undefined;
 
-  const result = finishFlowTurn(business, merged, checkAvailability);
+  const flowResult = finishFlowTurn(business, merged, checkAvailability);
+  // The qualified time is what gets asked about, unless an earlier field (service/date) is still missing.
+  const result =
+    timeQualified && missingFields(merged)[0] === "time"
+      ? { ...flowResult, reply: TIME_CLARIFICATION_REPLY }
+      : flowResult;
 
   // Item 13: a bare month mention ("actually start in October" — no
   // day) genuinely can't produce a date (resolveDateWord/

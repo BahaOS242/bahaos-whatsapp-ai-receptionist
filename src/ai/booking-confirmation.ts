@@ -55,6 +55,8 @@ const CONFIRMATION_RELEVANT_FIELDS = [
   // exactly like any other material change — see this array's own
   // docstring below.
   "recurrenceIntervalMonths",
+  // An unresolved time qualifier ("3pm or 4pm") means the stored time is not what the customer meant.
+  "timeClarification",
 ] as const;
 
 /** True only when NONE of the confirmation-relevant fields differ
