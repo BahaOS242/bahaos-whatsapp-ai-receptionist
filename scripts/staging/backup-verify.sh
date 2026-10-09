@@ -17,6 +17,14 @@ if [ "$client_major" -lt "$server_major" ]; then
   echo "pg_dump v$client_major is older than server v$server_major; install a newer client." >&2; exit 3
 fi
 
+# The throwaway restore target is a LOCAL server (PGHOST/PGPORT select it; default: local socket, port 5432).
+# It must be at least as new as the staging server, and must not inherit the remote's PGSSLMODE.
+local_major=$(PGSSLMODE=disable psql -X -A -t -d postgres -c "show server_version_num" | cut -c1-2)
+if [ "$local_major" -lt "$server_major" ]; then
+  echo "local scratch server v$local_major is older than staging v$server_major; point PGPORT at a v$server_major+ local server." >&2; exit 3
+fi
+local_psql() { PGSSLMODE=disable "$@"; }
+
 dir="${BACKUP_DIR:-$HOME/bahaos-staging-backups}"
 stamp=$(date +%Y%m%dT%H%M%S)
 dump="$dir/staging-$stamp.dump"
@@ -28,20 +36,20 @@ pg_dump -Fc --no-owner --no-privileges -f "$dump" "$DATABASE_URL"
 [ -s "$dump" ] || { echo "backup file is empty" >&2; exit 3; }
 pg_restore -l "$dump" > /dev/null          # the archive must be readable
 
-createdb "$scratch"
-pg_restore --exit-on-error --no-owner --no-privileges -d "$scratch" "$dump"
+local_psql createdb "$scratch"
+local_psql pg_restore --exit-on-error --no-owner --no-privileges -d "$scratch" "$dump"
 
 work=$(mktemp -d)
 # pg_dump prints a random \restrict/\unrestrict token on every run; those two lines are the only expected difference.
 strip_token() { grep -v -E '^\\(un)?restrict '; }
 pg_dump -s --no-owner --no-privileges "$DATABASE_URL" | strip_token > "$work/schema.src.sql"
-pg_dump -s --no-owner --no-privileges "$scratch"      | strip_token > "$work/schema.dst.sql"
+local_psql pg_dump -s --no-owner --no-privileges "$scratch" | strip_token > "$work/schema.dst.sql"
 diff "$work/schema.src.sql" "$work/schema.dst.sql"      # non-zero exit stops the script
 
 psql "$DATABASE_URL" -X -A -t -v ON_ERROR_STOP=1 -f scripts/staging/compare-db.sql > "$work/data.src.txt"
-psql "$scratch"      -X -A -t -v ON_ERROR_STOP=1 -f scripts/staging/compare-db.sql > "$work/data.dst.txt"
+local_psql psql "$scratch" -X -A -t -v ON_ERROR_STOP=1 -f scripts/staging/compare-db.sql > "$work/data.dst.txt"
 diff "$work/data.src.txt" "$work/data.dst.txt"
 [ -s "$work/data.src.txt" ] || { echo "fingerprint is empty" >&2; exit 3; }
 
-dropdb "$scratch"; rm -rf "$work"
+local_psql dropdb "$scratch"; rm -rf "$work"
 echo "VERIFIED: schema and per-table content hashes identical. Backup kept at: $dump"
