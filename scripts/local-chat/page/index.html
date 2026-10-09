@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BahaOS Test Chat</title>
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="top">
+      <div>
+        <h1>BahaOS test chat</h1>
+        <p class="badge" role="status"><strong>Free simulation</strong> · built-in rule-based replies · simulated booking · no real AI, database, calendar or WhatsApp</p>
+      </div>
+      <button id="new" type="button">New conversation</button>
+    </header>
+
+    <section id="log" class="log" aria-live="polite" aria-label="Conversation"></section>
+
+    <form id="form" class="composer" autocomplete="off">
+      <label for="msg" class="sr">Your message</label>
+      <input id="msg" name="msg" type="text" maxlength="500" placeholder="Type a message, e.g. I want a cleaning" autofocus>
+      <button id="send" type="submit">Send</button>
+    </form>
+
+    <p class="hints">Try:
+      <button type="button" class="chip" data-text="I want a cleaning">I want a cleaning</button>
+      <button type="button" class="chip" data-text="yes">yes</button>
+      <button type="button" class="chip" data-text="Tuesday 2pm">Tuesday 2pm</button>
+      <button type="button" class="chip" data-text="Trevor 2428012847">Trevor 2428012847</button>
+      <button type="button" class="chip" data-text="3pm or 4pm">3pm or 4pm</button>
+    </p>
+
+    <details class="state">
+      <summary>What the app has stored (for testing)</summary>
+      <pre id="state">{}</pre>
+      <p id="actions" class="actions">No booking actions yet.</p>
+    </details>
+
+    <p class="foot">This tests the application's own logic (understanding rules, corrections, confirmation gate). It does <strong>not</strong> test real Haiku understanding or WhatsApp delivery. Nothing is saved; closing the server forgets everything.</p>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

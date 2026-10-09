@@ -24,7 +24,7 @@ export default tseslint.config(
   },
   {
     // Staff inbox UI: dependency-free browser ES modules.
-    files: ["public/**/*.js"],
+    files: ["public/**/*.js", "scripts/local-chat/page/**/*.js"],
     languageOptions: { globals: { ...globals.browser } },
   },
   {
