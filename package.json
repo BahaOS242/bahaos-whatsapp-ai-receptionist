@@ -25,7 +25,11 @@
     "eval:llm:compare": "tsx scripts/eval-llm-comparison/cli.ts --compare",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "knowledge": "tsx scripts/knowledge.ts"
+    "knowledge": "tsx scripts/knowledge.ts",
+    "worker": "node dist/worker.js",
+    "jobs": "tsx scripts/jobs.ts",
+    "chat:web": "tsx scripts/local-chat/server.ts",
+    "chat:web:live": "LOCAL_CHAT_LIVE=1 tsx scripts/local-chat/server.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.120.0",

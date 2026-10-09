@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { pinClockToReferenceCalendar } from "../helpers/pin-clock";
 import { LLMProvider } from "../../src/ai/providers/llm-provider";
 import { BAHAMAS_DENTAL_SERVICE } from "../../src/ai/business-context";
 import { nextRequiredField } from "../../src/ai/booking-progression";
 import { resolveDateWord } from "../../src/ai/date-time";
 import type { LlmChatClient, LlmChatResult } from "../../src/ai/providers/llm-chat-client";
 import type { AIProviderRequest, BookingState, CompletedBookingSnapshot } from "../../src/ai/types";
+
+// These tests' expectations are tied to the reference calendar (see tests/helpers/pin-clock.ts).
+pinClockToReferenceCalendar();
 
 /**
  * CONTEXT-STATE REGRESSION — RESCHEDULE FLOW.

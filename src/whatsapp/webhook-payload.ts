@@ -182,3 +182,65 @@ export function parseVerificationQuery(query: Record<string, unknown>): WebhookV
     challenge: asString(query["hub.challenge"]),
   };
 }
+
+// ---------------------------------------------------------------------------------------------------------------------
+// Delivery receipts (Meta `value.statuses`). NOT customer messages: parseWebhookPayload never reads them, and they must
+// never create a conversation turn or a reply. They report what happened AFTER the provider's API accepted one of OUR
+// outbound messages (sent / delivered / read / failed).
+
+export type DeliveryReceiptStatus = "sent" | "delivered" | "read" | "failed";
+
+export interface NormalizedDeliveryReceipt {
+  /** The provider's id of our outbound message (a "wamid..." string) — matches outbox_messages.provider_message_id. */
+  providerMessageId: string;
+  status: DeliveryReceiptStatus;
+  /** Provider timestamp. Missing/invalid -> the Unix epoch (deterministic, so a redelivered receipt still dedupes). */
+  eventAt: Date;
+  recipient?: string;
+  /** `meta_<code>` for a failed receipt, matching the outbox's own error-code vocabulary. */
+  errorCode?: string;
+  errorTitle?: string;
+  /** From the same `metadata` object as messages; the route rejects a mismatch exactly as it does for messages. */
+  phoneNumberId?: string;
+}
+
+const RECEIPT_STATUSES: ReadonlySet<string> = new Set(["sent", "delivered", "read", "failed"]);
+
+function receiptTimestamp(value: unknown): Date {
+  const raw = asString(value);
+  const seconds = raw ? Number.parseInt(raw, 10) : Number.NaN;
+  return Number.isFinite(seconds) ? new Date(seconds * 1000) : new Date(0);
+}
+
+/** Never throws; anything that is not a well-formed status entry is skipped. */
+export function parseWebhookStatuses(body: unknown): NormalizedDeliveryReceipt[] {
+  if (!isRecord(body)) return [];
+  const results: NormalizedDeliveryReceipt[] = [];
+  for (const entry of Array.isArray(body.entry) ? body.entry : []) {
+    if (!isRecord(entry)) continue;
+    for (const change of Array.isArray(entry.changes) ? entry.changes : []) {
+      if (!isRecord(change) || !isRecord(change.value)) continue;
+      const value = change.value;
+      const phoneNumberId = isRecord(value.metadata) ? asString(value.metadata.phone_number_id) : undefined;
+      for (const raw of Array.isArray(value.statuses) ? value.statuses : []) {
+        if (!isRecord(raw)) continue;
+        const providerMessageId = asString(raw.id);
+        const status = asString(raw.status);
+        if (!providerMessageId || !status || !RECEIPT_STATUSES.has(status)) continue;
+        const firstError = Array.isArray(raw.errors) && isRecord(raw.errors[0]) ? raw.errors[0] : undefined;
+        const code = firstError && (typeof firstError.code === "number" || typeof firstError.code === "string") ? String(firstError.code) : undefined;
+        results.push({
+          providerMessageId,
+          status: status as DeliveryReceiptStatus,
+          eventAt: receiptTimestamp(raw.timestamp),
+          recipient: asString(raw.recipient_id),
+          errorCode: status === "failed" && code ? `meta_${code}` : undefined,
+          errorTitle: status === "failed" && firstError ? asString(firstError.title) : undefined,
+          phoneNumberId,
+        });
+      }
+    }
+  }
+  return results;
+}
+

@@ -1,0 +1,3129 @@
+{
+ "summary": {
+  "stopOnHard": true,
+  "testedCommit": "4fcec1a5740f6a08b74a85a1e842fdaa4c65e072",
+  "workingTreeClean": true,
+  "sets": [
+   {
+    "label": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)",
+    "cases": 10
+   }
+  ],
+  "note": "SIMULATED booking tools only — no database, no WhatsApp, no real calendar. The historical 14/27 result is NOT rerun and NOT these tests.",
+  "model": [
+   "claude-haiku-4-5-20251001"
+  ],
+  "requestedModel": "claude-haiku-4-5-20251001",
+  "priceSnapshot": {
+   "model": "claude-haiku-4-5-20251001",
+   "inputUsdPerMTok": 1,
+   "outputUsdPerMTok": 5,
+   "snapshotDate": "2026-10-06",
+   "source": "Anthropic model table cached in the claude-api skill (claude-haiku-4-5)"
+  },
+  "toolBackend": "simulated (no DB/WhatsApp/calendar)",
+  "capUSD": 1,
+  "softStopUSD": 1,
+  "estimatedSpendUSD": 0.4223,
+  "billingNote": "estimate from reported usage x the named price snapshot; NOT an Anthropic billing receipt",
+  "calls": 150,
+  "inputTokens": 370797,
+  "outputTokens": 10295,
+  "stoppedBy": null,
+  "caseRuns": 30,
+  "hardFailures": 0,
+  "softShortfalls": 0
+ },
+ "results": [
+  {
+   "id": "F01 R21 It's Alisha, not Alicia",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning.\n\nWhat date would work best for you? We're open Monday–Friday, 9 AM–5 PM.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a cleaning and you're ready to tell me your preferred date? Just let me know what day works for you (Monday through Friday), and I'll get that set up.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "It's Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "Got it — I've corrected that to **Alisha**. Your routine cleaning is set for Tuesday at 2:00 PM. Reply YES to confirm, or let me know if anything else needs to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F02 yes, Alisha not Alicia",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a routine cleaning with us? If so, what day and time would work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM for a routine cleaning. What's your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, Alisha not Alicia",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F03 curly It’s Alisha, not Alicia",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood you — are you looking to book a cleaning, and you're ready to tell me your preferred date and time? \n\nWhat day would work for you? (Keep in mind we're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works for a routine cleaning.\n\nWhat's your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "It’s Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "Got it — I've updated that to Alisha. \n\nSo to confirm: Routine cleaning on Tuesday at 2:00 PM under the name Alisha, phone +1-242-555-0100. Does that all look correct?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F04 yes, curly it’s Alisha, not Alicia",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a routine cleaning? If so, I still need to know what day and time would work best for you. \n\nWe're open Monday through Friday, 9:00 AM to 5:00 PM. What day and time would you prefer",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, it’s Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F05 Yes Alisha not Alicia",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a cleaning, and you're ready to tell me your preferred date and time? \n\nWhat day would you like to come in?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "Yes Alisha not Alicia",
+     "kind": "setup",
+     "reply": "Got it — I've updated your name to Alisha. Let me confirm everything:\n\n**Routine cleaning**  \n**Tuesday at 2:00 PM**  \n**Name: Alisha**  \n**Phone: +1 242-555-0100**\n\nIs that all correct?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F06 R22 wrong number, it's 2428019999",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I'd be happy to help you book a routine cleaning.\n\n**What date would work best for you?** (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a cleaning, and you're ready to tell me your preferred date? \n\n**What date would work best for you?** (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "wrong number, it's 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999.\n\n**To confirm: Routine cleaning on Tuesday at 2:00 PM under the name Trevor, with phone +12428019999. Does that look correct?**",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F07 curly wrong number, it’s 2428019999",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning. \n\nWhat date would work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you ready to tell me your preferred date for the cleaning? Just let me know which day works for you (Monday through Friday).",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works great for a routine cleaning.\n\nNow I just need your name to complete the booking request.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "wrong number, it’s 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999.\n\nSo to confirm: Routine cleaning on Tuesday at 2:00 PM under the name Trevor, phone +12428019999. Does that all look correct? Reply YES to proceed, or let me know if anything needs to",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F08 bundled yes, wrong number, it's 2428019999",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning. \n\nWhat date would work best for you? We're open Monday through Friday, 9:00 AM to 5:00 PM.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you saying yes to confirm the routine cleaning, or are you answering a different question? \n\nCould you tell me what date you'd prefer for your cleaning appointment?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2:00 PM works for your routine cleaning.\n\nWhat's your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, wrong number, it's 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999.\n\nLet me confirm everything before we finalize your booking:\n- **Service:** Routine cleaning\n- **Date:** Tuesday\n- **Time:** 2:00 PM\n- **Name:** Trevor\n- **Phone:** +12428019999\n\nIs ev",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F09 bundled yes + curly",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like a routine cleaning. \n\nWhat date and time work best for you? We're open Monday through Friday, 9 AM to 5 PM.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you confirming that you'd like to book a routine cleaning, and you're ready to tell me your preferred date and time? \n\nIf so, what day and time would work best for you? We're open Monday–Friday, 9 AM–5",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works for your routine cleaning.\n\nWhat's your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, wrong number, it’s 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your number to +1-242-801-9999.\n\nLet me confirm: Routine cleaning on Tuesday at 2:00 PM under the name Trevor, phone +1-242-801-9999. Is that all correct?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F10 that’s the wrong phone number, 2428019999",
+   "pass": 1,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a routine cleaning? If so, what day and time would work best for you? (We're open Monday–Friday, 9:00 AM–5:00 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "that’s the wrong phone number, 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999. Let me confirm everything:\n\n**Routine cleaning | Tuesday at 2:00 PM | Trevor | +12428019999**\n\nReply YES to confirm, or tell me what you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F01 R21 It's Alisha, not Alicia",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a routine cleaning? If so, what day and time would work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "It's Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "Got it — I've updated that to **Alisha**. So to confirm: Routine cleaning on Tuesday at 2:00 PM under the name Alisha, phone +1-242-555-0100. Reply YES to go ahead, or let me know if anything needs to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F02 yes, Alisha not Alicia",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you're looking for a routine cleaning. \n\nTo get you scheduled, I need to know your **preferred date and time**. What day and time work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you confirming that you'd like to book a routine cleaning, or did you mean to answer a question about a specific date and time?\n\nWhat day and time would work best for your cleaning appointment?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works great for your routine cleaning.\n\nNow I just need your **name** to complete the booking request.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, Alisha not Alicia",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F03 curly It’s Alisha, not Alicia",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — you're looking to book a routine cleaning, and you're confirming that works for you. But I still need to know **what day and time** you'd prefer.\n\nCould you give me a date and time? (We're open Monday–Frid",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works great for a routine cleaning.\n\nWhat's your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "It’s Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "Got it — I've corrected that to **Alisha**. \n\nSo to confirm: Routine cleaning on Tuesday at 2:00 PM under the name Alisha, phone +1-242-555-0100. Does that all look right? Reply YES to proceed, or let me know if anything needs to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F04 yes, curly it’s Alisha, not Alicia",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood you — are you looking to book a routine cleaning? If so, what day and time would work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works for a routine cleaning. What's your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, it’s Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F05 Yes Alisha not Alicia",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning.\n\nTo get you scheduled, I'll need to know your preferred date and time. What day and time work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you confirming that you'd like to book a routine cleaning, or did you mean to answer a specific question about the date and time?\n\nCould you tell me what day and time you'd prefer for your appointment?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works for your routine cleaning.\n\nWhat's your name, please?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "Yes Alisha not Alicia",
+     "kind": "setup",
+     "reply": "Got it — I've updated that to **Alisha**. \n\nJust to confirm everything:\n- **Service:** Routine cleaning\n- **Date:** Tuesday at 2:00 PM\n- **Name:** Alisha\n- **Phone:** +12425550100\n\nDoes everything look correct?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F06 R22 wrong number, it's 2428019999",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you confirming that you'd like to book a routine cleaning, and now you're ready to tell me your preferred date and time? \n\nIf so, what day and time would work best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "wrong number, it's 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999. \n\nLet me confirm: Routine cleaning on Tuesday at 2:00 PM with Trevor at +12428019999. Reply YES to confirm, or tell me what you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F07 curly wrong number, it’s 2428019999",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood you — are you saying yes to confirm a routine cleaning appointment, or did you mean to answer a different question? \n\nCould you let me know what day and time you'd prefer for your cleaning?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "wrong number, it’s 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999. \n\nSo to confirm: Routine cleaning on Tuesday at 2:00 PM under the name Trevor, phone +12428019999. Does that all look correct?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F08 bundled yes, wrong number, it's 2428019999",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning with us.\n\nWhat date and time would work best for you? Our hours are Monday–Friday, 9:00 AM–5:00 PM.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you ready to tell me your preferred date and time for the cleaning? Just let me know what day and time works for you, and I'll get that set up.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2:00 PM for a routine cleaning. Now I just need your name to complete the booking request.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, wrong number, it's 2428019999",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F09 bundled yes + curly",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a routine cleaning? If so, what day and time would work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, wrong number, it’s 2428019999",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F10 that’s the wrong phone number, 2428019999",
+   "pass": 2,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I have you down for a routine cleaning. \n\nTo get you scheduled, I need to know your preferred date and time. What day and time work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you confirming that you'd like a routine cleaning, or are you answering a different question? \n\nCould you tell me what date and time you'd prefer for your appointment? (We're open Monday–Friday, 9 AM–5",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "that’s the wrong phone number, 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999.\n\nJust to confirm: Routine cleaning on Tuesday at 2:00 PM with the corrected phone number. Reply YES to confirm, or let me know if anything else needs to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F01 R21 It's Alisha, not Alicia",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning.\n\nWhat date works best for you? We're open Monday through Friday, 9 AM to 5 PM.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you confirming that you'd like to book a routine cleaning? If so, I still need to know what date and time work best for you.\n\nWe're open Monday through Friday, 9 AM to 5 PM. What day would you prefer?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works for a routine cleaning.\n\nTo finalize your request, I'll need your name, please.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "It's Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "Got it — I've corrected that to **Alisha**. So to confirm: routine cleaning on Tuesday at 2:00 PM under the name Alisha with phone +12425550100. Does that look right?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F02 yes, Alisha not Alicia",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you saying yes to booking a routine cleaning, or did you mean to answer a different question? \n\nCould you let me know what day and time you'd prefer for your cleaning appointment?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, Alisha not Alicia",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F03 curly It’s Alisha, not Alicia",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning. \n\nTo get you scheduled, I'll need a few details. Let's start with **what date works best for you?** (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you ready to tell me your preferred date for the cleaning? \n\nJust let me know what day you'd like to come in (for example, \"next Monday\" or \"March 15th\"), and then we'll pick a time.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! So you're looking at **Tuesday at 2 PM for a routine cleaning**.\n\nNow I just need your **name**, please.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "It’s Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "Got it — thanks for the correction! I've updated that to **Alisha**.\n\nSo to confirm: **Routine cleaning, Tuesday at 2:00 PM, under the name Alisha with phone +1-242-555-0100**. Does that all look right? Reply YES to go ahead, or let me know",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F04 yes, curly it’s Alisha, not Alicia",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — you're looking to book a routine cleaning, but I still need to know what day and time you'd prefer. \n\nWhat day would work for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, it’s Alisha, not Alicia",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F05 Yes Alisha not Alicia",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning with us.\n\nTo get you scheduled, what date works best for you? Please provide a date in the next few days or weeks.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understand — are you confirming that you'd like to book a routine cleaning, or are you answering a different question?\n\nTo move forward, I'll need a specific date for your appointment. What date would work for you? (Fo",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Alicia 2425550100",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alicia",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "Yes Alisha not Alicia",
+     "kind": "setup",
+     "reply": "Got it — I've updated your name to Alisha. \n\nLet me confirm everything one more time:\n- **Service:** Routine cleaning\n- **Date:** Tuesday, October 13\n- **Time:** 2:00 PM\n- **Name:** Alisha\n- **Phone:** +1 (242) 555-0100\n\nDoes that all look ",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12425550100",
+      "name": "Alisha",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Alisha",
+       "phone": "+12425550100"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Alisha",
+     "phone": "+12425550100",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F06 R22 wrong number, it's 2428019999",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "What day and time works best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you looking to book a cleaning for a specific day and time this week? If so, what day and time would work best for you?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "wrong number, it's 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999. That's Tuesday, October 13 at 2:00 PM for a routine cleaning under the name Trevor. Reply YES to confirm, or let me know if anything needs to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F07 curly wrong number, it’s 2428019999",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning. \n\nWhat date and time work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you confirming that you'd like to book a routine cleaning, or did you mean something else? \n\nOnce I have that confirmed, I'll need to know your preferred date and time. 😊",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "wrong number, it’s 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +1 242-801-9999.\n\nJust to confirm everything one more time: Routine cleaning on Tuesday at 2:00 PM under the name Trevor, phone +1 242-801-9999. Reply YES to confirm, or let me know what you'd like",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F08 bundled yes, wrong number, it's 2428019999",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like to book a routine cleaning. \n\nWhat date and time would work best for you? Our office is open Monday through Friday, 9:00 AM to 5:00 PM.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood you — are you looking to schedule a cleaning, and you're ready to tell me your preferred date and time? \n\nIf so, what day and time would work best for you? (We're open Monday–Friday, 9:00 AM–5:00 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, wrong number, it's 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999.\n\nLet me confirm everything one more time: Routine cleaning on Tuesday at 2:00 PM under the name Trevor, phone +12428019999. Does that all look correct?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F09 bundled yes + curly",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you're looking to book a routine cleaning.\n\nTo get you scheduled, what date would work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understood — are you confirming you'd like to book a routine cleaning, or did you want to tell me a specific date?\n\nPlease let me know what date works best for you (Monday–Friday, between 9 AM–5 PM).",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Could I get your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes, wrong number, it’s 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +12428019999.\n\nLet me confirm: Routine cleaning on Tuesday at 2:00 PM with phone number +12428019999. Is that all correct?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  },
+  {
+   "id": "F10 that’s the wrong phone number, 2428019999",
+   "pass": 3,
+   "steps": [
+    {
+     "in": "I want a cleaning",
+     "kind": "setup",
+     "reply": "Great! I've noted that you'd like a routine cleaning. \n\nTo get you scheduled, I need to know your preferred date and time. What day and time work best for you? (We're open Monday–Friday, 9 AM–5 PM.)",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "setup",
+     "reply": "I want to make sure I understand — are you confirming that you want to book a routine cleaning, or are you answering a specific question about the date and time?\n\nCould you tell me what day and time you'd prefer for your cleaning appointmen",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning"
+     },
+     "actions": []
+    },
+    {
+     "in": "Tuesday 2pm",
+     "kind": "setup",
+     "reply": "Perfect! Tuesday at 2 PM works for your routine cleaning.\n\nWhat's your name?",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00"
+     },
+     "actions": []
+    },
+    {
+     "in": "Trevor 2428012847",
+     "kind": "setup",
+     "reply": "I have you down for Routine cleaning on Tuesday, October 13 at 2:00 PM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428012847",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "that’s the wrong phone number, 2428019999",
+     "kind": "setup",
+     "reply": "Got it — I've updated your phone number to +1-242-801-9999.\n\nJust to confirm everything before we finalize your request:\n- **Service:** Routine cleaning\n- **Date:** Tuesday at 2:00 PM\n- **Name:** Trevor\n- **Phone:** +1-242-801-9999\n\nDoes ev",
+     "state": {
+      "intent": "book_appointment",
+      "service": "Routine cleaning",
+      "date": "Tuesday",
+      "time": "14:00",
+      "phone": "+12428019999",
+      "name": "Trevor",
+      "pendingAction": "confirm_service"
+     },
+     "actions": []
+    },
+    {
+     "in": "yes",
+     "kind": "approval",
+     "reply": "I've captured your request — a team member will confirm.",
+     "state": {
+      "bookingJustCompleted": true,
+      "lastCompletedBooking": {
+       "intent": "book_appointment",
+       "service": "Routine cleaning",
+       "date": "Tuesday",
+       "time": "14:00",
+       "name": "Trevor",
+       "phone": "+12428019999"
+      }
+     },
+     "actions": [
+      {
+       "type": "request_appointment",
+       "success": true
+      }
+     ]
+    }
+   ],
+   "payloads": [
+    {
+     "name": "Trevor",
+     "phone": "+12428019999",
+     "service": "Routine cleaning",
+     "preferredDate": "Tuesday",
+     "preferredTime": "14:00"
+    }
+   ],
+   "successfulBookings": 1,
+   "hard": [],
+   "soft": [],
+   "set": "FOCUSED R21/R22 variants (new run; earlier failing evidence preserved)"
+  }
+ ]
+}

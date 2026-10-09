@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../../src/app";
 import { loadEnv } from "../../src/config/env";
@@ -11,6 +11,7 @@ import { BAHAMAS_DENTAL_SERVICE } from "../../src/ai/business-context";
 import { createMockMessagingProvider } from "../../src/messaging/mock-messaging-provider";
 import { appointments, conversations, customers, services } from "../../src/db/schema";
 import { createTestDb, resetTestData } from "./db-test-helpers";
+import { deliverAllQueued } from "./outbox-helpers";
 import type { MockMessagingProvider } from "../../src/messaging/mock-messaging-provider";
 
 /**
@@ -35,13 +36,15 @@ describe("Webhook torture tests — real Meta-shaped payloads through the full H
     await resetTestData(db);
   });
 
+  afterEach(() => { vi.useRealTimers(); });
+
   afterAll(async () => {
     await pool.end();
   });
 
   function buildApp(messaging: MockMessagingProvider = createMockMessagingProvider()) {
     const agent = new ReceptionistAgent(new DevRuleBasedAIProvider(), createDatabaseReceptionistTools(BAHAMAS_DENTAL_SERVICE, db));
-    const app = createApp({ env, db: db as never, agent, messaging });
+    const app = createApp({ env, db: db as never, agent });
     return { app, agent, messaging };
   }
 
@@ -73,6 +76,8 @@ describe("Webhook torture tests — real Meta-shaped payloads through the full H
     const before = messaging.sent.length;
     const res = await request(app).post("/webhooks/whatsapp").send(inboundPayload(from, text));
     expect(res.status).toBe(200);
+    // The webhook only QUEUES the reply; the outbox worker delivers it.
+    await deliverAllQueued(db, messaging);
     return messaging.sent.length > before ? messaging.sent[messaging.sent.length - 1].body : undefined;
   }
 
@@ -225,6 +230,10 @@ describe("Webhook torture tests — real Meta-shaped payloads through the full H
   });
 
   it("RESCHEDULE: change my appointment -> tomorrow -> 2am -> yes never books an invalid 2 AM appointment", async () => {
+    // "tomorrow" is relative to the business clock. Freeze it (Date only) on a Thursday so
+    // "tomorrow" is an open weekday; on a real-clock Friday it is Saturday (closed) and the
+    // reply is legitimately "we're closed" instead of an hours rejection.
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-08-20T15:00:00Z") });
     const { app, messaging } = buildApp();
     const phone = "12428017008";
 

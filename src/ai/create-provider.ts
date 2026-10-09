@@ -8,6 +8,7 @@ import { createSimulatedReceptionistTools } from "../tools/receptionist-tools";
 import { createClinicSimulatorReceptionistTools } from "../tools/clinic-simulator-receptionist-tools";
 import { createClinicSimulator, type ClinicSimulator } from "../simulator/clinic-simulator";
 import { BAHAMAS_DENTAL_SERVICE } from "./business-context";
+import { resolveAiProvider, resolveBookingBackend } from "../config/runtime-profile";
 import {
   createDbLanguageObservationRecorder,
   noopLanguageObservationRecorder,
@@ -41,8 +42,8 @@ import type { AIProvider, ReceptionistTools } from "./types";
  * function must be proven to ignore).
  */
 export function createAiProvider(env: Env = getEnv()): AIProvider {
-  if (env.ANTHROPIC_API_KEY) {
-    return new LLMProvider(new AnthropicChatClient(env.ANTHROPIC_API_KEY, env.ANTHROPIC_MODEL));
+  if (resolveAiProvider(env) === "anthropic") {
+    return new LLMProvider(new AnthropicChatClient(env.ANTHROPIC_API_KEY!, env.ANTHROPIC_MODEL));
   }
   return new DevRuleBasedAIProvider();
 }
@@ -96,25 +97,22 @@ export function createReceptionistTools(
   // it on its own, exactly as any caller would expect.
   clinicSimulator?: ClinicSimulator,
 ): ReceptionistTools {
-  if (env.CLINIC_SIMULATOR_ENABLED || clinicSimulator) {
-    return createClinicSimulatorReceptionistTools(clinicSimulator ?? createClinicSimulator(BAHAMAS_DENTAL_SERVICE));
-  }
-  if (env.DB_BOOKING_ENABLED) {
-    return createDatabaseReceptionistTools(BAHAMAS_DENTAL_SERVICE, db);
-  }
-  if (
-    env.GOOGLE_CALENDAR_CLIENT_ID &&
-    env.GOOGLE_CALENDAR_CLIENT_SECRET &&
-    env.GOOGLE_CALENDAR_REFRESH_TOKEN &&
-    env.GOOGLE_CALENDAR_ID
-  ) {
-    const calendarClient = new GoogleCalendarClient({
-      clientId: env.GOOGLE_CALENDAR_CLIENT_ID,
-      clientSecret: env.GOOGLE_CALENDAR_CLIENT_SECRET,
-      refreshToken: env.GOOGLE_CALENDAR_REFRESH_TOKEN,
-      calendarId: env.GOOGLE_CALENDAR_ID,
-    });
-    return createGoogleCalendarReceptionistTools(BAHAMAS_DENTAL_SERVICE, calendarClient);
+  switch (resolveBookingBackend(env, Boolean(clinicSimulator))) {
+    case "clinic_simulator":
+      return createClinicSimulatorReceptionistTools(clinicSimulator ?? createClinicSimulator(BAHAMAS_DENTAL_SERVICE));
+    case "database":
+      return createDatabaseReceptionistTools(BAHAMAS_DENTAL_SERVICE, db);
+    case "google_calendar": {
+      const calendarClient = new GoogleCalendarClient({
+        clientId: env.GOOGLE_CALENDAR_CLIENT_ID!,
+        clientSecret: env.GOOGLE_CALENDAR_CLIENT_SECRET!,
+        refreshToken: env.GOOGLE_CALENDAR_REFRESH_TOKEN!,
+        calendarId: env.GOOGLE_CALENDAR_ID!,
+      });
+      return createGoogleCalendarReceptionistTools(BAHAMAS_DENTAL_SERVICE, calendarClient);
+    }
+    case "demo_in_memory":
+      break;
   }
   return createSimulatedReceptionistTools(BAHAMAS_DENTAL_SERVICE);
 }

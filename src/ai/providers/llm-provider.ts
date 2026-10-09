@@ -25,12 +25,15 @@ import {
   composeRecurringConfirmationOrConflict,
   composeRecurringUnavailableEscalation,
   isConfirmedCompletingAction,
+  looksLikeConfirmationPrompt,
 } from "../booking-confirmation";
 import { AFFIRMATIVE_RE, NEGATIVE_RE, extractStatedFields } from "../message-field-extraction";
 import { extractPhone } from "../phone";
 import { flipMeridiemHour, normalizeTime } from "../date-time";
+import { TIME_CLARIFICATION_REPLY } from "../time-clarification";
 import { truncatePhrase } from "../unclear-phrase";
 import { generateOccurrenceDates, RECURRING_OCCURRENCE_COUNT } from "../recurrence";
+import { MAX_MEMORY_PROMPT_CHARS } from "../../memory/types";
 import { verifyReplyGrounding } from "../../knowledge/answer-guard";
 import { parseMoneyCents } from "../../knowledge/claims";
 import { buildKnowledgeSection, KNOWLEDGE_GROUNDING_RULES } from "../../knowledge/evidence-prompt";
@@ -429,6 +432,8 @@ export class LLMProvider implements AIProvider {
         : undefined;
 
     let systemPrompt = buildSystemPrompt({ ...request, bookingState });
+    // Customer memory: low-authority, delimited DATA appended after every rule. Absent => prompt unchanged.
+    if (request.memory && request.memory.length <= MAX_MEMORY_PROMPT_CHARS) systemPrompt = `${systemPrompt}\n\n${request.memory}`;
     const messages: LlmChatMessage[] = [
       ...request.history.map((turn): LlmChatMessage => ({
         role: turn.role === "customer" ? "user" : "assistant",
@@ -865,8 +870,31 @@ export class LLMProvider implements AIProvider {
       }
     }
 
+    // An unresolved time clarification outranks every confirmation prompt and all model text: never invite a "yes"
+    // while the stored time is in doubt. (Escalation to a human still comes first.)
+    const timeClarificationReply = bookingState.timeClarification ? TIME_CLARIFICATION_REPLY : undefined;
+    // App-controlled confirmation prompts: model text may only invite a confirmation when it IS the app's own prompt for the
+    // stored values. Every app-composed reply is already earlier in the chain below, so anything reaching here is model prose.
+    //   - armed (pendingAction set) -> the app's summary of the STORED values replaces the model's wording;
+    //   - not armed                 -> the app's own next question replaces it (the customer is never invited to say "yes"
+    //                                  to something the app has not armed). Recurring bookings keep their own
+    //                                  availability-aware prompt flow and are left untouched.
+    let modelText = claimsCompletionWithoutAction ? null : result.content;
+    if (
+      modelText !== null &&
+      !actions.some((a) => COMPLETING_ACTION_TYPES.has(a.type)) &&
+      bookingState.intent !== "book_recurring_appointment" &&
+      looksLikeConfirmationPrompt(modelText)
+    ) {
+      modelText =
+        bookingState.pendingAction === "confirm_service"
+          ? composeConfirmationPrompt(request.business, bookingState)
+          : fallbackReplyForEmptyContent(request.business, bookingState, actions);
+    }
+
     const reply: string | null =
       escalationSafetyReply ??
+      timeClarificationReply ??
       declineOverrideReply ??
       duplicateBookingReply ??
       confirmationRequiredReply ??
@@ -875,7 +903,7 @@ export class LLMProvider implements AIProvider {
       phoneRejectionReply ??
       timeRejectionReply ??
       freshConfirmationReply ??
-      (claimsCompletionWithoutAction ? null : result.content) ??
+      modelText ??
       // The model made a tool call but returned no text at all (observed
       // live with openai/gpt-4o-mini via OpenRouter — it sometimes calls
       // update_booking_progress/escalate without pairing it with a

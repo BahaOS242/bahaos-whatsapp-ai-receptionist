@@ -1,11 +1,12 @@
 import { sql } from "drizzle-orm";
 import { PersistedConversationManager } from "../db/persisted-conversation";
+import type { MemoryService } from "../memory/service";
+import { isHumanOwned } from "../db/conversations";
+import { recordAudit } from "../inbox/audit";
 import { findOrCreateActiveConversation } from "../db/conversations";
 import { resolveCustomer, resolveTenant } from "../db/domain-resolution";
-import { recordSendOutcome } from "../messaging/outbound-retry-worker";
 import { isRateLimited } from "./rate-limit";
 import type { Db } from "../db/client";
-import type { MessagingProvider } from "../messaging/messaging-provider";
 import type { ReceptionistAgent } from "../ai/receptionist-agent";
 import type { BusinessContext } from "../ai/types";
 
@@ -143,12 +144,18 @@ export interface ProcessedInboundMessage {
    * are null/undefined whenever this is true: a flood is not made better
    * by replying to every message past the threshold. */
   rateLimited: boolean;
+  /** True when a human owns the conversation: the customer's message was
+   * kept and the conversation surfaced to staff, but NO automated reply
+   * was generated or queued (see INBOX.md). Never set with `reply`. */
+  suppressedByHuman?: boolean;
 }
 
 export interface WebhookProcessingDeps {
   db: Db;
   business: BusinessContext;
   agent: ReceptionistAgent;
+  /** Customer memory (MEMORY_ENABLED). Absent => no extraction, no retrieval, nothing changes. */
+  memory?: MemoryService;
 }
 
 /**
@@ -229,7 +236,7 @@ export async function processInboundWhatsAppMessage(
     // would poison this transaction.
     const manager = await PersistedConversationManager.loadOrCreate(tx, deps.business, input.phone, input.name);
 
-    const { wasDuplicate, existingConversationId } = await manager.recordInboundMessage(
+    const { id: inboundMessageId, wasDuplicate, existingConversationId } = await manager.recordInboundMessage(
       input.message,
       input.whatsappMessageId,
     );
@@ -250,16 +257,105 @@ export async function processInboundWhatsAppMessage(
       };
     }
 
+    // CUSTOMER MEMORY — extraction. Runs for any non-duplicate customer message,
+    // including while a human owns the conversation (same validation, and it
+    // sends nothing). Only the CUSTOMER's words are ever considered; failures
+    // are contained in a savepoint and never affect the turn.
+    const memoryScope = { tenantId: manager.tenantId, customerId: manager.customerId, conversationId: manager.conversationId, sourceMessageId: inboundMessageId };
+    if (deps.memory) await deps.memory.processCustomerMessage(tx, memoryScope, input.message);
+
+    // HUMAN OWNERSHIP GATE (Phase 3). If a person owns — or has been asked
+    // to own — this conversation, the AI must not reply. The status is
+    // re-read UNDER A ROW LOCK so the decision is race-free against a staff
+    // transition (which takes the same lock); the message itself is already
+    // durably recorded above, so nothing is lost.
+    if (isHumanOwned(manager.getStatus())) {
+      const current = await manager.lockOwnership();
+      if (isHumanOwned(current)) {
+        await manager.markCustomerWaiting();
+        return {
+          wasDuplicate: false,
+          reply: null,
+          outboundMessageId: undefined,
+          handoffActive: true,
+          conversationId: manager.conversationId,
+          rateLimited: false,
+          suppressedByHuman: true,
+        };
+      }
+      // Control was returned to the AI between our first read and the lock:
+      // fall through and answer normally.
+    }
+
     const history = await manager.loadHistory();
     const request = {
       ...manager.buildRequest({ customer: {}, history, message: input.message }),
       conversationId: manager.conversationId,
     };
 
+    // CUSTOMER MEMORY — retrieval. Only reached when the AI is allowed to reply.
+    const memoryBlock = deps.memory
+      ? await deps.memory.contextFor(tx, memoryScope, input.message, manager.getBookingState())
+      : undefined;
+    if (memoryBlock) request.memory = memoryBlock;
+
+    await manager.markTurnStart();
     const result = await deps.agent.handleMessage(request);
 
+    // RACE GATE: the model call above can take seconds; staff may have taken
+    // over (or closed the conversation) meanwhile. Revalidate ownership under
+    // the row lock IMMEDIATELY before anything is queued. Staff transitions
+    // take the same lock, so from here to COMMIT none can interleave.
+    const statusNow = await manager.lockOwnership();
+    if (statusNow !== "ai_active" || manager.ownershipChangedDuringTurn()) {
+      await manager.recordSuppressedReply(result.reply);
+      // Keep what the turn legitimately did (e.g. a booking), but never
+      // touch ownership: persistConversationTurn is ownership-aware.
+      await manager.commitTurn(result.bookingState, false);
+      await recordAudit(tx, {
+        tenantId: manager.tenantId,
+        actor: { type: "ai" },
+        event: "ai.reply_suppressed",
+        conversationId: manager.conversationId,
+        metadata: { reason: "ownership_changed_during_turn", statusNow },
+      });
+      return {
+        wasDuplicate: false,
+        reply: null,
+        outboundMessageId: undefined,
+        handoffActive: isHumanOwned(statusNow),
+        conversationId: manager.conversationId,
+        rateLimited: false,
+        suppressedByHuman: true,
+      };
+    }
+
     const outboundMessage = await manager.recordOutboundMessage(result.reply);
-    await manager.commitTurn(result.bookingState, result.handoffActive);
+    // DURABLE OUTBOX: the reply is queued in THIS transaction, committed
+    // atomically with the booking/handoff/conversation state. Delivery is
+    // the worker's job, after COMMIT, outside any transaction.
+    await manager.enqueueReply(outboundMessage.id, result.reply, inboundMessageId);
+    const escalation = result.actionsTaken.find((a) => a.action.type === "escalate" && a.result.success);
+    const handoffReason = escalation && escalation.action.type === "escalate" ? escalation.action.payload.reason : undefined;
+    await manager.commitTurn(result.bookingState, result.handoffActive, handoffReason);
+    if (deps.memory) {
+      // Application-derived continuity from deterministic signals (never from the model's text).
+      // Only when the CUSTOMER asked for a person — not for emergencies or "could not understand" escalations.
+      if (result.handoffActive && handoffReason === "customer explicitly asked for a person") {
+        await deps.memory.recordContinuity(tx, memoryScope, { type: "requested_human" });
+      }
+      const booked = result.actionsTaken.some((a) => a.action.type === "request_appointment" && a.result.success);
+      if (!booked) await deps.memory.recordContinuity(tx, memoryScope, { type: "service_inquiry", message: input.message });
+    }
+    if (result.handoffActive) {
+      await recordAudit(tx, {
+        tenantId: manager.tenantId,
+        actor: { type: "ai" },
+        event: "handoff.requested",
+        conversationId: manager.conversationId,
+        metadata: { reason: handoffReason ?? "handoff requested" },
+      });
+    }
 
     return {
       wasDuplicate: false,
@@ -300,7 +396,7 @@ export async function processUnsupportedInboundMessage(
 
     const manager = await PersistedConversationManager.loadOrCreate(tx, deps.business, input.phone, input.name);
 
-    const { wasDuplicate, existingConversationId } = await manager.recordInboundMessage(
+    const { id: inboundMessageId, wasDuplicate, existingConversationId } = await manager.recordInboundMessage(
       `[unsupported message type: ${input.messageType}]`,
       input.whatsappMessageId,
     );
@@ -316,11 +412,27 @@ export async function processUnsupportedInboundMessage(
       };
     }
 
-    await manager.createHandoff(`customer sent an unsupported message type (${input.messageType})`, {
-      bookingState: manager.getBookingState(),
-    });
+    // Already with a human (or awaiting one): keep the message, surface it,
+    // do NOT open another handoff or send the canned reply again.
+    if (isHumanOwned(await manager.lockOwnership())) {
+      await manager.markCustomerWaiting();
+      return {
+        wasDuplicate: false,
+        reply: null,
+        outboundMessageId: undefined,
+        handoffActive: true,
+        conversationId: manager.conversationId,
+        rateLimited: false,
+        suppressedByHuman: true,
+      };
+    }
+
+    const reason = `customer sent an unsupported message type (${input.messageType})`;
+    await manager.createHandoff(reason, { bookingState: manager.getBookingState() });
     const outboundMessage = await manager.recordOutboundMessage(UNSUPPORTED_MESSAGE_REPLY);
-    await manager.commitTurn(manager.getBookingState(), true);
+    await manager.enqueueReply(outboundMessage.id, UNSUPPORTED_MESSAGE_REPLY, inboundMessageId);
+    await manager.commitTurn(manager.getBookingState(), true, reason);
+    await recordAudit(tx, { tenantId: manager.tenantId, actor: { type: "system" }, event: "handoff.requested", conversationId: manager.conversationId, metadata: { reason } });
 
     return {
       wasDuplicate: false,
@@ -331,35 +443,4 @@ export async function processUnsupportedInboundMessage(
       rateLimited: false,
     };
   });
-}
-
-/** Sends `reply` through `messaging` and durably records the outcome via
- * recordSendOutcome — a retryable failure is scheduled for the outbound
- * retry worker (src/messaging/outbound-retry-worker.ts) rather than
- * simply marked "failed"; a permanent failure or an exhausted retry
- * budget is marked "failed". Never throws — a send failure is a normal,
- * expected outcome (see MessagingProvider.sendText's own contract), not
- * an exception to propagate. Called AFTER processInboundWhatsAppMessage's
- * transaction has already committed — a failed send here never rolls
- * back the booking/state that turn already produced, which is correct:
- * the booking happened regardless of whether the customer's phone ever
- * received confirmation of it. `currentAttempts` is always 0 here — this
- * is, by construction, the first send attempt for this message; every
- * SUBSEQUENT attempt is made by the retry worker, which reads the row's
- * actual accumulated attempt count instead. */
-export async function sendReply(
-  db: Db,
-  messaging: MessagingProvider,
-  to: string,
-  reply: string,
-  outboundMessageId: string,
-): Promise<{ success: boolean; error?: string }> {
-  const result = await messaging.sendText(to, reply);
-  const status = await recordSendOutcome(db, outboundMessageId, 0, result);
-  if (!result.success) {
-    console.error(
-      `[whatsapp webhook] outbound send failed for ${to} (status: ${status}): ${result.error}`,
-    );
-  }
-  return { success: result.success, error: result.error };
 }

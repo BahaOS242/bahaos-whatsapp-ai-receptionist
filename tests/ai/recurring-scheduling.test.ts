@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { pinClockToReferenceCalendar } from "../helpers/pin-clock";
 import { LLMProvider } from "../../src/ai/providers/llm-provider";
 import { DevRuleBasedAIProvider } from "../../src/ai/providers/dev-rule-based-provider";
 import { ConversationManager } from "../../src/ai/conversation-manager";
@@ -9,6 +10,9 @@ import { ReceptionistAgent } from "../../src/ai/receptionist-agent";
 import { detectRecurrenceIntervalMonths, generateOccurrenceDates } from "../../src/ai/recurrence";
 import type { LlmChatClient, LlmChatResult } from "../../src/ai/providers/llm-chat-client";
 import type { AIProvider, AIProviderRequest, ConversationTurn } from "../../src/ai/types";
+
+// These tests' expectations are tied to the reference calendar (see tests/helpers/pin-clock.ts).
+pinClockToReferenceCalendar();
 
 /**
  * Sections 5-9: recurring appointment scheduling. Fixtures below are

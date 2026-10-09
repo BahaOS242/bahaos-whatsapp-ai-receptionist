@@ -73,7 +73,7 @@ describe("Evaluation corpus — known Phase 1 baseline (reproducibility, not a b
     expect(second).toEqual(first);
   });
 
-  it("today's known baseline: 3 genuine findings, everything else passing", async () => {
+  it("today's known baseline: 1 genuine finding (NL-01), everything else passing", async () => {
     const transcripts = await runCorpus(allScenarios);
     const evaluations = allScenarios.map((scenario, i) =>
       evaluateScenario(scenario, transcripts[i]),
@@ -82,14 +82,17 @@ describe("Evaluation corpus — known Phase 1 baseline (reproducibility, not a b
 
     const failingIds = scorecard.failures.map((f) => f.scenarioId).sort();
 
-    // RECOVER-02 / RECOVER-03: a date/time correction message's leftover
+    // (historical note) RECOVER-02 / RECOVER-03: a date/time correction message's leftover
     // text gets wrongly captured as the customer's name when name
     // happens to be the currently-asked field ("actually make it
     // Wednesday instead" -> name becomes "Actually Make It Instead").
     // NL-01: no fuzzy/typo tolerance in service-name or weekday matching.
-    // None of these are fixed in this milestone — see the eval report.
-    expect(failingIds).toEqual(["NL-01", "RECOVER-02", "RECOVER-03"]);
+    // RECOVER-02 / RECOVER-03 were FIXED by the identity-provenance change (a date/time
+    // correction is never an identity answer; see tests/regressions/). They previously
+    // failed for exactly the reason described above, so the pin moves from 35/38 to 37/38.
+    // NL-01 (typo tolerance) remains an open, unrelated finding.
+    expect(failingIds).toEqual(["NL-01"]);
     expect(scorecard.totalScenarios).toBe(38);
-    expect(scorecard.passedScenarios).toBe(35);
+    expect(scorecard.passedScenarios).toBe(37);
   });
 });

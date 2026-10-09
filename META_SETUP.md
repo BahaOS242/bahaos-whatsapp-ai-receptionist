@@ -106,7 +106,7 @@ Classification (see `src/config/env.ts` for the exact validation):
 | `WHATSAPP_APP_SECRET` | Optional — signature verification is silently skipped without it | **Required before real traffic** — without it, ANY request (not just Meta's) is trusted; a loud startup warning fires in production if this gap is detected |
 | `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID` | Optional as a pair — outbound falls back to an in-memory mock transport (logs only, no real send) without both | **Required** — this is what makes a reply actually reach a real phone |
 | `WHATSAPP_API_VERSION` | Optional, defaults to `v21.0` | Optional — bump only if Meta deprecates the default version |
-| `OUTBOUND_RETRY_POLL_INTERVAL_MS` | Optional, defaults to 30000 | Optional |
+| `OUTBOUND_RETRY_POLL_INTERVAL_MS` | Optional, defaults to 5000 (how often the durable outbox worker polls — see `OUTBOX.md`) | Optional |
 
 None of the `WHATSAPP_*` variables are ever required for `npm test`, `npm run test:db`, or `npm run chat` — every automated test and the local dev CLI work with zero WhatsApp configuration (mock transport, no signature check). This is intentional, not a gap: real credentials are opt-in, only needed for an actual live connection.
 
@@ -163,14 +163,17 @@ at a migrated database first (`npm run db:migrate`).
 2. **Expected result:** the reply arrives as an ACTUAL WhatsApp message
    on the test phone, not just a server log line — this is the one step
    that proves outbound Graph API authentication actually works.
-3. Check the `messages` table: the outbound row's `status` column should
-   be `'sent'` (not `'failed'` or `'retry_pending'`) shortly after.
-4. If it shows `'retry_pending'`, the outbound retry worker
-   (`src/messaging/outbound-retry-worker.ts`, polling every
-   `OUTBOUND_RETRY_POLL_INTERVAL_MS`, default 30s) will attempt it again
-   automatically — check server logs for
-   `[whatsapp webhook] outbound send failed for ...` to see why the
-   first attempt failed.
+3. Check the outbox: the reply's `outbox_messages` row should be
+   `status = 'sent'` with a `provider_message_id` (a `wamid...` string);
+   the matching `messages` row mirrors it (`status = 'sent'`).
+4. If it shows `retry_wait`, the durable outbox worker
+   (`src/messaging/outbox-worker.ts`, polling every
+   `OUTBOUND_RETRY_POLL_INTERVAL_MS`, default 5s; retries on a 30s / 1m /
+   2m / 4m schedule) will attempt it again automatically. To see why,
+   look at the row's `last_error`, `error_code` and `error_metadata`, or
+   use `inspectOutbound` (`src/messaging/outbox-inspection.ts`), which
+   explains the state in one sentence. A `dead_letter` row means automatic
+   delivery has given up and the message needs a human to look at it.
 
 ## 14. Expected logs/results summary
 
@@ -230,11 +233,16 @@ customer, a booking loop, anything alarming), stop it in this order:
    transport the instant either is missing, so inbound messages are
    still received/processed/persisted, but nothing is ever actually sent
    to a real phone. Useful for debugging conversation logic live without
-   risking further outbound messages.
+   risking further outbound messages. **Caution:** the mock transport
+   *accepts* everything, so replies already queued in the outbox are
+   consumed by it and marked `sent` without ever reaching a phone. Only
+   use this for throwaway debugging, never to "pause" real traffic.
 3. **Full stop:** `npm stop` / kill the process, or scale the deployment
-   to zero instances. The outbound retry poller (§13, running in-process)
-   stops with it — any `retry_pending` messages simply wait, durably, in
-   Postgres until the process is running again; nothing is lost.
+   to zero instances. The outbox worker (§13, running in-process)
+   stops with it — queued (`pending` / `retry_wait`) replies simply wait,
+   durably, in Postgres until a process is running again; a claim that was
+   in flight when the process died is recovered once its lease (2 minutes)
+   expires. Nothing is lost.
 4. There is no "pause and resume automatically" switch beyond the above
    — this app has no separate kill switch/feature flag layer, by design
    (no unnecessary infrastructure for a V1). Steps 1–3 cover every

@@ -16,6 +16,7 @@ import {
 import { createMockMessagingProvider } from "../../src/messaging/mock-messaging-provider";
 import { messages, appointments, handoffs, conversations, customers, services } from "../../src/db/schema";
 import { createTestDb, resetTestData } from "./db-test-helpers";
+import { deliverAllQueued } from "./outbox-helpers";
 import type { AIProvider, AIProviderRequest, AIProviderResponse } from "../../src/ai/types";
 
 /**
@@ -598,7 +599,7 @@ describe("WhatsApp webhook — full-stack integration (REQUIRES a real Postgres 
       const env = loadEnv({ DATABASE_URL: "postgres://user:pass@localhost:5432/db", WHATSAPP_APP_SECRET: undefined });
       const agent = devAgent();
       const messaging = createMockMessagingProvider();
-      const app = createApp({ env, db: db as never, agent, messaging });
+      const app = createApp({ env, db: db as never, agent });
       const phone = "12428017777"; // never used by any other test in this file — genuinely brand new
       const whatsappMessageId = `wamid.${randomUUID()}`;
 
@@ -630,6 +631,9 @@ describe("WhatsApp webhook — full-stack integration (REQUIRES a real Postgres 
       });
 
       expect(res.status).toBe(200);
+      // The webhook only queues the reply (no provider call on the request
+      // path); the outbox worker — run explicitly here — delivers it.
+      await deliverAllQueued(db, messaging);
 
       // Customer creation.
       const customer = await db.query.customers.findFirst({ where: eq(customers.whatsappId, `+${phone}`) });

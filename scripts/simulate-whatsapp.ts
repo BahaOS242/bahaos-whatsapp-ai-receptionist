@@ -6,9 +6,9 @@
  * credentials required or read. Each line you type becomes a normalized
  * inbound message with a freshly-generated whatsappMessageId, processed
  * through processInboundWhatsAppMessage exactly like the real webhook
- * route (src/routes/whatsapp-webhook.ts) does, then "sent" through
- * createMockMessagingProvider (logged to this console, never a real
- * network call).
+ * route (src/routes/whatsapp-webhook.ts) does, then delivered through
+ * the durable outbox worker over createMockMessagingProvider (logged to
+ * this console, never a real network call).
  *
  * Requires DATABASE_URL (this project's normal dev database, migrated)
  * — this is the persisted, restart-surviving path, not the in-memory
@@ -27,6 +27,7 @@ import {
 import { ReceptionistAgent } from "../src/ai/receptionist-agent";
 import { getDb } from "../src/db/client";
 import { createMockMessagingProvider } from "../src/messaging/mock-messaging-provider";
+import { drainConversation } from "../src/messaging/outbox-worker";
 import { processInboundWhatsAppMessage } from "../src/whatsapp/webhook-processing";
 
 async function main() {
@@ -61,7 +62,10 @@ async function main() {
       continue;
     }
     if (outcome.reply && outcome.outboundMessageId) {
-      await messaging.sendText(phone, outcome.reply);
+      // The same durable path production uses: the reply was queued in the
+      // outbox by processInboundWhatsAppMessage; deliver it through the
+      // outbox worker (mock transport) — never a direct send.
+      await drainConversation(db, messaging, outcome.conversationId);
     }
     console.log(`conversationId: ${outcome.conversationId} | handoffActive: ${outcome.handoffActive}\n`);
   }

@@ -3,6 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../../src/app";
 import { loadEnv } from "../../src/config/env";
+import { recordDeliveryReceipts } from "../../src/messaging/delivery-receipts";
+
+// Delivery receipts are recorded by their own module (tested against a real Postgres in tests/db/delivery-receipts*.test.ts).
+vi.mock("../../src/messaging/delivery-receipts", () => ({
+  recordDeliveryReceipts: vi.fn(async () => ({ received: 1, recorded: 1, duplicates: 0, matched: 0, awaitingProviderId: 1, failedReceipts: 0 })),
+}));
+vi.mock("../../src/db/domain-resolution", () => ({ resolveTenant: vi.fn(async () => "tenant-1") }));
 
 /**
  * Focused, attack-oriented audit — Phase 11's explicit checklist.
@@ -94,6 +101,24 @@ describe("SIGNATURE — Phase 11 checklist", () => {
 
     expect(res.status).toBe(401);
     expect(res.body).toEqual({ error: "invalid_signature" });
+  });
+
+  it("a rejected signature is logged for operators, without the secret, the signature or the body", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const app = createApp({ env: loadEnv(BASE_ENV), db: neverCalledDb() });
+      const payload = textPayload({ body: "private customer words" });
+      const badSignature = sign("wrong-secret", JSON.stringify(payload));
+      const res = await request(app).post("/webhooks/whatsapp").set("x-hub-signature-256", badSignature).send(payload);
+      expect(res.status).toBe(401);
+      const logged = warn.mock.calls.map((c) => c.join(" ")).join("\n");
+      expect(logged).toMatch(/rejected: invalid signature \(signature header present: yes\)/);
+      for (const secretish of ["my-app-secret", "wrong-secret", badSignature, "private customer words"]) {
+        expect(logged).not.toContain(secretish);
+      }
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("missing signature header: rejected (401)", async () => {
@@ -221,7 +246,7 @@ describe("PAYLOAD — Phase 11 checklist: malformed/oversized requests fail safe
     expect(res.body).toEqual({ error: "bad_request" });
   });
 
-  it("delivery-status notification (no `messages`, only `statuses`): 200, silently accepted, nothing processed", async () => {
+  it("delivery-status notification (no `messages`, only `statuses`): 200, recorded as a receipt, NEVER processed as a customer message", async () => {
     const app = createApp({ env, db: neverCalledDb() });
     const statusPayload = {
       object: "whatsapp_business_account",
@@ -241,9 +266,17 @@ describe("PAYLOAD — Phase 11 checklist: malformed/oversized requests fail safe
       ],
     };
 
+    vi.mocked(recordDeliveryReceipts).mockClear();
     const res = await request(app).post("/webhooks/whatsapp").send(statusPayload);
 
     expect(res.status).toBe(200);
+    // recorded as a receipt for the resolved tenant ...
+    expect(recordDeliveryReceipts).toHaveBeenCalledTimes(1);
+    const [, tenantId, receipts] = vi.mocked(recordDeliveryReceipts).mock.calls[0];
+    expect(tenantId).toBe("tenant-1");
+    expect(receipts).toMatchObject([{ providerMessageId: "wamid.ABC", status: "delivered", phoneNumberId: "PHONE_ID_1" }]);
+    // ... and never treated as a customer message: the message-processing transaction (neverCalledDb) was not entered, so no
+    // conversation turn, no unsupported-type handoff and no AI call can have happened.
   });
 
   it("unsupported message type: never crashes the process even if downstream processing fails (a genuine processing error correctly surfaces as a 500 so Meta retries — see FAILURE RECOVERY in whatsapp-webhook.ts). Full proof it's genuinely handled (real handoff created) on a working backend lives in tests/db/whatsapp-webhook-integration.test.ts against a real Postgres", async () => {

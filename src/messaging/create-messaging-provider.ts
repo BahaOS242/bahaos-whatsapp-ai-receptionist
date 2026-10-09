@@ -2,6 +2,7 @@ import { getEnv, type Env } from "../config/env";
 import { createWhatsAppMessagingProvider } from "./whatsapp-messaging-provider";
 import { createMockMessagingProvider, type MockMessagingProvider } from "./mock-messaging-provider";
 import type { MessagingProvider } from "./messaging-provider";
+import { resolveMessagingTransport } from "../config/runtime-profile";
 
 /**
  * Selection logic mirroring createReceptionistTools's own
@@ -14,10 +15,10 @@ import type { MessagingProvider } from "./messaging-provider";
  * DB_BOOKING_ENABLED/GOOGLE_CALENDAR_*.
  */
 export function createMessagingProvider(env: Env = getEnv()): MessagingProvider {
-  if (env.WHATSAPP_ACCESS_TOKEN && env.WHATSAPP_PHONE_NUMBER_ID) {
+  if (resolveMessagingTransport(env) === "whatsapp") {
     return createWhatsAppMessagingProvider({
-      accessToken: env.WHATSAPP_ACCESS_TOKEN,
-      phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID,
+      accessToken: env.WHATSAPP_ACCESS_TOKEN!,
+      phoneNumberId: env.WHATSAPP_PHONE_NUMBER_ID!,
       apiVersion: env.WHATSAPP_API_VERSION,
     });
   }

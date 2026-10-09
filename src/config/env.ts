@@ -60,6 +60,33 @@ const envSchema = z.object({
     .optional()
     .default("false")
     .transform((v) => v === "true"),
+  // Customer & conversation memory — see MEMORY_ENGINE.md. Explicit opt-in,
+  // default off, same shape as KNOWLEDGE_ENABLED. Off => no extraction, no
+  // retrieval, no prompt change, no queries against customer_memories.
+  MEMORY_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
+  // Durable background jobs — see BACKGROUND_JOBS.md. Explicit opt-in, default
+  // off, independent of MEMORY_ENABLED and of the WhatsApp outbox. Off => no
+  // job worker is started and nothing polls the job table.
+  JOBS_ENABLED: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
+  // Explicit override for the production startup guard (src/config/runtime-profile.ts). Off by default: in production the
+  // app refuses to start with demo/in-memory booking tools or an inbound webhook with the mock outbound transport.
+  ALLOW_DEMO_TOOLS_IN_PRODUCTION: z
+    .enum(["true", "false"])
+    .optional()
+    .default("false")
+    .transform((v) => v === "true"),
+  JOBS_POLL_INTERVAL_MS: z.coerce.number().int().min(250).default(5_000),
+  JOBS_CONCURRENCY: z.coerce.number().int().min(1).max(32).default(4),
+  // Upper bound on graceful shutdown (pending claim + running handlers). Beyond it work is abandoned to lease recovery.
+  JOBS_SHUTDOWN_TIMEOUT_MS: z.coerce.number().int().min(100).max(120_000).default(20_000),
   // Optional remote embeddings (Voyage AI — Anthropic's recommended
   // embeddings partner). Absent => the offline hashing embedder, so local
   // dev and every test need no credentials. OpenAI is deliberately not an
@@ -86,16 +113,14 @@ const envSchema = z.object({
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().min(1).optional(),
   WHATSAPP_APP_SECRET: z.string().min(1).optional(),
   WHATSAPP_API_VERSION: z.string().min(1).default("v21.0"),
-  // How often server.ts's in-process outbound retry poller runs (see
-  // src/messaging/outbound-retry-worker.ts). Deliberately independent
-  // of the backoff schedule itself — this only bounds how promptly a
-  // message that's already due gets picked up, not how long it waits
-  // before becoming due. 30s default: prompt enough that a customer
-  // isn't kept waiting long after a transient blip clears, infrequent
-  // enough not to hammer the database when nothing is due (the query
-  // itself is cheap — an indexed, normally-empty `retry_pending` scan —
-  // but there's no reason to poll faster than a human would notice).
-  OUTBOUND_RETRY_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
+  // How often server.ts's in-process OUTBOX worker polls (see
+  // src/messaging/outbox-worker.ts). It drives retries AND is the
+  // crash/restart backstop for first-attempt deliveries (the webhook also
+  // makes one inline attempt after COMMIT, so this is not on the hot
+  // path). 5s: a message whose process died after commit still reaches
+  // the customer within seconds; the query is an indexed, normally-empty
+  // scan. The retry BACKOFF itself (30s/1m/2m/4m) is independent.
+  OUTBOUND_RETRY_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

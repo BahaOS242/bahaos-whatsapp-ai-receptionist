@@ -7,13 +7,16 @@ import {
   createLanguageObservationRecorder,
   createReceptionistTools,
 } from "../ai/create-provider";
+import { createMemoryService } from "../memory/create-memory-service";
+import type { MemoryService } from "../memory/service";
 import { createKnowledgeService } from "../knowledge/create-knowledge-service";
 import { ReceptionistAgent } from "../ai/receptionist-agent";
-import { createMessagingProvider } from "../messaging/create-messaging-provider";
-import type { MessagingProvider } from "../messaging/messaging-provider";
-import { parseVerificationQuery, parseWebhookPayload } from "../whatsapp/webhook-payload";
+import { parseVerificationQuery, parseWebhookPayload, parseWebhookStatuses } from "../whatsapp/webhook-payload";
+import { recordDeliveryReceipts } from "../messaging/delivery-receipts";
+import { resolveTenant } from "../db/domain-resolution";
 import { verifyWebhookSignature } from "../whatsapp/webhook-signature";
-import { processInboundWhatsAppMessage, processUnsupportedInboundMessage, sendReply } from "../whatsapp/webhook-processing";
+import { processInboundWhatsAppMessage, processUnsupportedInboundMessage } from "../whatsapp/webhook-processing";
+import { wakeOutboxWorkers } from "../messaging/outbox-worker";
 import type { BusinessContext } from "../ai/types";
 
 /**
@@ -78,7 +81,8 @@ export interface WhatsAppWebhookDeps {
   db?: ReturnType<typeof getDb>;
   business?: BusinessContext;
   agent?: ReceptionistAgent;
-  messaging?: MessagingProvider;
+  /** Injected in tests; by default built from MEMORY_ENABLED (undefined when off). */
+  memory?: MemoryService;
 }
 
 interface RequestWithRawBody extends Request {
@@ -96,7 +100,8 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
   const agent =
     deps.agent ??
     new ReceptionistAgent(createAiProvider(env), createReceptionistTools(env, db), createLanguageObservationRecorder(env, db), createKnowledgeService(env, db));
-  const messaging = deps.messaging ?? createMessagingProvider(env);
+
+  const memory = deps.memory ?? createMemoryService(business, env);
 
   if (env.NODE_ENV === "production" && env.WHATSAPP_WEBHOOK_VERIFY_TOKEN && !env.WHATSAPP_APP_SECRET) {
     // Genuine "accidental insecure default" found in this hardening
@@ -171,6 +176,8 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
       const signature = req.header("x-hub-signature-256");
       const bodyForSignature = req.rawBody ?? Buffer.from(JSON.stringify(req.body ?? {}));
       if (!verifyWebhookSignature(env.WHATSAPP_APP_SECRET, bodyForSignature, signature)) {
+        // Operator diagnostics only: never logs the secret, the signature value or the body.
+        console.warn(`[whatsapp webhook] rejected: invalid signature (signature header present: ${signature ? "yes" : "no"})`);
         res.status(401).json({ error: "invalid_signature" });
         return;
       }
@@ -186,6 +193,7 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
     // at all) simply yields no messages, handled identically to "nothing
     // to do" below.
     const normalizedMessages = parseWebhookPayload(req.body);
+    console.log(`[whatsapp webhook] accepted delivery: ${normalizedMessages.length} message(s) to process`);
 
     // WEBHOOK LATENCY DECISION (production-hardening audit): processed
     // IN SEQUENCE, awaited, before responding — KEPT synchronous, not
@@ -194,10 +202,13 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
     //
     //   Pipeline: DB work (single-digit ms) -> at most one Anthropic
     //   call (typically 1-3s) -> a booking DB write (single-digit ms) ->
-    //   NO synchronous outbound Meta call (the outbound retry mechanism,
-    //   see outbound-retry-worker.ts, means sendReply attempts once and
-    //   degrades to a durably-scheduled retry rather than blocking or
-    //   looping here) -> HTTP response. Realistic total: low seconds,
+    //   the reply is QUEUED in the same transaction (durable outbox, see
+    //   src/messaging/outbox.ts) -> COMMIT -> HTTP 200. THERE IS NO
+    //   PROVIDER CALL ON THIS PATH: this router has no messaging provider
+    //   at all. Delivery belongs entirely to the outbox worker, which is
+    //   merely woken (fire-and-forget, after the response has been sent —
+    //   see wakeOutboxWorkers) so replies still leave within milliseconds.
+    //   Realistic total: low seconds,
     //   comfortably inside Meta's own webhook delivery timeout budget.
     //
     //   The ONE genuine unbounded-latency risk this audit found — the
@@ -252,9 +263,43 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
     // batch on the first failure) — the error is only surfaced (and 500
     // returned) once every message in this delivery has been attempted.
     let firstError: unknown;
+    let queuedAny = false;
+
+    // Delivery receipts (Meta `statuses`): what happened AFTER the provider's API accepted one of our replies. Never a
+    // conversation turn: no reply, no AI call. Same phone_number_id rule as messages; recorded in an idempotent ledger and
+    // applied to the outbox row's delivery_* columns (API acceptance in `status` is untouched). A processing failure is
+    // surfaced as a 500 so Meta redelivers (receipts are idempotent, so that is safe).
+    const receipts = parseWebhookStatuses(req.body);
+    if (receipts.length > 0) {
+      try {
+        const forUs = receipts.filter((r) => !env.WHATSAPP_PHONE_NUMBER_ID || r.phoneNumberId === env.WHATSAPP_PHONE_NUMBER_ID);
+        const rejected = receipts.length - forUs.length;
+        if (forUs.length > 0) {
+          const tenantId = await resolveTenant(db, business);
+          const r = await recordDeliveryReceipts(db, tenantId, forUs);
+          const failedCodes = [...new Set(forUs.filter((x) => x.status === "failed").map((x) => x.errorCode ?? "unknown"))];
+          console.log(
+            `[whatsapp webhook] delivery receipts: received=${r.received} recorded=${r.recorded} duplicates=${r.duplicates} ` +
+              `matched=${r.matched} awaitingProviderId=${r.awaitingProviderId} failed=${r.failedReceipts}` +
+              `${failedCodes.length > 0 ? ` failedCodes=${failedCodes.join(",")}` : ""}${rejected > 0 ? ` rejectedForOtherPhoneNumberId=${rejected}` : ""}`,
+          );
+        } else if (rejected > 0) {
+          console.error(`[whatsapp webhook] ignored ${rejected} delivery receipt(s) for an unexpected phone_number_id`);
+        }
+      } catch (error) {
+        console.error("[whatsapp webhook] error processing delivery receipts (will trigger a Meta retry):", error);
+        firstError ??= error;
+      }
+    }
+    // After the response (success OR error) has been flushed, wake the
+    // worker if any reply was committed to the outbox. Never delivers,
+    // never awaited, never on the request path.
+    res.once("finish", () => {
+      if (queuedAny) wakeOutboxWorkers();
+    });
     for (const message of normalizedMessages) {
       try {
-        await handleOneMessage(message);
+        if (await handleOneMessage(message)) queuedAny = true;
       } catch (error) {
         console.error("[whatsapp webhook] error processing message (will trigger a Meta retry):", error);
         firstError ??= error;
@@ -265,12 +310,16 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
       next(firstError);
       return;
     }
+    if (normalizedMessages.length > 0) {
+      console.log(`[whatsapp webhook] processed ${normalizedMessages.length} message(s); reply queued: ${queuedAny ? "yes" : "no"}`);
+    }
     res.status(200).json({ status: "received" });
   });
 
+  /** Returns true when a reply was durably queued in the outbox. */
   async function handleOneMessage(
     message: ReturnType<typeof parseWebhookPayload>[number],
-  ): Promise<void> {
+  ): Promise<boolean> {
     // TENANT/ACCOUNT ARCHITECTURE — audited, deliberately NOT built out
     // further this pass. schema.ts's `whatsapp_accounts` table is a
     // Phase 1 scaffold for a future phoneNumberId -> tenant lookup, but
@@ -317,7 +366,7 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
         `[whatsapp webhook] rejected message for unexpected phone_number_id "${message.phoneNumberId ?? "(missing)"}"` +
           (message.displayPhoneNumber ? ` (display number: ${message.displayPhoneNumber})` : ""),
       );
-      return;
+      return false;
     }
 
     const phone = `+${message.from}`;
@@ -338,7 +387,7 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
     // escalate, matching Phase 3's original requirement for content a
     // human genuinely might need to look at.
     if (message.unsupportedType === "reaction") {
-      return;
+      return false;
     }
 
     if (message.unsupportedType) {
@@ -351,16 +400,13 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
           messageType: message.unsupportedType,
         },
       );
-      if (!outcome.wasDuplicate && outcome.reply && outcome.outboundMessageId) {
-        await sendReply(db, messaging, phone, outcome.reply, outcome.outboundMessageId);
-      }
-      return;
+      return !outcome.wasDuplicate && !!outcome.reply && !!outcome.outboundMessageId;
     }
 
-    if (!message.text) return; // unreachable in practice — text is always set unless unsupportedType is
+    if (!message.text) return false; // unreachable in practice — text is always set unless unsupportedType is
 
     const outcome = await processInboundWhatsAppMessage(
-      { db, business, agent },
+      { db, business, agent, memory },
       {
         phone,
         message: message.text,
@@ -368,9 +414,7 @@ export function createWhatsAppWebhookRouter(deps: WhatsAppWebhookDeps = {}): Rou
         name: message.profileName,
       },
     );
-    if (!outcome.wasDuplicate && outcome.reply && outcome.outboundMessageId) {
-      await sendReply(db, messaging, phone, outcome.reply, outcome.outboundMessageId);
-    }
+    return !outcome.wasDuplicate && !!outcome.reply && !!outcome.outboundMessageId;
   }
 
   return router;

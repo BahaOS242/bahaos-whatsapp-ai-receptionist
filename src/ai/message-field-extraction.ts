@@ -1,7 +1,9 @@
+import { correctionBlocksBareName, extractNameContrast, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "./correction-language";
 import {
   combineBareTime,
   decodeBareTime,
   encodeBareTime,
+  hasTimeQualifier,
   parseBareHour,
   parseBareMeridiem,
   parseTime,
@@ -377,7 +379,7 @@ export function extractStatedFields(
   // CORRECTION_MARKER_RE's comment.
   const hasCorrection =
     Boolean(currentState.intent) &&
-    (CORRECTION_MARKER_RE.test(message) || Boolean(currentState.justDeclined));
+    (CORRECTION_MARKER_RE.test(message) || hasCorrectionLanguage(message) || Boolean(currentState.justDeclined));
   // Consumed unconditionally — a one-shot hint for THIS turn only,
   // regardless of what (if anything) it ends up widening below. Every
   // return path from here on must carry this through so it's never left
@@ -483,16 +485,26 @@ export function extractStatedFields(
         !isSlotAvailable(business, currentState.date, currentState.time)),
   );
 
-  const dateTimeEligible = next === "date" || next === "time" || hasCorrection || hasStaleInvalidSlot;
+  // A QUALIFIED time ("quarter to 3pm", "not 3pm", "3pm or 4pm", "from 2pm to 4pm") is never resolved to an hour:
+  // no time is stored, any existing time is kept but marked unresolved, and the customer is asked for one exact time.
+  const timeQualified = Boolean(currentState.intent ?? extracted.intent) && hasTimeQualifier(message);
+  if (timeQualified) {
+    extracted.timeClarification = true;
+    if (currentState.pendingBareTime) extracted.pendingBareTime = undefined;
+  }
+
+  const dateTimeEligible =
+    next === "date" || next === "time" || hasCorrection || hasStaleInvalidSlot || Boolean(currentState.timeClarification);
   if (dateTimeEligible) {
     if (!currentState.date || hasCorrection || hasStaleInvalidSlot) {
       const date = resolveDateWord(message, new Date(), business.timezone);
       if (date) extracted.date = date;
     }
-    if (!currentState.time || hasCorrection || hasStaleInvalidSlot) {
+    if (!currentState.time || hasCorrection || hasStaleInvalidSlot || currentState.timeClarification) {
       const time = parseTime(message);
       if (time) {
         extracted.time = time;
+        extracted.timeClarification = undefined; // one exact time stated: resolved (a fresh confirmation follows)
         // A full time was stated outright — any bare hour remembered
         // from an earlier turn is now stale, never left to misfire on a
         // LATER, unrelated lone "am"/"pm" reply.
@@ -544,19 +556,24 @@ export function extractStatedFields(
   // widened by a correction marker, since a short ambiguous phrase like
   // "actually it's Bob" is exactly the kind of false positive that
   // guard exists to prevent.
-  if (!currentState.name || hasCorrection) {
+  // An explicit introduction ("my name is X") is an identity statement in its own right and may
+  // replace an earlier name without correction wording.
+  const nameContrast = extractNameContrast(message, currentState.name);
+  if (nameContrast) {
+    // "It's Alisha, not Alicia": the rejected name equals the one on file, so the correction is explicit.
+    extracted.name = nameContrast;
+  } else if (!currentState.name || hasCorrection || HIGH_CONFIDENCE_NAME_RE.test(message)) {
     const highConfidence = message.match(HIGH_CONFIDENCE_NAME_RE);
     if (highConfidence) {
-      const trimmed = trimToLeadingNameWords(highConfidence[1]);
+      const trimmed = trimNameAtBoundary(trimToLeadingNameWords(highConfidence[1]));
       if (trimmed) extracted.name = titleCase(trimmed);
-    } else if (next === "name") {
+    } else if (next === "name" && !correctionBlocksBareName(message, extracted)) {
+      // (a date/time change phrased as a correction is a schedule update, never an identity answer)
       // Strips phone-like digits, recognized date/time text, and common
       // punctuation ("Trevor, 2428012847" -> "Trevor") before checking
       // whether what's left looks like a name.
       const withoutPhone = message.replace(PHONE_LIKE_SUBSTRING_RE, " ");
-      const remainder = stripRecognizedDateTime(withoutPhone)
-        .replace(/[,.!?;:]/g, " ")
-        .trim();
+      const remainder = stripCorrectionLanguage(stripRecognizedDateTime(withoutPhone).replace(/[,.!?;:]/g, " ")).trim();
       if (looksLikeName(remainder)) extracted.name = titleCase(remainder);
     }
   }

@@ -1,0 +1,1 @@
+ALTER TABLE "outbox_messages" ADD COLUMN "requeue_count" integer DEFAULT 0 NOT NULL;
