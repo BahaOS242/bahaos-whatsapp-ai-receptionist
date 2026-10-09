@@ -61,9 +61,23 @@ describe("there is exactly ONE outbound path: the outbox worker", () => {
     expect(callers).toEqual(["src/messaging/outbox-worker.ts"]);
   });
 
-  it("only the WhatsApp adapter ever talks to the Graph API", () => {
+  // The ONE explicit exemption: an owner-run, read-only diagnostic (GET only, allow-listed paths, no sending). It is
+  // verified below to contain no send path, so the rule "only the adapter can send" still holds.
+  const READ_ONLY_GRAPH_DIAGNOSTIC = "scripts/staging/graph-diagnose.ts";
+
+  it("only the WhatsApp adapter ever talks to the Graph API (plus the one read-only diagnostic)", () => {
     const hits = sources.filter((s) => /graph\.facebook\.com/.test(code(s.text))).map((s) => s.path);
-    expect(hits).toEqual(["src/messaging/whatsapp-messaging-provider.ts"]);
+    expect(hits.filter((p) => p !== READ_ONLY_GRAPH_DIAGNOSTIC)).toEqual(["src/messaging/whatsapp-messaging-provider.ts"]);
+  });
+
+  it("the read-only Graph diagnostic really is read-only: GET only, no send/write endpoints", () => {
+    const diag = sources.find((s) => s.path === READ_ONLY_GRAPH_DIAGNOSTIC);
+    if (!diag) return; // the diagnostic is optional tooling
+    const text = code(diag.text);
+    expect(text).toMatch(/method:\s*"GET"/);
+    expect(text).not.toMatch(/method:\s*"(POST|PUT|PATCH|DELETE)"|\.sendText\b|\/messages\b|message_templates|subscribed_apps"\s*,\s*\{\s*method/);
+    // the allow-list never admits a /messages-style endpoint
+    expect(diag.text).not.toMatch(/ALLOWED[^;]*messages\)/);
   });
 
   it("GATE 1 (structural): the webhook route has no provider, no worker entry point, and no way to deliver — it can only QUEUE and WAKE", () => {
