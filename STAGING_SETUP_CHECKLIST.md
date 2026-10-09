@@ -90,7 +90,7 @@ Presented for approval only after Part 1 is verified.
 Must be absent: Google Calendar, SMTP, Voyage, and `PORT` (Render supplies it). The Meta token should be the temporary one (about 24 h); your phone must be on Meta's allowed-recipient list.
 
 ## 2.2 Web service settings
-Repo branch `claude/phase5-jobs-and-receptionist-fixes` (never `main`). **Build:** `npm ci --include=dev && npm run build` (the compiler is a dev dependency). **Start:** `npm start`. Health check `/health`. **Auto-Deploy off.** Same region as the database.
+Repo branch `claude/phase5-jobs-and-receptionist-fixes` (never `main`). **Build:** `npm ci --include=dev && npm run build && npm prune --omit=dev` (the compiler is a dev dependency; pruning removes dev tools from the running service). **Start:** `npm start`. Health check `/health`. **Auto-Deploy off.** Same region as the database.
 
 ## 2.2b Lessons from the first run (do these in order)
 1. After the webhook is saved in Meta, **subscribe the WhatsApp account to your app** (Meta's use-case page does not always do it): with a real access token (starts `EAA`, hundreds of characters, entered through a hidden prompt) run `POST https://graph.facebook.com/v25.0/<WABA id>/subscribed_apps`, then `GET` the same URL and confirm your app is listed. Without it Meta shows your messages on its test page but never sends them to the service.
