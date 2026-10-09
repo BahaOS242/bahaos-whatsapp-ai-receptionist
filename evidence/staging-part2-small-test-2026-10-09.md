@@ -2,7 +2,7 @@
 
 Target: Render **free** web service `bahaos-whatsapp-ai-receptionist` (Oregon) on the verified staging database; Meta test number (+1 555 643 6134) in a **restricted** Meta business account. Deployed commits: `3a8561c` (first), then `9113880` (adds secret-free webhook logging). Anthropic Haiku 4.5; no spend recorded beyond a few dozen turns (well inside the $5 organisation limit). No production access; no paid Render/Meta resources.
 
-## Result: PASS for the application path, with Meta-side blockers
+## Result: PASS for the application path. **Real WhatsApp delivery to a customer phone: BLOCKED (Meta business restriction), NOT PASSED.**
 | Check | Result |
 |---|---|
 | `GET /health` | 200 `status: ok` |
@@ -10,6 +10,7 @@ Target: Render **free** web service `bahaos-whatsapp-ai-receptionist` (Oregon) o
 | Unsigned webhook POST | 401 (also after the secret was restored) |
 | Meta-signed real delivery with the app secret set | accepted and processed (signature verified in production conditions) |
 | One booking conversation from the owner's phone | after the app's own confirmation summary and a separate "yes": **exactly one** appointment — Routine cleaning, 2026-10-13 14:00 Nassau, `booked`, customer "Trevor"; conversation state `bookingJustCompleted`; no duplicate |
+| Real WhatsApp delivery to the owner's phone | **BLOCKED / NOT PASSED** — Meta accepted the sends (outbox `sent`) but no reply ever arrived on the phone |
 | Backend in use | database tools (no `[simulated tool]` line after the fix) |
 | Replies to a recipient not on Meta's allowed list | outbox `dead_letter` after 1 attempt, `meta_131030` (no retry storm) |
 
