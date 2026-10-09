@@ -41,8 +41,9 @@ local_psql createdb "$scratch"
 local_psql pg_restore --exit-on-error --no-owner --no-privileges -d "$scratch" "$dump"
 
 work=$(mktemp -d)
-# pg_dump prints a random \restrict/\unrestrict token on every run; those two lines are the only expected difference.
-strip_token() { grep -v -E '^\\(un)?restrict '; }
+# Compare DEFINITIONS only: drop SQL comment lines ("-- ...": version banner, object headers, the public-schema note) and
+# blank lines. pg_dump also prints a random \restrict token on each run. Every CREATE/ALTER statement is still compared.
+strip_token() { grep -v -E '^(\\(un)?restrict |--|[[:space:]]*$)'; }
 pg_dump -s --no-owner --no-privileges "$DATABASE_URL" | strip_token > "$work/schema.src.sql"
 local_psql pg_dump -s --no-owner --no-privileges "$scratch" | strip_token > "$work/schema.dst.sql"
 diff "$work/schema.src.sql" "$work/schema.dst.sql"      # non-zero exit stops the script
