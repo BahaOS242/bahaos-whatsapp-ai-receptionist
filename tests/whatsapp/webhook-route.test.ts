@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 import request from "supertest";
 import { createApp } from "../../src/app";
 import { loadEnv } from "../../src/config/env";
-import { createMockMessagingProvider } from "../../src/messaging/mock-messaging-provider";
 
 /**
  * Route-mechanics tests — no real Postgres, no live LLM. Everything
@@ -141,14 +140,13 @@ describe("POST /webhooks/whatsapp — signature enforcement", () => {
 
   it("accepts a request with a CORRECT signature — never rejected as unauthenticated (full successful processing is proven separately against a real Postgres)", async () => {
     const env = loadEnv(BASE_ENV);
-    const messaging = createMockMessagingProvider();
     // A minimal, incomplete db stub — enough to prove signature
     // verification let the request through to processing (it fails
     // LATER, past authentication, exactly like a real infra failure
     // would per this file's own FAILURE RECOVERY tests) without needing
     // to fake Drizzle's full query surface just for this narrow check.
     const db = { transaction: vi.fn(() => { throw new Error("stub — not a real db"); }) };
-    const app = createApp({ env, db: db as never, agent: { handleMessage: vi.fn() } as never, messaging });
+    const app = createApp({ env, db: db as never, agent: { handleMessage: vi.fn() } as never });
     const payload = textPayload("book a cleaning");
 
     const res = await request(app)

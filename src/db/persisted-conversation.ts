@@ -1,13 +1,18 @@
 import { resolveCustomer, resolveTenant } from "./domain-resolution";
 import {
   findOrCreateActiveConversation,
+  isHumanOwned,
   persistConversationTurn,
   resolveConversation,
+  type ConversationStatus,
 } from "./conversations";
+import { eq, sql } from "drizzle-orm";
+import { conversations } from "./schema";
 import { loadConversationHistory, recordMessage } from "./messages";
 import { createHandoff } from "./handoffs";
 import type { HandoffContext } from "./schema";
 import { createLeadRecord } from "./leads";
+import { enqueueOutboundMessage } from "../messaging/outbox";
 import type { AIProviderRequest, BusinessContext, ConversationTurn, CustomerContext } from "../ai/types";
 import type { Db } from "./client";
 
@@ -41,6 +46,7 @@ export class PersistedConversationManager {
     public readonly conversationId: string,
     private bookingState: AIProviderRequest["bookingState"],
     private handoffActive: boolean,
+    private status: ConversationStatus,
   ) {}
 
   /** Resolves (or creates) the tenant, customer, and this customer's
@@ -64,7 +70,8 @@ export class PersistedConversationManager {
       customerId,
       conversation.id,
       conversation.bookingState,
-      conversation.status === "staff_owned",
+      isHumanOwned(conversation.status),
+      conversation.status,
     );
   }
 
@@ -98,7 +105,7 @@ export class PersistedConversationManager {
   async recordInboundMessage(
     content: string,
     whatsappMessageId?: string,
-  ): Promise<{ wasDuplicate: boolean; existingConversationId?: string }> {
+  ): Promise<{ id: string; wasDuplicate: boolean; existingConversationId?: string }> {
     const result = await recordMessage(this.db, {
       tenantId: this.tenantId,
       conversationId: this.conversationId,
@@ -107,7 +114,7 @@ export class PersistedConversationManager {
       content,
       whatsappMessageId,
     });
-    return { wasDuplicate: result.wasDuplicate, existingConversationId: result.existingConversationId };
+    return { id: result.id, wasDuplicate: result.wasDuplicate, existingConversationId: result.existingConversationId };
   }
 
   /** Returns the recorded message's own id — the webhook route uses it
@@ -125,12 +132,105 @@ export class PersistedConversationManager {
     return { id: result.id };
   }
 
+  /** Queues the reply durably for delivery. Call INSIDE the same
+   * transaction that commits this turn's business state, so "the decision
+   * was made" and "the message is queued" are one atomic fact. The
+   * idempotency key is derived from the inbound message row, so the same
+   * logical reply can never be queued twice. */
+  async enqueueReply(outboundMessageId: string, body: string, inboundMessageId: string): Promise<{ id: string; deduplicated: boolean }> {
+    return enqueueOutboundMessage(this.db, {
+      tenantId: this.tenantId,
+      conversationId: this.conversationId,
+      customerId: this.customerId,
+      messageId: outboundMessageId,
+      body,
+      idempotencyKey: `reply:${inboundMessageId}`,
+    });
+  }
+
   /** Persists BookingState + handoff status for this turn — call once
    * per processed message, after acting on the provider's result. */
-  async commitTurn(bookingState: AIProviderRequest["bookingState"], handoffActive: boolean): Promise<void> {
+  async commitTurn(
+    bookingState: AIProviderRequest["bookingState"],
+    handoffActive: boolean,
+    handoffReason?: string,
+  ): Promise<void> {
     this.bookingState = { ...bookingState };
     this.handoffActive = handoffActive;
-    await persistConversationTurn(this.db, this.conversationId, this.bookingState, this.handoffActive);
+    await persistConversationTurn(this.db, this.conversationId, this.bookingState, this.handoffActive, handoffReason);
+  }
+
+  /** Ownership as loaded at the start of this turn (may be stale — use
+   * lockOwnership for any decision that must be race-free). */
+  getStatus(): ConversationStatus {
+    return this.status;
+  }
+
+  /**
+   * Re-reads the CURRENT ownership under a row lock (`FOR NO KEY UPDATE`) and
+   * holds it until this transaction ends. Call immediately before
+   * enqueueing an AI reply: any staff transition (which also takes this
+   * row lock) then either committed before this read — in which case we see
+   * it and suppress — or waits until this transaction commits.
+   */
+  async lockOwnership(): Promise<ConversationStatus> {
+    const result = await this.db.execute(sql`select status, ownership_version from conversations where id = ${this.conversationId}::uuid for no key update`);
+    const row = result.rows[0] as { status: ConversationStatus; ownership_version: number } | undefined;
+    if (!row) throw new Error("lockOwnership: conversation not found");
+    this.status = row.status;
+    this.lockedVersion = row.ownership_version;
+    return row.status;
+  }
+
+  private turnStartVersion: number | null = null;
+  private lockedVersion: number | null = null;
+
+  /**
+   * Records the ownership version this AI turn is based on, WITHOUT locking
+   * (a lock here would be held through the whole LLM call and make staff
+   * wait). Paired with `ownershipChangedDuringTurn()` after `lockOwnership()`.
+   */
+  async markTurnStart(): Promise<void> {
+    const result = await this.db.execute(sql`select ownership_version from conversations where id = ${this.conversationId}::uuid`);
+    this.turnStartVersion = (result.rows[0] as { ownership_version: number } | undefined)?.ownership_version ?? null;
+  }
+
+  /**
+   * True if ANY staff transition committed since `markTurnStart()` — even one
+   * that ended back in `ai_active` (takeover then release while the model was
+   * thinking). A status check alone cannot see that A→B→A round trip; the
+   * version can, and the reply it produced answers a world a human has since
+   * touched.
+   */
+  ownershipChangedDuringTurn(): boolean {
+    return this.turnStartVersion !== null && this.lockedVersion !== null && this.lockedVersion !== this.turnStartVersion;
+  }
+
+  /** A customer message arrived while a human owns the conversation: keep
+   * it, mark the customer as waiting, bump activity. Never replies. */
+  async markCustomerWaiting(): Promise<void> {
+    await this.db
+      .update(conversations)
+      .set({
+        waitingSince: sql`coalesce(${conversations.waitingSince}, now())`,
+        lastActivityAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(conversations.id, this.conversationId));
+  }
+
+  /** Keeps the AI reply that a takeover superseded, for history, flagged
+   * `suppressed` — never queued, never sent, never shown to the AI. */
+  async recordSuppressedReply(body: string): Promise<{ id: string }> {
+    const result = await recordMessage(this.db, {
+      tenantId: this.tenantId,
+      conversationId: this.conversationId,
+      direction: "outbound",
+      senderType: "ai",
+      content: body,
+      status: "suppressed",
+    });
+    return { id: result.id };
   }
 
   async resolve(): Promise<void> {

@@ -57,6 +57,27 @@
       "when": 1791216807427,
       "tag": "0007_knowledge_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791478143616,
+      "tag": "0008_durable_outbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791486305763,
+      "tag": "0009_outbox_requeue",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1791506654491,
+      "tag": "0010_human_inbox",
+      "breakpoints": true
     }
   ]
 }

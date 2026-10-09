@@ -55,7 +55,7 @@ describe("Operational visibility (REQUIRES a real Postgres — see file header)"
 
     // STEP 2: find their conversation(s).
     const conversation = await db.query.conversations.findFirst({ where: eq(conversations.customerId, customer!.id) });
-    expect(conversation?.status).toBe("staff_owned"); // "why is AI not handling this" — answered by status alone
+    expect(conversation?.status).toBe("human_pending"); // "why is AI not handling this" — answered by status alone
 
     // STEP 3: what they actually said (the raw ask).
     const conversationMessages = await db.query.messages.findMany({ where: eq(messages.conversationId, conversation!.id) });

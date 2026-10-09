@@ -114,10 +114,15 @@ export function createWhatsAppMessagingProvider(credentials: WhatsAppCredentials
         // an uncaught rejection. Always retryable: nothing about a
         // network blip or a slow response says the SAME request would
         // fail again a minute later.
+        const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
         return {
           success: false,
           error: `WhatsApp send failed (network error): ${error instanceof Error ? error.message : "unknown error"}`,
           retryable: true,
+          errorCode: timedOut ? "network_timeout" : "network_error",
+          // The request may have reached Meta before the connection
+          // dropped or the timeout fired.
+          ambiguous: true,
         };
       }
 
@@ -132,7 +137,17 @@ export function createWhatsAppMessagingProvider(credentials: WhatsAppCredentials
           // Response body wasn't valid JSON — fall back to the bare
           // status, never let a malformed error response itself throw.
         }
-        return { success: false, error: `WhatsApp send failed: ${message}`, retryable: isRetryable(response.status, errorCode) };
+        return {
+          success: false,
+          error: `WhatsApp send failed: ${message}`,
+          retryable: isRetryable(response.status, errorCode),
+          errorCode: errorCode !== undefined ? `meta_${errorCode}` : `http_${response.status}`,
+          httpStatus: response.status,
+          ...(errorCode !== undefined ? { metaCode: errorCode } : {}),
+          // A 5xx can be returned AFTER the provider accepted the
+          // message; a 4xx is a definite rejection.
+          ambiguous: response.status >= 500,
+        };
       }
 
       // Genuine gap found auditing this: sendText's own contract (see

@@ -23,6 +23,11 @@ export default tseslint.config(
     },
   },
   {
+    // Staff inbox UI: dependency-free browser ES modules.
+    files: ["public/**/*.js"],
+    languageOptions: { globals: { ...globals.browser } },
+  },
+  {
     rules: {
       "@typescript-eslint/no-unused-vars": [
         "error",

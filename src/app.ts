@@ -1,8 +1,10 @@
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import path from "node:path";
+import { createInboxRouter, type InboxRouterDeps } from "./inbox/router";
 import { healthRouter } from "./routes/health";
 import { createWhatsAppWebhookRouter, type WhatsAppWebhookDeps } from "./routes/whatsapp-webhook";
 
-export function createApp(whatsAppDeps?: WhatsAppWebhookDeps): Express {
+export function createApp(whatsAppDeps?: WhatsAppWebhookDeps, inboxDeps?: InboxRouterDeps): Express {
   const app = express();
 
   app.disable("x-powered-by");
@@ -15,6 +17,25 @@ export function createApp(whatsAppDeps?: WhatsAppWebhookDeps): Express {
   // a fake db/agent/messaging provider without a real Postgres or LLM;
   // omitted (the real server) it builds everything from env defaults.
   app.use("/webhooks/whatsapp", createWhatsAppWebhookRouter(whatsAppDeps));
+
+  // Staff inbox: JSON API (bearer-session auth, tenant from the session) and
+  // the dependency-free static UI. Own body parser inside the router.
+  app.use("/api/inbox", createInboxRouter(inboxDeps));
+  app.use(
+    "/inbox",
+    (_req, res, next) => {
+      res.setHeader(
+        "Content-Security-Policy",
+        "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+      );
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Strict-Transport-Security", "max-age=31536000"); // ignored over plain http; makes browsers insist on HTTPS
+      res.setHeader("Referrer-Policy", "no-referrer");
+      res.setHeader("Cache-Control", "no-store");
+      next();
+    },
+    express.static(path.join(__dirname, "..", "public", "inbox"), { index: "index.html" }),
+  );
 
   app.use(express.json());
 

@@ -86,16 +86,14 @@ const envSchema = z.object({
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: z.string().min(1).optional(),
   WHATSAPP_APP_SECRET: z.string().min(1).optional(),
   WHATSAPP_API_VERSION: z.string().min(1).default("v21.0"),
-  // How often server.ts's in-process outbound retry poller runs (see
-  // src/messaging/outbound-retry-worker.ts). Deliberately independent
-  // of the backoff schedule itself — this only bounds how promptly a
-  // message that's already due gets picked up, not how long it waits
-  // before becoming due. 30s default: prompt enough that a customer
-  // isn't kept waiting long after a transient blip clears, infrequent
-  // enough not to hammer the database when nothing is due (the query
-  // itself is cheap — an indexed, normally-empty `retry_pending` scan —
-  // but there's no reason to poll faster than a human would notice).
-  OUTBOUND_RETRY_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(30_000),
+  // How often server.ts's in-process OUTBOX worker polls (see
+  // src/messaging/outbox-worker.ts). It drives retries AND is the
+  // crash/restart backstop for first-attempt deliveries (the webhook also
+  // makes one inline attempt after COMMIT, so this is not on the hot
+  // path). 5s: a message whose process died after commit still reaches
+  // the customer within seconds; the query is an indexed, normally-empty
+  // scan. The retry BACKOFF itself (30s/1m/2m/4m) is independent.
+  OUTBOUND_RETRY_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
@@ -9,9 +9,8 @@ import { loadEnv } from "../../src/config/env";
 import { ReceptionistAgent } from "../../src/ai/receptionist-agent";
 import { createDatabaseReceptionistTools } from "../../src/tools/database-receptionist-tools";
 import { BAHAMAS_DENTAL_SERVICE } from "../../src/ai/business-context";
-import { createMockMessagingProvider } from "../../src/messaging/mock-messaging-provider";
 import { processInboundWhatsAppMessage } from "../../src/whatsapp/webhook-processing";
-import { appointments, handoffs, messages } from "../../src/db/schema";
+import { appointments, conversations, handoffs, messages } from "../../src/db/schema";
 import * as schema from "../../src/db/schema";
 import { createTestDb, resetTestData } from "./db-test-helpers";
 import type { AIProvider, AIProviderRequest, AIProviderResponse } from "../../src/ai/types";
@@ -72,7 +71,7 @@ describe("Failure recovery (REQUIRES a real Postgres — see file header)", () =
         { async generateResponse() { throw new Error("must not be called — db fails first"); } },
         createDatabaseReceptionistTools(BAHAMAS_DENTAL_SERVICE, brokenDb),
       );
-      const app = createApp({ env, db: brokenDb as never, agent, messaging: createMockMessagingProvider() });
+      const app = createApp({ env, db: brokenDb as never, agent });
 
       try {
         const res = await request(app).post("/webhooks/whatsapp").send(textPayload("12428019101", "book a cleaning"));
@@ -120,7 +119,7 @@ describe("Failure recovery (REQUIRES a real Postgres — see file header)", () =
         },
       };
       const agent = new ReceptionistAgent(failingProvider, createDatabaseReceptionistTools(BAHAMAS_DENTAL_SERVICE, db));
-      const app = createApp({ env, db: db as never, agent, messaging: createMockMessagingProvider() });
+      const app = createApp({ env, db: db as never, agent });
 
       const res = await request(app).post("/webhooks/whatsapp").send(textPayload("12428019103", "book a cleaning"));
 
@@ -131,7 +130,8 @@ describe("Failure recovery (REQUIRES a real Postgres — see file header)", () =
       expect(res.status).toBe(200);
 
       const conversation = await db.query.conversations.findFirst();
-      expect(conversation?.status).toBe("staff_owned"); // handed off, never left "as if automated"
+      // Phase 3: an AI escalation is a PENDING handoff awaiting staff (never left "as if automated").
+      expect(conversation?.status).toBe("human_pending");
 
       const handoffRows = await db.query.handoffs.findMany({ where: eq(handoffs.conversationId, conversation!.id) });
       expect(handoffRows).toHaveLength(1);
@@ -163,11 +163,18 @@ describe("Failure recovery (REQUIRES a real Postgres — see file header)", () =
         { phone, message: "hello?", whatsappMessageId: `wamid.${randomUUID()}` },
       );
 
-      // Handoff-active conversations get the fixed, honest "already with
-      // our team" reply — the provider (which would throw again) is
-      // never even consulted a second time.
+      // Phase 3 (supersedes the old canned "already with our team" reply): a
+      // human-owned/pending conversation gets NO automated reply at all. The
+      // provider (which would throw again) is never consulted, the customer's
+      // message is KEPT, and the conversation is flagged as waiting for staff.
       expect(second.handoffActive).toBe(true);
-      expect(second.reply?.toLowerCase()).toMatch(/already with our team|someone will follow up/);
+      expect(second.suppressedByHuman).toBe(true);
+      expect(second.reply).toBeNull();
+      expect(second.outboundMessageId).toBeUndefined();
+      const kept = await db.query.messages.findMany({ where: eq(messages.conversationId, second.conversationId), orderBy: asc(messages.createdAt) });
+      expect(kept.filter((m) => m.direction === "inbound").map((m) => m.content)).toEqual(["book a cleaning", "hello?"]);
+      const conv = await db.query.conversations.findFirst({ where: eq(conversations.id, second.conversationId) });
+      expect(conv?.waitingSince).toBeInstanceOf(Date);
     });
   });
 });

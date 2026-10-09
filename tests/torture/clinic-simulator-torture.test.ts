@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { pinClockToReferenceCalendar } from "../helpers/pin-clock";
 import { LLMProvider } from "../../src/ai/providers/llm-provider";
 import { DevRuleBasedAIProvider } from "../../src/ai/providers/dev-rule-based-provider";
 import { ConversationManager } from "../../src/ai/conversation-manager";
@@ -8,6 +9,9 @@ import { createClinicSimulator, type ClinicSimulator } from "../../src/simulator
 import { createClinicSimulatorReceptionistTools } from "../../src/tools/clinic-simulator-receptionist-tools";
 import type { LlmChatClient, LlmChatResult } from "../../src/ai/providers/llm-chat-client";
 import type { AIProvider, AIProviderRequest, ConversationTurn } from "../../src/ai/types";
+
+// These tests' expectations are tied to the reference calendar (see tests/helpers/pin-clock.ts).
+pinClockToReferenceCalendar();
 
 /**
  * Section 14/15: the clinic-simulator + recurring-scheduling torture

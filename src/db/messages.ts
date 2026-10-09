@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull, or, ne } from "drizzle-orm";
 import { messages } from "./schema";
 import type { ConversationTurn } from "../ai/types";
 import type { Db } from "./client";
@@ -28,6 +28,11 @@ export interface RecordMessageInput {
    * a second call with the SAME id returns the original row instead of
    * creating a duplicate. */
   whatsappMessageId?: string;
+  /** Staff author, for sender_type "staff" messages. */
+  authorStaffUserId?: string;
+  /** Initial delivery status (e.g. "suppressed" for an AI reply that was
+   * withdrawn because a human took over first). */
+  status?: "queued" | "suppressed";
 }
 
 export interface RecordMessageResult {
@@ -81,6 +86,8 @@ export async function recordMessage(db: Db, input: RecordMessageInput): Promise<
       senderType: input.senderType,
       content: input.content,
       whatsappMessageId: input.whatsappMessageId,
+      authorStaffUserId: input.authorStaffUserId,
+      status: input.status,
     })
     .onConflictDoNothing({ target: messages.whatsappMessageId })
     .returning();
@@ -116,7 +123,9 @@ export async function loadConversationHistory(
   limit = 50,
 ): Promise<ConversationTurn[]> {
   const rows = await db.query.messages.findMany({
-    where: eq(messages.conversationId, conversationId),
+    // A suppressed reply was never delivered, so the AI must not believe
+    // it said it.
+    where: and(eq(messages.conversationId, conversationId), or(isNull(messages.status), ne(messages.status, "suppressed"))),
     orderBy: asc(messages.createdAt),
     limit,
   });

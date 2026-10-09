@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { sql } from "drizzle-orm";
 import {
+  bigserial,
   boolean,
   foreignKey,
   index,
@@ -62,10 +63,17 @@ export const languageEnum = pgEnum("language", ["en", "es", "ht"]);
 export const tenantStatusEnum = pgEnum("tenant_status", ["demo", "active", "inactive"]);
 export const staffRoleEnum = pgEnum("staff_role", ["admin", "staff"]);
 export const consentStatusEnum = pgEnum("consent_status", ["unknown", "opted_in", "opted_out"]);
+// Conversation OWNERSHIP (Phase 3 — see INBOX.md). The persisted names
+// predate the inbox; the mapping to the product's state names is:
+//   ai_active     = AI_ACTIVE      the AI may reply normally
+//   human_pending = HUMAN_PENDING  handoff requested, awaiting staff; AI suppressed
+//   staff_owned   = HUMAN_ACTIVE   a staff member owns it; AI suppressed
+//   resolved      = CLOSED         closed; the customer's next message starts a new one
 export const conversationStatusEnum = pgEnum("conversation_status", [
   "ai_active",
   "staff_owned",
   "resolved",
+  "human_pending",
 ]);
 export const messageDirectionEnum = pgEnum("message_direction", ["inbound", "outbound"]);
 export const senderTypeEnum = pgEnum("sender_type", ["customer", "ai", "staff", "system"]);
@@ -85,6 +93,10 @@ export const messageStatusEnum = pgEnum("message_status", [
   // be observed at rest) — "retry_pending" is the state that actually
   // matters for anything durable/restart-safe.
   "retry_pending",
+  // An AI reply that was generated but deliberately NOT delivered because
+  // a human took the conversation over first (kept for history, never sent,
+  // never fed back to the AI as something it said).
+  "suppressed",
 ]);
 export const appointmentStatusEnum = pgEnum("appointment_status", [
   "booked",
@@ -112,6 +124,21 @@ export const whatsappAccountStatusEnum = pgEnum("whatsapp_account_status", [
   "not_connected",
   "connected",
   "error",
+]);
+
+// Durable outbound delivery lifecycle (see src/messaging/outbox.ts):
+//   pending -> processing -> sent
+//                         -> retry_wait -> processing -> ...
+//                         -> dead_letter
+export const outboxStatusEnum = pgEnum("outbox_status", [
+  "pending",
+  "processing",
+  "retry_wait",
+  "sent",
+  "dead_letter",
+  // Withdrawn BEFORE any provider call (e.g. an AI reply superseded by a
+  // human takeover). Terminal; never delivered; history preserved.
+  "cancelled",
 ]);
 
 // --- Knowledge engine enums (see KNOWLEDGE_ENGINE.md) ---------------------
@@ -190,11 +217,43 @@ export const staffUsers = pgTable(
     // Auth (password/hash, sessions) lands in Phase 2. Nullable until then.
     passwordHash: varchar("password_hash", { length: 255 }),
     isActive: boolean("is_active").notNull().default(true),
+    // Brute-force throttling for staff login (see src/inbox/auth.ts).
+    failedLoginCount: integer("failed_login_count").notNull().default(0),
+    lockedUntil: timestamp("locked_until", { withTimezone: true }),
     ...timestamps,
   },
   (table) => [
     uniqueIndex("staff_users_tenant_email_key").on(table.tenantId, table.email),
     index("staff_users_tenant_id_idx").on(table.tenantId),
+  ],
+);
+
+// --- Staff sessions ---------------------------------------------------------
+//
+// Opaque bearer tokens for the staff inbox. Only the SHA-256 of a token is
+// stored (a database leak does not leak usable sessions). tenant_id is
+// copied from the staff user at login and is the ONLY tenant a session can
+// ever act in — it is never taken from a request.
+
+export const staffSessions = pgTable(
+  "staff_sessions",
+  {
+    id: id(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    staffUserId: uuid("staff_user_id")
+      .notNull()
+      .references(() => staffUsers.id),
+    tokenHash: varchar("token_hash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("staff_sessions_token_hash_key").on(table.tokenHash),
+    index("staff_sessions_staff_user_idx").on(table.staffUserId),
   ],
 );
 
@@ -261,11 +320,29 @@ export const conversations = pgTable(
     // rather than a dedicated empty-state sentinel, matching how
     // ConversationManager already treats "nothing in progress".
     bookingState: jsonb("booking_state").notNull().default({}).$type<BookingState>(),
+    // --- ownership metadata (Phase 3) -------------------------------------
+    // Why the conversation was handed to a human (AI's escalation reason).
+    handoffReason: text("handoff_reason"),
+    handoffRequestedAt: timestamp("handoff_requested_at", { withTimezone: true }),
+    // When status/assignee last changed, and a counter bumped on EVERY
+    // ownership change — lets a UI/API reject a stale action ("this
+    // conversation changed since you loaded it").
+    ownershipChangedAt: timestamp("ownership_changed_at", { withTimezone: true }),
+    ownershipVersion: integer("ownership_version").notNull().default(0),
+    // Last message in either direction / any ownership change (inbox sort).
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }).notNull().defaultNow(),
+    // Set while a customer is waiting on a human (cleared by a staff reply,
+    // returning to the AI, or closing). The inbox "waiting" indicator.
+    waitingSince: timestamp("waiting_since", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    closedByStaffUserId: uuid("closed_by_staff_user_id").references(() => staffUsers.id),
+    closeNote: text("close_note"),
     ...timestamps,
   },
   (table) => [
     index("conversations_tenant_id_idx").on(table.tenantId),
     index("conversations_tenant_status_idx").on(table.tenantId, table.status),
+    index("conversations_tenant_activity_idx").on(table.tenantId, table.lastActivityAt),
     index("conversations_customer_id_idx").on(table.customerId),
   ],
 );
@@ -286,6 +363,8 @@ export const messages = pgTable(
     senderType: senderTypeEnum("sender_type").notNull(),
     content: text("content").notNull(),
     whatsappMessageId: varchar("whatsapp_message_id", { length: 128 }),
+    // Which staff member wrote it (sender_type = 'staff' only).
+    authorStaffUserId: uuid("author_staff_user_id").references(() => staffUsers.id),
     status: messageStatusEnum("status"),
     // Outbound retry mechanism — deliberately columns on THIS table
     // rather than a separate "failed outbound"/"retry metadata" table:
@@ -524,6 +603,87 @@ export const languageObservations = pgTable(
     // exists purely to make that lookup fast, not to enforce uniqueness
     // itself.
     index("language_observations_tenant_phrase_idx").on(table.tenantId, table.phrase),
+  ],
+);
+
+// --- Durable outbound outbox ---------------------------------------------------
+//
+// BahaOS decides WHAT to send (the business layer); this table makes that
+// decision DURABLE in the same transaction as the business state; a worker
+// owns delivery; the provider (Meta) is only transport. `messages` stays the
+// conversation log (history); this table is the delivery state machine for
+// one logical outbound message. See src/messaging/outbox.ts.
+
+export const outboxMessages = pgTable(
+  "outbox_messages",
+  {
+    id: id(),
+    tenantId: uuid("tenant_id")
+      .notNull()
+      .references(() => tenants.id),
+    conversationId: uuid("conversation_id")
+      .notNull()
+      .references(() => conversations.id),
+    customerId: uuid("customer_id")
+      .notNull()
+      .references(() => customers.id),
+    // The conversation-log row this delivery is for.
+    messageId: uuid("message_id")
+      .notNull()
+      .references(() => messages.id),
+    // Channel-aware, WhatsApp only for now.
+    channel: varchar("channel", { length: 32 }).notNull().default("whatsapp"),
+    provider: varchar("provider", { length: 32 }).notNull().default("meta_cloud"),
+    messageType: varchar("message_type", { length: 32 }).notNull().default("text"),
+    // Snapshot of the recipient at enqueue time ("+"-prefixed E.164, the
+    // shape the existing sender normalizes) — never re-derived by a join.
+    recipient: varchar("recipient", { length: 32 }).notNull(),
+    payload: jsonb("payload").notNull().$type<{ body: string }>(),
+    status: outboxStatusEnum("status").notNull().default("pending"),
+    // Who authored it: 'ai' (the receptionist) or 'staff' (a human via the
+    // inbox). Only AI-origin messages are withdrawn on a human takeover.
+    origin: varchar("origin", { length: 16 }).notNull().default("ai"),
+    // One logical outbound message = one key (unique per tenant).
+    idempotencyKey: varchar("idempotency_key", { length: 200 }).notNull(),
+    // Global monotonic order; the per-CONVERSATION delivery order key.
+    seq: bigserial("seq", { mode: "number" }).notNull(),
+    attemptCount: integer("attempt_count").notNull().default(0),
+    maxAttempts: integer("max_attempts").notNull().default(5),
+    // How many times an operator re-queued this (same, single) logical
+    // message out of dead_letter. attempt_count restarts each time; the
+    // previous failure is preserved in error_metadata.history.
+    requeueCount: integer("requeue_count").notNull().default(0),
+    availableAt: timestamp("available_at", { withTimezone: true }).notNull().defaultNow(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }),
+    // A claim is a LEASE: after this instant an unfinished claim is
+    // recoverable. claim_token fences a stale worker's late result.
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    claimToken: uuid("claim_token"),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    failedAt: timestamp("failed_at", { withTimezone: true }),
+    providerMessageId: varchar("provider_message_id", { length: 255 }),
+    lastError: text("last_error"),
+    errorCode: varchar("error_code", { length: 64 }),
+    errorMetadata: jsonb("error_metadata").$type<Record<string, unknown>>(),
+    ...timestamps,
+  },
+  (table) => [
+    uniqueIndex("outbox_messages_tenant_idempotency_key").on(table.tenantId, table.idempotencyKey),
+    uniqueIndex("outbox_messages_message_id_key").on(table.messageId),
+    uniqueIndex("outbox_messages_seq_key").on(table.seq),
+    // The worker's claim scan: due rows only.
+    index("outbox_messages_due_idx")
+      .on(table.availableAt)
+      .where(sql`${table.status} in ('pending','retry_wait')`),
+    index("outbox_messages_lease_idx")
+      .on(table.leaseExpiresAt)
+      .where(sql`${table.status} = 'processing'`),
+    // The ordering gate: "is anything earlier in this conversation unfinished?"
+    index("outbox_messages_conversation_open_idx")
+      .on(table.conversationId, table.seq)
+      .where(sql`${table.status} in ('pending','processing','retry_wait')`),
+    index("outbox_messages_tenant_status_idx").on(table.tenantId, table.status),
   ],
 );
 

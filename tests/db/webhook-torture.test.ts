@@ -11,6 +11,7 @@ import { BAHAMAS_DENTAL_SERVICE } from "../../src/ai/business-context";
 import { createMockMessagingProvider } from "../../src/messaging/mock-messaging-provider";
 import { appointments, conversations, customers, services } from "../../src/db/schema";
 import { createTestDb, resetTestData } from "./db-test-helpers";
+import { deliverAllQueued } from "./outbox-helpers";
 import type { MockMessagingProvider } from "../../src/messaging/mock-messaging-provider";
 
 /**
@@ -41,7 +42,7 @@ describe("Webhook torture tests — real Meta-shaped payloads through the full H
 
   function buildApp(messaging: MockMessagingProvider = createMockMessagingProvider()) {
     const agent = new ReceptionistAgent(new DevRuleBasedAIProvider(), createDatabaseReceptionistTools(BAHAMAS_DENTAL_SERVICE, db));
-    const app = createApp({ env, db: db as never, agent, messaging });
+    const app = createApp({ env, db: db as never, agent });
     return { app, agent, messaging };
   }
 
@@ -73,6 +74,8 @@ describe("Webhook torture tests — real Meta-shaped payloads through the full H
     const before = messaging.sent.length;
     const res = await request(app).post("/webhooks/whatsapp").send(inboundPayload(from, text));
     expect(res.status).toBe(200);
+    // The webhook only QUEUES the reply; the outbox worker delivers it.
+    await deliverAllQueued(db, messaging);
     return messaging.sent.length > before ? messaging.sent[messaging.sent.length - 1].body : undefined;
   }
 

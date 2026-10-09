@@ -1,4 +1,4 @@
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { conversations } from "./schema";
 import type { BookingState } from "../ai/types";
 import type { Db } from "./client";
@@ -16,11 +16,19 @@ import type { Db } from "./client";
  */
 
 
+export type ConversationStatus = "ai_active" | "human_pending" | "staff_owned" | "resolved";
+
+/** HUMAN_PENDING or HUMAN_ACTIVE: a person owns (or has been asked to own)
+ * the conversation, so the AI must not send ordinary replies. */
+export function isHumanOwned(status: ConversationStatus): boolean {
+  return status === "human_pending" || status === "staff_owned";
+}
+
 export interface ConversationRecord {
   id: string;
   tenantId: string;
   customerId: string;
-  status: "ai_active" | "staff_owned" | "resolved";
+  status: ConversationStatus;
   bookingState: BookingState;
 }
 
@@ -28,7 +36,7 @@ function toRecord(row: {
   id: string;
   tenantId: string;
   customerId: string;
-  status: "ai_active" | "staff_owned" | "resolved";
+  status: ConversationStatus;
   bookingState: BookingState | null;
 }): ConversationRecord {
   return {
@@ -90,27 +98,40 @@ export async function findOrCreateActiveConversation(
  * conversation left off. `handoffActive` maps onto the `status` column:
  * true -> "staff_owned" (a human, not automation, owns this
  * conversation now), false -> "ai_active". */
+/**
+ * Persists the AI's end-of-turn state. OWNERSHIP-AWARE (Phase 3): the AI may
+ * only ever move a conversation ai_active -> human_pending (its own
+ * handoff request). It can never overwrite a human-owned or closed
+ * conversation — previously `status` was blindly set from the AI's
+ * `handoffActive` flag, which would silently revert a staff takeover that
+ * happened mid-turn. The conditional CASE below is evaluated by Postgres
+ * against the row's CURRENT status, so it holds even if a staff transition
+ * committed after this turn started.
+ */
 export async function persistConversationTurn(
   db: Db,
   conversationId: string,
   bookingState: BookingState,
-  handoffActive: boolean,
+  handoffRequested: boolean,
+  handoffReason?: string,
 ): Promise<void> {
+  const becomesPending = sql`(${conversations.status} = 'ai_active' AND ${handoffRequested})`;
   await db
     .update(conversations)
     .set({
       bookingState,
-      status: handoffActive ? "staff_owned" : "ai_active",
+      status: sql`CASE WHEN ${becomesPending} THEN 'human_pending'::conversation_status ELSE ${conversations.status} END`,
+      handoffReason: sql`CASE WHEN ${becomesPending} THEN ${handoffReason ?? "handoff requested"} ELSE ${conversations.handoffReason} END`,
+      handoffRequestedAt: sql`CASE WHEN ${becomesPending} THEN now() ELSE ${conversations.handoffRequestedAt} END`,
+      ownershipChangedAt: sql`CASE WHEN ${becomesPending} THEN now() ELSE ${conversations.ownershipChangedAt} END`,
+      ownershipVersion: sql`CASE WHEN ${becomesPending} THEN ${conversations.ownershipVersion} + 1 ELSE ${conversations.ownershipVersion} END`,
+      waitingSince: sql`CASE WHEN ${becomesPending} THEN now() ELSE ${conversations.waitingSince} END`,
+      lastActivityAt: new Date(),
       updatedAt: new Date(),
     })
     .where(eq(conversations.id, conversationId));
 }
 
-/** Explicit close — nothing in this codebase calls this automatically
- * yet (a customer can always message again), but staff tooling or a
- * future cleanup job needs it, and "resolved" is a real status value
- * findOrCreateActiveConversation already treats specially (a resolved
- * conversation is never resumed — a fresh one starts instead). */
 export async function resolveConversation(db: Db, conversationId: string): Promise<void> {
   await db
     .update(conversations)

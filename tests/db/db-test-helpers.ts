@@ -27,7 +27,9 @@ export function createTestDb() {
  * database, so a blunt truncate is fine (never run against anything
  * else). */
 export async function resetTestData(db: ReturnType<typeof createTestDb>["db"]): Promise<void> {
-  // Knowledge-engine tables first (they reference tenants/conversations).
+  // Outbox rows reference messages/conversations/customers.
+  await db.delete(schema.outboxMessages);
+  // Knowledge-engine tables (they reference tenants/conversations).
   await db.delete(schema.knowledgeRetrievalLogs);
   await db.delete(schema.knowledgeChunks);
   await db.delete(schema.knowledgeDocuments);
@@ -41,6 +43,7 @@ export async function resetTestData(db: ReturnType<typeof createTestDb>["db"]): 
   await db.delete(schema.messages);
   await db.delete(schema.conversations);
   await db.delete(schema.services);
+  await db.delete(schema.staffSessions);
   await db.delete(schema.staffUsers);
   await db.delete(schema.customers);
   await db.delete(schema.tenants);

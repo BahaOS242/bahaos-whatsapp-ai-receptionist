@@ -35,6 +35,21 @@ export interface OutboundMessageResult {
    * genuinely transient one merely delays (not loses) the message,
    * caught by the next real send attempt anyway. */
   retryable?: boolean;
+  /** Stable, machine-readable classification of a failure for the outbox
+   * (never a secret): "network_timeout" | "network_error" |
+   * `http_<status>` | `meta_<code>`. The retry DECISION is still driven
+   * solely by `retryable` above — this is for inspection, not a second
+   * taxonomy. */
+  errorCode?: string;
+  /** True when the request may nonetheless have been ACCEPTED by the
+   * provider (a timeout or dropped connection after the request left
+   * us). A retry of an ambiguous failure can therefore duplicate a
+   * message the customer already received — the WhatsApp Cloud API has
+   * no idempotency key to prevent that, so the outbox records it. */
+  ambiguous?: boolean;
+  /** Provider HTTP status / Meta error code when known (diagnostics). */
+  httpStatus?: number;
+  metaCode?: number;
 }
 
 export interface MessagingProvider {

@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { pinClockToReferenceCalendar } from "../helpers/pin-clock";
 import { createClinicSimulator, type ClinicSimulator } from "../../src/simulator/clinic-simulator";
 import { createClinicSimulatorReceptionistTools } from "../../src/tools/clinic-simulator-receptionist-tools";
 import { ReceptionistAgent } from "../../src/ai/receptionist-agent";
@@ -9,6 +10,9 @@ import { DevRuleBasedAIProvider } from "../../src/ai/providers/dev-rule-based-pr
 import { ConversationManager } from "../../src/ai/conversation-manager";
 import { BAHAMAS_DENTAL_SERVICE } from "../../src/ai/business-context";
 import type { AIProviderRequest, ConversationTurn } from "../../src/ai/types";
+
+// These tests' expectations are tied to the reference calendar (see tests/helpers/pin-clock.ts).
+pinClockToReferenceCalendar();
 
 /**
  * Section 16's own non-negotiable requirement, made concrete: running
