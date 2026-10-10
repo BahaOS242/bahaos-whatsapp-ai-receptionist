@@ -330,9 +330,7 @@ export class LLMProvider implements AIProvider {
     });
     if (verdict.ok) return response;
 
-    console.warn(
-      JSON.stringify({ scope: "knowledge", event: "answer_guard_blocked", reason: verdict.reason }),
-    );
+    console.warn(JSON.stringify({ scope: "knowledge", event: "answer_guard_blocked", reason: verdict.reason }));
     const { unclearTurnCount: _u, ...state } = request.bookingState;
     return {
       reply: composeNoEvidenceReply({ midBooking: !!request.bookingState.intent }),
@@ -342,10 +340,7 @@ export class LLMProvider implements AIProvider {
     };
   }
 
-  private async generateResponseCore(
-    request: AIProviderRequest,
-    holder: KnowledgeHolder,
-  ): Promise<AIProviderResponse> {
+  private async generateResponseCore(request: AIProviderRequest, holder: KnowledgeHolder): Promise<AIProviderResponse> {
     // Application-owned state, step 1: deterministically extract whatever
     // the customer's raw message tells us — independent of the model,
     // and computed BEFORE the model is even consulted, so everything
@@ -354,11 +349,7 @@ export class LLMProvider implements AIProvider {
     // whether the model would have reliably reported it itself. See
     // src/ai/message-field-extraction.ts for exactly what's extracted and
     // why each field is gated the way it is.
-    const extractedThisTurn = extractStatedFields(
-      request.business,
-      request.message,
-      request.bookingState,
-    );
+    const extractedThisTurn = extractStatedFields(request.business, request.message, request.bookingState);
     let bookingState: BookingState = { ...request.bookingState, ...extractedThisTurn };
 
     // Layer 1 of the decline safety net — see buildDeclineResponse. Checked
@@ -383,16 +374,11 @@ export class LLMProvider implements AIProvider {
       !request.checkAvailability
     ) {
       return {
-        reply: composeRecurringUnavailableEscalation(
-          bookingState.service,
-          bookingState.recurrenceIntervalMonths,
-        ),
+        reply: composeRecurringUnavailableEscalation(bookingState.service, bookingState.recurrenceIntervalMonths),
         actions: [
           {
             type: "escalate",
-            payload: {
-              reason: "recurring scheduling requested but not safely completable on this backend",
-            },
+            payload: { reason: "recurring scheduling requested but not safely completable on this backend" },
           },
         ],
         bookingState: {},
@@ -424,9 +410,7 @@ export class LLMProvider implements AIProvider {
     //      the turn (no completing action, no escalate).
     const priorNextField = nextRequiredField(request.bookingState);
     const extractedNothing = Object.values(extractedThisTurn).every((v) => v === undefined);
-    const isPlainGreetingOrThanks = /^\s*(hi|hello|hey|thanks|thank you|thank u)[!.,\s]*$/i.test(
-      request.message,
-    );
+    const isPlainGreetingOrThanks = /^\s*(hi|hello|hey|thanks|thank you|thank u)[!.,\s]*$/i.test(request.message);
     const eligibleTrigger = priorNextField
       ? `no recognized field found while "${priorNextField}" was being asked for`
       : !request.bookingState.intent && !isPlainGreetingOrThanks
@@ -449,8 +433,7 @@ export class LLMProvider implements AIProvider {
 
     let systemPrompt = buildSystemPrompt({ ...request, bookingState });
     // Customer memory: low-authority, delimited DATA appended after every rule. Absent => prompt unchanged.
-    if (request.memory && request.memory.length <= MAX_MEMORY_PROMPT_CHARS)
-      systemPrompt = `${systemPrompt}\n\n${request.memory}`;
+    if (request.memory && request.memory.length <= MAX_MEMORY_PROMPT_CHARS) systemPrompt = `${systemPrompt}\n\n${request.memory}`;
     const messages: LlmChatMessage[] = [
       ...request.history.map((turn): LlmChatMessage => ({
         role: turn.role === "customer" ? "user" : "assistant",
@@ -492,9 +475,7 @@ export class LLMProvider implements AIProvider {
         context: {
           hasActiveIntent: !!bookingState.intent,
           hasPendingConfirmation: !!request.bookingState.pendingAction,
-          extractedBookingField: Object.entries(extractedThisTurn).some(
-            ([k, v]) => k !== "intent" && v !== undefined,
-          ),
+          extractedBookingField: Object.entries(extractedThisTurn).some(([k, v]) => k !== "intent" && v !== undefined),
         },
       });
       if (lookup.consulted) {
@@ -518,12 +499,7 @@ export class LLMProvider implements AIProvider {
           };
         }
         holder.grounded = lookup;
-        systemPrompt = [
-          systemPrompt,
-          ...KNOWLEDGE_GROUNDING_RULES,
-          "",
-          buildKnowledgeSection(lookup),
-        ].join("\n");
+        systemPrompt = [systemPrompt, ...KNOWLEDGE_GROUNDING_RULES, "", buildKnowledgeSection(lookup)].join("\n");
       }
     }
 
@@ -872,13 +848,7 @@ export class LLMProvider implements AIProvider {
           const flipped = flipMeridiemHour(bookingState.time!);
           const flippedValidation =
             hoursValidation.reason === "outside_hours"
-              ? validateHoursForIntent(
-                  request.business,
-                  bookingState.intent,
-                  bookingState.date!,
-                  flipped,
-                  bookingState.service,
-                )
+              ? validateHoursForIntent(request.business, bookingState.intent, bookingState.date!, flipped, bookingState.service)
               : undefined;
           if (flippedValidation?.valid) {
             freshConfirmationReply = `Did you mean ${formatTime12h(flipped)} instead?`;
@@ -891,12 +861,7 @@ export class LLMProvider implements AIProvider {
               bookingState.date!,
               bookingState.time!,
             );
-            const {
-              pendingAction: _pendingAction,
-              date: _date,
-              time: _time,
-              ...rest
-            } = bookingState;
+            const { pendingAction: _pendingAction, date: _date, time: _time, ...rest } = bookingState;
             bookingState = rest;
           }
         } else {
@@ -907,9 +872,7 @@ export class LLMProvider implements AIProvider {
 
     // An unresolved time clarification outranks every confirmation prompt and all model text: never invite a "yes"
     // while the stored time is in doubt. (Escalation to a human still comes first.)
-    const timeClarificationReply = bookingState.timeClarification
-      ? TIME_CLARIFICATION_REPLY
-      : undefined;
+    const timeClarificationReply = bookingState.timeClarification ? TIME_CLARIFICATION_REPLY : undefined;
     // App-controlled confirmation prompts: model text may only invite a confirmation when it IS the app's own prompt for the
     // stored values. Every app-composed reply is already earlier in the chain below, so anything reaching here is model prose.
     //   - armed (pendingAction set) -> the app's summary of the STORED values replaces the model's wording;
@@ -1010,30 +973,14 @@ export class LLMProvider implements AIProvider {
       // turn that actually made progress.
       if (bookingState.unclearTurnCount) {
         const { unclearTurnCount: _unclearTurnCount, ...rest } = bookingState;
-        return {
-          reply,
-          actions,
-          bookingState: rest,
-          completingActionReplyIsGeneric,
-          unclearPhraseObservation,
-        };
+        return { reply, actions, bookingState: rest, completingActionReplyIsGeneric, unclearPhraseObservation };
       }
-      return {
-        reply,
-        actions,
-        bookingState,
-        completingActionReplyIsGeneric,
-        unclearPhraseObservation,
-      };
+      return { reply, actions, bookingState, completingActionReplyIsGeneric, unclearPhraseObservation };
     }
 
     const consecutiveUnclear = (request.bookingState.unclearTurnCount ?? 0) + 1;
     if (consecutiveUnclear < UNCLEAR_TURN_ESCALATION_THRESHOLD) {
-      return {
-        reply,
-        actions,
-        bookingState: { ...bookingState, unclearTurnCount: consecutiveUnclear },
-      };
+      return { reply, actions, bookingState: { ...bookingState, unclearTurnCount: consecutiveUnclear } };
     }
 
     // Genuinely not understood, twice in a row — Objective 4: "the
@@ -1044,8 +991,7 @@ export class LLMProvider implements AIProvider {
     // counter.
     const { unclearTurnCount: _unclearTurnCount, ...clearedState } = bookingState;
     return {
-      reply:
-        "I want to make sure you get the right help — let me connect you with a member of our team.",
+      reply: "I want to make sure you get the right help — let me connect you with a member of our team.",
       actions: [
         ...actions,
         {
@@ -1101,9 +1047,7 @@ function fallbackReplyForEmptyContent(
       // since the customer has nothing new to say — a vague "could you
       // say that again?" can't break that loop, but an explicit yes/no
       // confirmation prompt gives them something concrete to respond to).
-      return bookingState.intent
-        ? composeConfirmationPrompt(business, bookingState)
-        : GENUINELY_UNCLEAR_REPLY;
+      return bookingState.intent ? composeConfirmationPrompt(business, bookingState) : GENUINELY_UNCLEAR_REPLY;
   }
 }
 
@@ -1294,10 +1238,7 @@ function deriveBookingState(
     // turn ("actually, Wednesday instead") has real name/phone/date/time
     // to work with — see message-field-extraction.ts's
     // detectPostCompletionReschedule.
-    return {
-      bookingJustCompleted: true,
-      lastCompletedBooking: snapshotFromCompletedAction(completingAction),
-    };
+    return { bookingJustCompleted: true, lastCompletedBooking: snapshotFromCompletedAction(completingAction) };
   }
 
   if (previous.bookingJustCompleted) {
@@ -1342,11 +1283,7 @@ function snapshotFromCompletedAction(action: ReceptionistAction): CompletedBooki
         phone: action.payload.phone,
       };
     case "request_cancellation":
-      return {
-        intent: "cancel_appointment",
-        name: action.payload.name,
-        phone: action.payload.phone,
-      };
+      return { intent: "cancel_appointment", name: action.payload.name, phone: action.payload.phone };
     case "request_recurring_appointment":
       // Genuine bug found while testing: this switch didn't have a case
       // for the new action type at all, even though it was already
@@ -1426,7 +1363,7 @@ function buildSystemPrompt(request: AIProviderRequest): string {
     "- Never claim a real staff member has already been contacted — only that you've flagged/escalated the request.",
     "- Call request_appointment / request_reschedule / request_cancellation only once every required field for that action is known. Never claim to have taken an action without calling the matching tool.",
     "- If a time is ambiguous (e.g. the customer just says a bare number with no am/pm), ask specifically for clarification — do not guess am/pm.",
-    "- If what the customer means is genuinely unclear — a garbled message, slang or phrasing you're not confident about, or a message that could plausibly mean more than one thing — do not guess and proceed. Say what you think they meant and ask them to confirm or correct it, e.g. \"I want to make sure I understood you — are you looking to book a cleaning for Tuesday at 3 PM? Reply YES if that's correct, or tell me what you'd like to change.\" Never silently pick an interpretation and act on it.",
+    '- If what the customer means is genuinely unclear — a garbled message, slang or phrasing you\'re not confident about, or a message that could plausibly mean more than one thing — do not guess and proceed. Say what you think they meant and ask them to confirm or correct it, e.g. "I want to make sure I understood you — are you looking to book a cleaning for Tuesday at 3 PM? Reply YES if that\'s correct, or tell me what you\'d like to change." Never silently pick an interpretation and act on it.',
     "- Never call request_appointment or request_reschedule for a day the business is closed, or a time outside the structured weekly hours above (an appointment must fully fit before closing, not merely start before it). If the customer asks for such a time, tell them it's outside business hours and ask for a different day/time instead.",
     "- Never tell the customer a specific date/time is available — you don't have real-time visibility into what's already booked. The application checks this independently every time you call request_appointment; if the slot turns out to be taken, your reply this turn is replaced with the real answer and real alternative times, so don't pre-empt that by claiming availability yourself.",
     "- If the customer describes a possible emergency, asks for a human, or asks something you can't confidently answer from the information above, call the escalate tool.",
@@ -1477,9 +1414,7 @@ function parseToolCall(toolCall: LlmToolCall): ReceptionistAction | undefined {
       // exists purely to let that synthetic call round-trip through the
       // same parse/validate pipeline as every other action.
       const parsed = requestRecurringAppointmentSchema.safeParse(args);
-      return parsed.success
-        ? { type: "request_recurring_appointment", payload: parsed.data }
-        : undefined;
+      return parsed.success ? { type: "request_recurring_appointment", payload: parsed.data } : undefined;
     }
     case "escalate": {
       const parsed = escalateSchema.safeParse(args);

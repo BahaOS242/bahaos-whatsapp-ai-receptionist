@@ -132,8 +132,7 @@ const BOOK_RE = /\bbook\b|\bschedule\b|\bappointment\b/i;
  * extraction, not model-facing logic — can use the exact same yes/no
  * vocabulary LLMProvider already trusts for its own auto-confirm/decline
  * bypasses, rather than maintaining a second, driftable copy. */
-export const AFFIRMATIVE_RE =
-  /^\s*(yes|yeah|yep|yup|sure|ok(ay)?|go ahead|please do|sounds good)\b/i;
+export const AFFIRMATIVE_RE = /^\s*(yes|yeah|yep|yup|sure|ok(ay)?|go ahead|please do|sounds good)\b/i;
 
 /** Mirror image of AFFIRMATIVE_RE — same narrow, anchored, explicitly-
  * enumerated shape. Anchored to the start of the message so "I know that
@@ -414,11 +413,7 @@ export function extractStatedFields(
       // treatment. Deliberately never pre-fills date/time: those are
       // exactly what's being changed, and must come from the customer
       // fresh, not default to the appointment being replaced.
-      if (
-        intent === "reschedule_appointment" &&
-        currentState.bookingJustCompleted &&
-        currentState.lastCompletedBooking
-      ) {
+      if (intent === "reschedule_appointment" && currentState.bookingJustCompleted && currentState.lastCompletedBooking) {
         const snapshot = currentState.lastCompletedBooking;
         if (snapshot.name) extracted.name = snapshot.name;
         if (snapshot.phone) extracted.phone = snapshot.phone;

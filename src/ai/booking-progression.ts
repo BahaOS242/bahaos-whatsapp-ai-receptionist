@@ -14,7 +14,12 @@ import type { BookingIntent, BookingState, PendingAction } from "./types";
  */
 
 export type BookingProgressionField =
-  "service" | "date" | "time" | "recurrenceIntervalMonths" | "name" | "phone";
+  | "service"
+  | "date"
+  | "time"
+  | "recurrenceIntervalMonths"
+  | "name"
+  | "phone";
 
 const FIELD_ORDER: Record<BookingIntent, BookingProgressionField[]> = {
   book_appointment: ["service", "date", "time", "name", "phone"],
@@ -26,14 +31,7 @@ const FIELD_ORDER: Record<BookingIntent, BookingProgressionField[]> = {
   // whenever stated regardless of what's "currently asked," same as
   // every other out-of-order field in this codebase; this only governs
   // what's asked NEXT when it's still missing.
-  book_recurring_appointment: [
-    "service",
-    "date",
-    "time",
-    "recurrenceIntervalMonths",
-    "name",
-    "phone",
-  ],
+  book_recurring_appointment: ["service", "date", "time", "recurrenceIntervalMonths", "name", "phone"],
 };
 
 /** The single next field still missing, in required order — undefined

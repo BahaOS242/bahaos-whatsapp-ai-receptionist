@@ -1,9 +1,6 @@
 import { formatTime12h } from "./business-hours";
 import { isIsoDateString, weekdayForIsoDate } from "./date-time";
-import {
-  noopLanguageObservationRecorder,
-  type LanguageObservationRecorder,
-} from "./language-observation-recorder";
+import { noopLanguageObservationRecorder, type LanguageObservationRecorder } from "./language-observation-recorder";
 import type { KnowledgeService } from "../knowledge/knowledge-service";
 import type {
   AIProvider,
@@ -137,16 +134,16 @@ export class ReceptionistAgent {
       providerResponse = await this.provider.generateResponse(providerRequest);
     } catch (error) {
       console.error("AIProvider failed:", error);
-      return this.safeFallback("the AI provider failed or returned an unusable response", request);
+      return this.safeFallback(
+        "the AI provider failed or returned an unusable response",
+        request,
+      );
     }
 
     if (providerResponse.unclearPhraseObservation) {
       const observation = providerResponse.unclearPhraseObservation;
       try {
-        await this.languageObservationRecorder.record({
-          ...observation,
-          conversationId: request.conversationId,
-        });
+        await this.languageObservationRecorder.record({ ...observation, conversationId: request.conversationId });
       } catch (error) {
         // Never lets a recording failure affect the conversation itself
         // — see LanguageObservationRecorder's docstring.
@@ -171,11 +168,7 @@ export class ReceptionistAgent {
     let escalated = false;
 
     for (const action of providerResponse.actions) {
-      const result = await this.executeAction(
-        action,
-        request.conversationId,
-        providerResponse.bookingState,
-      );
+      const result = await this.executeAction(action, request.conversationId, providerResponse.bookingState);
       actionsTaken.push({ action, result });
       if (!result.success) anyFailed = true;
       if (action.type === "escalate" && result.success) escalated = true;
@@ -193,10 +186,7 @@ export class ReceptionistAgent {
       const conflict = failed.find(
         (executed) => executed.result.recoverable?.reason === "slot_conflict",
       );
-      if (
-        conflict &&
-        failed.every((executed) => executed.result.recoverable?.reason === "slot_conflict")
-      ) {
+      if (conflict && failed.every((executed) => executed.result.recoverable?.reason === "slot_conflict")) {
         // Preserve everything the customer already told the app (never
         // revert to request.bookingState, which would lose a correction
         // made THIS turn) except `time`/`pendingAction` — the customer
@@ -224,9 +214,7 @@ export class ReceptionistAgent {
           ...preserved
         } = providerResponse.bookingState;
         return {
-          reply: composeSlotConflictReply(
-            conflict.result.recoverable ?? { reason: "slot_conflict", alternativeTimes: [] },
-          ),
+          reply: composeSlotConflictReply(conflict.result.recoverable ?? { reason: "slot_conflict", alternativeTimes: [] }),
           actionsTaken,
           safetyOverride: true,
           bookingState: preserved,
@@ -262,11 +250,7 @@ export class ReceptionistAgent {
     }
 
     return {
-      reply: this.finalReplyFor(
-        providerResponse.reply,
-        providerResponse.completingActionReplyIsGeneric,
-        actionsTaken,
-      ),
+      reply: this.finalReplyFor(providerResponse.reply, providerResponse.completingActionReplyIsGeneric, actionsTaken),
       actionsTaken,
       safetyOverride: false,
       bookingState: escalated ? {} : providerResponse.bookingState,
@@ -323,11 +307,7 @@ export class ReceptionistAgent {
     // No providerResponse exists in this path (the provider call itself
     // failed) — the incoming request's own bookingState is the most
     // accurate snapshot available.
-    const result = await this.executeAction(
-      escalateAction,
-      request.conversationId,
-      request.bookingState,
-    );
+    const result = await this.executeAction(escalateAction, request.conversationId, request.bookingState);
     return {
       reply: SAFE_FALLBACK_REPLY,
       actionsTaken: [{ action: escalateAction, result }],

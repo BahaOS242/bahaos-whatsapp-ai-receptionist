@@ -22,10 +22,7 @@ export function hasCorrectionLanguage(message: string): boolean {
 export function stripCorrectionLanguage(text: string): string {
   return text
     .replace(new RegExp(CORRECTION_LANGUAGE_RE.source, "gi"), " ")
-    .replace(
-      /\b(please|pls|thanks|thank you|ok(?:ay)?|hmm+|um+|uh+|oh|yeah|yes|hey|hi|then|to|it|that|do|go|with)\b/gi,
-      " ",
-    )
+    .replace(/\b(please|pls|thanks|thank you|ok(?:ay)?|hmm+|um+|uh+|oh|yeah|yes|hey|hi|then|to|it|that|do|go|with)\b/gi, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -50,77 +47,14 @@ export function correctionBlocksBareName(
  * "my name is Alisha not Alicia" -> "Alisha", "my name is Sarah and I want…" -> "Sarah".
  */
 const NAME_BOUNDARY_WORDS = new Set([
-  "not",
-  "no",
-  "nor",
-  "never",
-  "isn't",
-  "isnt",
-  "and",
-  "but",
-  "or",
-  "so",
-  "because",
-  "though",
-  "although",
-  "while",
-  "then",
-  "i",
-  "i'm",
-  "im",
-  "i'd",
-  "i'll",
-  "my",
-  "me",
-  "you",
-  "we",
-  "it",
-  "its",
-  "it's",
-  "is",
-  "was",
-  "are",
-  "am",
-  "be",
-  "actually",
-  "instead",
-  "rather",
-  "sorry",
-  "please",
-  "pls",
-  "thanks",
-  "thank",
-  "wait",
-  "oops",
-  "nah",
-  "nope",
-  "want",
-  "need",
-  "would",
-  "like",
-  "can",
-  "could",
-  "for",
-  "to",
-  "at",
-  "on",
-  "in",
-  "with",
-  "from",
+  "not", "no", "nor", "never", "isn't", "isnt", "and", "but", "or", "so", "because", "though", "although", "while", "then",
+  "i", "i'm", "im", "i'd", "i'll", "my", "me", "you", "we", "it", "its", "it's", "is", "was", "are", "am", "be",
+  "actually", "instead", "rather", "sorry", "please", "pls", "thanks", "thank", "wait", "oops", "nah", "nope",
+  "want", "need", "would", "like", "can", "could", "for", "to", "at", "on", "in", "with", "from",
 ]);
 
 /** Emphasis words that may sit between "my name is" and the name itself. */
-const NAME_LEAD_IN_WORDS = new Set([
-  "actually",
-  "really",
-  "just",
-  "now",
-  "sorry",
-  "um",
-  "uh",
-  "well",
-  "honestly",
-]);
+const NAME_LEAD_IN_WORDS = new Set(["actually", "really", "just", "now", "sorry", "um", "uh", "well", "honestly"]);
 
 /** Cuts an introduced-name candidate at the first boundary word; returns "" if the first word is one. */
 export function trimNameAtBoundary(candidate: string): string {
@@ -139,67 +73,18 @@ export function trimNameAtBoundary(candidate: string): string {
 /** Words that may precede the corrected name: pronoun/copula lead-ins, correction vocabulary AND confirmation/filler words
  * ("yes, Alisha not Alicia", "ok it's Alisha, not Alicia"). */
 const CONTRAST_LEAD_INS = new Set([
-  "it's",
-  "its",
-  "it",
-  "is",
-  "i'm",
-  "im",
-  "i",
-  "am",
-  "this",
-  "name",
-  "my",
-  "call",
-  "me",
-  "sorry",
-  "actually",
-  "no",
-  "nope",
-  "nah",
-  "oops",
-  "wait",
-  "um",
-  "uh",
-  "yes",
-  "yeah",
-  "yep",
-  "yup",
-  "ya",
-  "yea",
-  "ok",
-  "okay",
-  "k",
-  "sure",
-  "right",
-  "correct",
-  "hey",
-  "hi",
-  "hello",
-  "well",
-  "so",
-  "oh",
-  "please",
-  "pls",
-  "thanks",
-  "thank",
-  "you",
-  "and",
-  "but",
+  "it's", "its", "it", "is", "i'm", "im", "i", "am", "this", "name", "my", "call", "me", "sorry", "actually", "no", "nope", "nah", "oops", "wait", "um", "uh",
+  "yes", "yeah", "yep", "yup", "ya", "yea", "ok", "okay", "k", "sure", "right", "correct", "hey", "hi", "hello", "well", "so", "oh", "please", "pls", "thanks", "thank", "you", "and", "but",
 ]);
 /** Curly/modifier/backtick apostrophes -> ASCII, so "It’s" == "It's". */
-export const normalizeApostrophes = (text: string) =>
-  text.replace(/[\u2018\u2019\u02bc\u2032`´]/g, "'");
+export const normalizeApostrophes = (text: string) => text.replace(/[\u2018\u2019\u02bc\u2032`´]/g, "'");
 
 /**
  * An explicit name CONTRAST against the name we already hold: "It's Alisha, not Alicia", "Alisha not Alicia",
  * "sorry, I'm Alisha not Alicia". The correction is trusted ONLY because the rejected name ("not Y") equals the
  * name currently on file — "Tuesday not Wednesday" can never match. Returns the corrected, title-cased name, or null.
  */
-export function extractNameContrast(
-  message: string,
-  currentName: string | undefined,
-): string | null {
+export function extractNameContrast(message: string, currentName: string | undefined): string | null {
   if (!currentName) return null;
   message = normalizeApostrophes(message);
   const cur = normalizeApostrophes(currentName).trim().toLowerCase();
@@ -207,26 +92,16 @@ export function extractNameContrast(
   const re = /\bnot\s+([A-Za-z][A-Za-z'’-]*(?:\s+[A-Za-z][A-Za-z'’-]*)?)/gi;
   for (const m of message.matchAll(re)) {
     const rejected = m[1].trim().toLowerCase();
-    if (rejected !== cur && !rejected.startsWith(`${cur} `) && !cur.startsWith(`${rejected} `))
-      continue;
-    const words = message
-      .slice(0, m.index)
-      .replace(/[,;.!?]+/g, " ")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean);
+    if (rejected !== cur && !rejected.startsWith(`${cur} `) && !cur.startsWith(`${rejected} `)) continue;
+    const words = message.slice(0, m.index).replace(/[,;.!?]+/g, " ").trim().split(/\s+/).filter(Boolean);
     let tail = words.slice(-2);
     while (tail.length && CONTRAST_LEAD_INS.has(tail[0].toLowerCase())) tail = tail.slice(1);
     if (tail.length && CONTRAST_LEAD_INS.has(tail[tail.length - 1].toLowerCase())) continue;
     const candidate = tail.join(" ");
-    if (!candidate || !/^[A-Za-z][A-Za-z'’-]*(?:\s+[A-Za-z][A-Za-z'’-]*)?$/.test(candidate))
-      continue;
+    if (!candidate || !/^[A-Za-z][A-Za-z'’-]*(?:\s+[A-Za-z][A-Za-z'’-]*)?$/.test(candidate)) continue;
     if (trimNameAtBoundary(candidate) !== candidate) continue;
     if (candidate.toLowerCase() === cur) continue;
-    return candidate
-      .split(/\s+/)
-      .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase())
-      .join(" ");
+    return candidate.split(/\s+/).map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
   }
   return null;
 }

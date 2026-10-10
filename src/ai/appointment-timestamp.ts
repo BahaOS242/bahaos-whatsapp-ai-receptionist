@@ -117,17 +117,9 @@ function zonedWallClockToUtc(
     hourCycle: "h23",
   });
   const reported = formatter.formatToParts(new Date(guessUtcMs));
-  const get = (type: string) =>
-    Number.parseInt(reported.find((p) => p.type === type)?.value ?? "0", 10);
+  const get = (type: string) => Number.parseInt(reported.find((p) => p.type === type)?.value ?? "0", 10);
 
-  const reportedUtcMs = Date.UTC(
-    get("year"),
-    get("month") - 1,
-    get("day"),
-    get("hour"),
-    get("minute"),
-    0,
-  );
+  const reportedUtcMs = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), 0);
   const offsetMs = reportedUtcMs - guessUtcMs;
 
   return new Date(guessUtcMs - offsetMs);

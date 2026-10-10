@@ -46,16 +46,9 @@ const NEXT_WEEKDAY_RE =
 /** "next week Friday", "next week on Friday", "Friday next week". The qualifier is NOT optional
  * decoration: dropping it silently books the wrong week. Policy: weeks run Monday–Sunday and
  * "next week" is the calendar week after the current one; the named weekday is that week's. */
-const WEEKDAY_ALT =
-  "(mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:rs(?:day)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)";
-const NEXT_WEEK_WEEKDAY_RE = new RegExp(
-  `\\bnext\\s+week\\b[\\s,]*(?:on\\s+|for\\s+)?${WEEKDAY_ALT}\\b`,
-  "i",
-);
-const WEEKDAY_NEXT_WEEK_RE = new RegExp(
-  `\\b${WEEKDAY_ALT}\\b[\\s,]*(?:of\\s+|in\\s+)?next\\s+week\\b`,
-  "i",
-);
+const WEEKDAY_ALT = "(mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:rs(?:day)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)";
+const NEXT_WEEK_WEEKDAY_RE = new RegExp(`\\bnext\\s+week\\b[\\s,]*(?:on\\s+|for\\s+)?${WEEKDAY_ALT}\\b`, "i");
+const WEEKDAY_NEXT_WEEK_RE = new RegExp(`\\b${WEEKDAY_ALT}\\b[\\s,]*(?:of\\s+|in\\s+)?next\\s+week\\b`, "i");
 
 function isoDateFromYMD(year: number, month: number, day: number): string {
   return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
@@ -113,12 +106,7 @@ function resolveRelativeDateWord(text: string, now: Date, timeZone: string): str
       const todayIndex = new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay();
       const sinceMonday = (todayIndex + 6) % 7; // Monday = 0 … Sunday = 6
       const targetFromMonday = (targetIndex + 6) % 7;
-      const d = addCalendarDays(
-        today.year,
-        today.month,
-        today.day,
-        7 - sinceMonday + targetFromMonday,
-      );
+      const d = addCalendarDays(today.year, today.month, today.day, 7 - sinceMonday + targetFromMonday);
       return isoDateFromYMD(d.year, d.month, d.day);
     }
   }
@@ -179,30 +167,18 @@ export function resolveDateWord(
  * penalized for writing "October" in full when only "Oct"/"Oct." was
  * asked for. */
 const MONTH_NAME_TO_NUMBER: Record<string, number> = {
-  jan: 1,
-  january: 1,
-  feb: 2,
-  february: 2,
-  mar: 3,
-  march: 3,
-  apr: 4,
-  april: 4,
+  jan: 1, january: 1,
+  feb: 2, february: 2,
+  mar: 3, march: 3,
+  apr: 4, april: 4,
   may: 5,
-  jun: 6,
-  june: 6,
-  jul: 7,
-  july: 7,
-  aug: 8,
-  august: 8,
-  sep: 9,
-  sept: 9,
-  september: 9,
-  oct: 10,
-  october: 10,
-  nov: 11,
-  november: 11,
-  dec: 12,
-  december: 12,
+  jun: 6, june: 6,
+  jul: 7, july: 7,
+  aug: 8, august: 8,
+  sep: 9, sept: 9, september: 9,
+  oct: 10, october: 10,
+  nov: 11, november: 11,
+  dec: 12, december: 12,
 };
 
 /** Matches a month name/abbreviation (optionally followed by ".") plus a
@@ -247,18 +223,14 @@ export function detectBareMonthMention(text: string): string | undefined {
  * imported to keep these two modules decoupled, matching this
  * codebase's existing pattern for small, purely mechanical helpers used
  * on both sides of a module boundary. */
-function todayInTimeZone(
-  timeZone: string,
-  now: Date,
-): { year: number; month: number; day: number } {
+function todayInTimeZone(timeZone: string, now: Date): { year: number; month: number; day: number } {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
   }).formatToParts(now);
-  const get = (type: string) =>
-    Number.parseInt(parts.find((p) => p.type === type)?.value ?? "0", 10);
+  const get = (type: string) => Number.parseInt(parts.find((p) => p.type === type)?.value ?? "0", 10);
   return { year: get("year"), month: get("month"), day: get("day") };
 }
 
@@ -272,11 +244,7 @@ function todayInTimeZone(
  * within about a year of `now`. Returns undefined for text naming no
  * recognizable month+day, or for a calendar date that doesn't exist
  * (e.g. "Feb 30") rather than silently normalizing it. */
-export function resolveCalendarDateWord(
-  text: string,
-  now: Date,
-  timeZone: string,
-): string | undefined {
+export function resolveCalendarDateWord(text: string, now: Date, timeZone: string): string | undefined {
   const match = text.match(MONTH_DAY_RE);
   if (!match) return undefined;
 
@@ -350,14 +318,8 @@ const TIME_QUALIFIER_RES: RegExp[] = [
   // "3pm-ish", "3ish"
   /\b\d{1,2}(?::\d{2})?\s?(?:am|pm)?\s?-?ish\b/i,
   // ranges: "from 2pm to 4pm", "between 2 and 4pm", "2-4pm", "2pm - 4pm"
-  new RegExp(
-    String.raw`\b(?:from|between)\s+${CLOCK}\s*(?:to|-|–|until|till|and)\s*${CLOCK}\b`,
-    "i",
-  ),
-  new RegExp(
-    String.raw`\b${CLOCK}\s*(?:-|–|to|until|till)\s*\d{1,2}(?::\d{2})?\s?(?:am|pm)\b`,
-    "i",
-  ),
+  new RegExp(String.raw`\b(?:from|between)\s+${CLOCK}\s*(?:to|-|–|until|till|and)\s*${CLOCK}\b`, "i"),
+  new RegExp(String.raw`\b${CLOCK}\s*(?:-|–|to|until|till)\s*\d{1,2}(?::\d{2})?\s?(?:am|pm)\b`, "i"),
 ];
 
 /** True when a message qualifies a clock time instead of stating ONE exact
