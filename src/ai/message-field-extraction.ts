@@ -289,7 +289,7 @@ function findService(business: BusinessContext, text: string): BusinessService |
     s.name
       .toLowerCase()
       .split(/\s+/)
-      .some((word) => word.length > 3 && new RegExp(`\\b${word}\\b`).test(lower)),
+      .some((word) => word.length > 3 && word !== "dental" && new RegExp(`\\b${word}\\b`).test(lower)), // "dental" is the whole clinic, not a service
   );
   if (wordMatches.length > 1) return undefined;
   return wordMatches[0];
@@ -499,9 +499,10 @@ export function extractStatedFields(
     hasStaleInvalidSlot ||
     Boolean(currentState.timeClarification) ||
     schedule.clearDate ||
-    schedule.clearTime;
+    schedule.clearTime ||
+    Boolean(currentState.intent && schedule.hasProposalCue);
   if (dateTimeEligible) {
-    if (!currentState.date || hasCorrection || hasStaleInvalidSlot || schedule.clearDate) {
+    if (!currentState.date || hasCorrection || hasStaleInvalidSlot || schedule.clearDate || (currentState.intent && schedule.hasProposalCue)) {
       const date = resolveDateWord(schedule.proposalText, new Date(), business.timezone);
       if (date) extracted.date = date;
     }
@@ -510,7 +511,8 @@ export function extractStatedFields(
       hasCorrection ||
       hasStaleInvalidSlot ||
       currentState.timeClarification ||
-      schedule.clearTime
+      schedule.clearTime ||
+      Boolean(currentState.intent && schedule.hasProposalCue)
     ) {
       const time = parseTime(schedule.proposalText);
       if (time) {

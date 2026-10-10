@@ -46,6 +46,58 @@ const NOT_NAME_WORDS = new Set(
 const lower = (s: string) => s.toLowerCase().replace(/’/g, "'");
 const isStop = (w: string) => NOT_NAME_WORDS.has(lower(w));
 
+/** Words whose misspellings must never be mistaken for a name ("Tuesdya", "Thrusday", "cleanign"). */
+const GUARDED_WORDS = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "tomorrow",
+  "tonight",
+  "morning",
+  "afternoon",
+  "evening",
+  "cleaning",
+  "filling",
+  "consultation",
+  "appointment",
+  "checkup",
+  "canal",
+  "september",
+  "october",
+  "november",
+  "december",
+  "january",
+  "february",
+];
+
+/** Optimal-string-alignment distance (insert/delete/substitute/transpose). */
+function osa(a: string, b: string): number {
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [
+    i,
+    ...Array(b.length).fill(0),
+  ]);
+  for (let j = 0; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+  }
+  return d[a.length][b.length];
+}
+
+/** A token that is a typo of a weekday/month/service/time word. */
+function isScheduleTypoOrAbbreviation(tok: string): boolean {
+  const t = tok.toLowerCase();
+  return GUARDED_WORDS.some((w) => osa(t, w) <= (w.length >= 8 ? 2 : 1));
+}
+
 /** "Mary-jane o'brien" -> "Mary-Jane O'Brien"; tokens with their own internal capitals (McDonald) are kept as typed. */
 export function formatName(raw: string): string {
   return raw
@@ -70,11 +122,12 @@ function takeNameTokens(
   for (const raw of words) {
     const endsClause = /[,.:;!]$/.test(raw);
     const w = raw.replace(/^[,.:;"()]+|[,.:;!"()]+$/g, "");
-    if (!w || !TOKEN_RE.test(w) || isStop(w)) break;
+    if (!w || !TOKEN_RE.test(w) || isStop(w) || isScheduleTypoOrAbbreviation(w)) break;
     if (opts.requireCapital && !/^[A-Z]/.test(w)) break;
     kept.push(w);
     if (kept.length >= (opts.max ?? 4) || endsClause) break;
   }
+  if (kept.length === 1 && /^[A-Z]{2,3}$/.test(kept[0])) return undefined; // lone abbreviation ("XL"), not a name
   return kept.length ? formatName(kept.join(" ")) : undefined;
 }
 
@@ -170,7 +223,8 @@ export function isPlausibleBareName(remainder: string, original: string): boolea
   if (!cleaned) return false;
   const words = cleaned.split(" ");
   if (words.length > 4) return false;
-  return words.every((w) => TOKEN_RE.test(w) && !isStop(w));
+  if (words.length === 1 && /^[A-Z]{2,3}$/.test(words[0])) return false; // lone abbreviation ("XL"), not a name
+  return words.every((w) => TOKEN_RE.test(w) && !isStop(w) && !isScheduleTypoOrAbbreviation(w));
 }
 
 /** Formats an accepted bare answer (call only after isPlausibleBareName). */

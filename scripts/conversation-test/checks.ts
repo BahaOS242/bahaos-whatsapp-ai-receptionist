@@ -155,12 +155,13 @@ export function bundlesCorrection(input: string): boolean {
  * payload must equal the state that was shown. Model prose alone never counts.
  */
 export function authorizationProblems(
-  prevReply: string,
-  prevState: BookingState,
+  history: { reply: string; bookingState: BookingState }[],
   approvalInput: string,
   payload: Record<string, unknown>,
 ): string[] {
   const problems: string[] = [];
+  const prev = history[history.length - 1];
+  const prevState = prev.bookingState;
   const full = DETAIL_FIELDS.every((f) => prevState[f] !== undefined);
   if (
     prevState.pendingAction !== "confirm_booking" &&
@@ -177,14 +178,26 @@ export function authorizationProblems(
   if (full) {
     const iso = resolveCalendarDate(prevState.date, prevState.time);
     const shown = iso && prevState.time ? prose(iso, prevState.time) : undefined;
-    if (
-      !shown ||
-      !prevReply.includes(String(prevState.service)) ||
-      !prevReply.includes(shown.date) ||
-      !prevReply.toUpperCase().includes(shown.time)
-    ) {
+    const sameDetails = (st: BookingState) => DETAIL_FIELDS.every((f) => st[f] === prevState[f]);
+    const displays = (reply: string) =>
+      Boolean(shown) &&
+      reply.includes(String(prevState.service)) &&
+      reply.includes(shown!.date) &&
+      reply.toUpperCase().includes(shown!.time);
+    // The exact current details must have been SHOWN in an application summary; the summary may sit earlier in an
+    // unbroken run of turns during which the armed details never changed (e.g. an FAQ answered in between).
+    let shownExact = false;
+    for (let j = history.length - 1; j >= 0; j--) {
+      const h = history[j];
+      if (!sameDetails(h.bookingState) || !h.bookingState.pendingAction) break;
+      if (displays(h.reply)) {
+        shownExact = true;
+        break;
+      }
+    }
+    if (!shownExact) {
       problems.push(
-        `confirmation prompt did not display the exact stored details (${prevState.service} ${shown?.date} ${shown?.time}): "${prevReply}"`,
+        `confirmation prompt did not display the exact stored details (${prevState.service} ${shown?.date} ${shown?.time}): "${prev.reply}"`,
       );
     }
     const same =
@@ -277,15 +290,14 @@ export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[]
   t.turns.forEach((turn, i) => {
     const attempts = turn.actionsTaken.filter((a) => a.action.type === "request_appointment");
     for (const att of attempts) {
-      const prev = i > 0 ? t.turns[i - 1] : undefined;
-      const problems = prev
-        ? authorizationProblems(
-            prev.reply,
-            prev.bookingState,
-            turn.input,
-            att.action.payload as unknown as Record<string, unknown>,
-          )
-        : ["booking attempted on the first message"];
+      const problems =
+        i > 0
+          ? authorizationProblems(
+              t.turns.slice(0, i),
+              turn.input,
+              att.action.payload as unknown as Record<string, unknown>,
+            )
+          : ["booking attempted on the first message"];
       problems.forEach((detail) =>
         add({
           check: att.result.success ? "booking-authorization" : "unauthorized-attempt",

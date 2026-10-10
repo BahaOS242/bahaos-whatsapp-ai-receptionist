@@ -204,3 +204,97 @@ describe("corrections at the confirmation step replace the right detail and requ
     expect(t.bookingState).toMatchObject({ date: "Monday", time: "10:00" });
   });
 });
+
+describe("typos of schedule words and abbreviations are not names (both lanes)", () => {
+  it.each(["Tuesdya", "Thrusday", "Wendesday", "XL", "cleanign"])(
+    "%j is not a patient name",
+    async (message) => {
+      for (const lane of ["dev", "llm"] as const) {
+        const { t } = await atNameAsked(lane, message);
+        expect(t.bookingState.name).toBeUndefined();
+      }
+    },
+  );
+  it("short and multi-capital real names survive (Al, AJ Smith, McDonald Ray)", async () => {
+    for (const [msg, want] of [
+      ["Al", "Al"],
+      ["AJ Smith", "AJ Smith"],
+      ["McDonald Ray", "McDonald Ray"],
+    ] as const) {
+      const { t } = await atNameAsked("dev", msg);
+      expect(t.bookingState.name).toBe(want);
+    }
+  });
+});
+
+describe("service words: 'dental' is the clinic, not the consultation service", () => {
+  it("'another dental office across town?' does not switch the service", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes"]);
+    const t = await c.say("What about another dental office across town?");
+    expect(t.bookingState.service).toBe("Routine cleaning");
+  });
+});
+
+describe("a proposal replaces the stored slot; a hedged approval never books", () => {
+  it("'I'd like 10am then' replaces a stored 09:00 (dev lane) and needs a fresh approval", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes", "Thursday at 9am"]);
+    const t = await c.say("I'd like 10am then");
+    expect(t.bookingState).toMatchObject({ time: "10:00" });
+  });
+  it("'Friday 9:00 is fine' replaces a stored Thursday", () => {
+    const f = extractStatedFields(BAHAMAS_DENTAL_SERVICE, "Friday 9am is fine", {
+      intent: "book_appointment",
+      service: "Routine cleaning",
+      date: "Thursday",
+      time: "09:00",
+    });
+    expect(f.date).toBe("Friday");
+  });
+  it.each([
+    "Yes, but I'd like the chair near the window",
+    "yes?",
+    "ok but only if it's the same dentist",
+  ])(
+    "%j does not complete the booking (dev lane); a plain yes afterwards books exactly once",
+    async (message) => {
+      const c = devConversation();
+      await c.sayAll(["I need a cleaning", "yes", "Tuesday 2pm", "Bob Smythe 242-555-0130"]);
+      expect(c.last.bookingState.pendingAction).toBe("confirm_booking");
+      const t = await c.say(message);
+      expect(bookings(c)).toHaveLength(0);
+      expect(t.bookingState).toMatchObject({ pendingAction: "confirm_booking", time: "14:00" });
+      expect(t.reply).toMatch(/exact details|can't promise/i);
+      await c.say("yes");
+      expect(bookings(c)).toHaveLength(1);
+      expect(bookings(c)[0].action.payload).toMatchObject({
+        preferredTime: "14:00",
+        name: "Bob Smythe",
+      });
+    },
+  );
+  it("scripted LLM: a model-proposed booking on 'Yes, but …' is blocked by the gate", async () => {
+    const book = {
+      content: "Booked!",
+      toolCalls: [
+        {
+          id: "x",
+          name: "request_appointment",
+          argumentsJson: JSON.stringify({
+            name: "Bob Smythe",
+            phone: "+12425550130",
+            service: "Routine cleaning",
+            preferredDate: "Tuesday",
+            preferredTime: "14:00",
+          }),
+        },
+      ],
+    };
+    const { conversation: c } = llmConversation([ok, ok, ok, book]);
+    await c.sayAll(["I want a cleaning", "Tuesday 2pm", "Bob Smythe 242-555-0130"]);
+    expect(c.last.bookingState.pendingAction).toBe("confirm_service");
+    await c.say("Yes, but I'd like the chair near the window");
+    expect(bookings(c)).toHaveLength(0);
+  });
+});

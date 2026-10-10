@@ -27,6 +27,7 @@ import {
   isConfirmedCompletingAction,
   looksLikeConfirmationPrompt,
 } from "../booking-confirmation";
+import { isApproval, isPureApproval } from "../approval-purity";
 import { AFFIRMATIVE_RE, NEGATIVE_RE, extractStatedFields } from "../message-field-extraction";
 import { extractPhone } from "../phone";
 import { flipMeridiemHour, normalizeTime } from "../date-time";
@@ -184,7 +185,7 @@ function buildAutoConfirmToolCall(
   if (!bookingStateUnchangedForConfirmation(before, after)) return undefined;
   const bookingState = after;
   if (!bookingState.intent || nextRequiredField(bookingState) !== undefined) return undefined;
-  if (!AFFIRMATIVE_RE.test(message)) return undefined;
+  if (!AFFIRMATIVE_RE.test(message) || !isPureApproval(message)) return undefined;
 
   switch (bookingState.intent) {
     case "book_appointment":
@@ -254,7 +255,7 @@ function buildRecurringAutoConfirmToolCall(
   const bookingState = after;
   if (bookingState.intent !== "book_recurring_appointment") return undefined;
   if (nextRequiredField(bookingState) !== undefined) return undefined;
-  if (!AFFIRMATIVE_RE.test(message)) return undefined;
+  if (!AFFIRMATIVE_RE.test(message) || !isPureApproval(message)) return undefined;
   if (!checkAvailability) return undefined;
 
   const service = business.services.find((s) => s.name === bookingState.service);
@@ -680,7 +681,9 @@ export class LLMProvider implements AIProvider {
       // bookable, and blocks it purely for lacking real confirmation.
       if (
         COMPLETING_ACTION_TYPES.has(action.type) &&
-        !isConfirmedCompletingAction(request.bookingState, bookingState, action)
+        (!isConfirmedCompletingAction(request.bookingState, bookingState, action) ||
+          // a hedged approval ("Yes, but …", "yes?") never authorizes a model-proposed completion
+          (isApproval(request.message) && !isPureApproval(request.message)))
       ) {
         confirmationRequiredReply = composeConfirmationPrompt(request.business, bookingState);
         continue; // drop the action — it is never returned to the agent

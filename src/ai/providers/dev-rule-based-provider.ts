@@ -15,6 +15,7 @@ import {
   stripRecognizedDateTime,
   detectBareMonthMention,
 } from "../date-time";
+import { HEDGED_APPROVAL_NOTE, isApproval, isPureApproval } from "../approval-purity";
 import { analyzeScheduleMessage } from "../schedule-proposal";
 import { extractIntroducedName, bareNameValue, isPlausibleBareName } from "../name-provenance";
 import { extractPhone } from "../phone";
@@ -504,7 +505,7 @@ function findService(business: BusinessContext, text: string) {
     s.name
       .toLowerCase()
       .split(/\s+/)
-      .some((word) => word.length > 3 && new RegExp(`\\b${word}\\b`).test(lower)),
+      .some((word) => word.length > 3 && word !== "dental" && new RegExp(`\\b${word}\\b`).test(lower)), // "dental" is the whole clinic, not a service
   );
   if (wordMatches.length > 1) return undefined;
   return wordMatches[0];
@@ -898,7 +899,15 @@ function handleBookingConfirmation(
     return handleFlowTurn(business, rest, message, checkAvailability);
   }
 
-  const answer = detectYesNo(message);
+  const answer = detectYesNo(message) ?? (isApproval(message) ? "yes" : undefined);
+  if (answer === "yes" && !isPureApproval(message)) {
+    // "Yes, but …" / "yes?" is not an approval of exactly what was shown: restate and ask again.
+    return {
+      reply: `${HEDGED_APPROVAL_NOTE} ${composeConfirmationPrompt(business, state)}`,
+      actions: [],
+      bookingState: state,
+    };
+  }
   if (answer === "yes") {
     const { pendingAction: _pendingAction, pendingBareTime: _pendingBareTime, ...clean } = state;
     return completeFlow(business, state.intent!, clean, checkAvailability);
@@ -1019,8 +1028,11 @@ function handleFlowTurn(
       (Boolean(extractIntroducedName(message, { nameAsked: nameCurrentlyAsked })?.explicit) ||
         Boolean(nameContrast));
     const resolvesTimeClarification = key === "time" && Boolean(incomingState.timeClarification);
+    // "I'd like 10am then" / "Friday 9am is fine" PROPOSES a slot: it replaces the stored day/time.
+    const scheduleProposal = schedule.hasProposalCue && (key === "date" || key === "time");
     if (
       !alreadySet ||
+      scheduleProposal ||
       currentlyAsked ||
       hasCorrectionMarker ||
       justDeclined ||

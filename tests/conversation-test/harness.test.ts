@@ -173,6 +173,26 @@ describe("application-authorized confirmation (provider-agnostic)", () => {
     expect(f.map((x) => x.check)).toContain("booking-authorization");
     expect(f.find((x) => x.check === "booking-authorization")?.detail).toMatch(/prose alone/);
   });
+  it("accepts a summary shown earlier when the armed details never changed in between (FAQ answered meanwhile)", () => {
+    const f = runChecks(
+      expect1,
+      transcript([
+        turn("x", PROMPT, { ...FULL, pendingAction: "confirm_service" }),
+        turn("how long?", "About 60 minutes.", { ...FULL, pendingAction: "confirm_service" }),
+        turn("yes", "Captured.", {}, bookedWith(GOOD)),
+      ]),
+    );
+    expect(f).toEqual([]);
+    const changed = runChecks(
+      expect1,
+      transcript([
+        turn("x", PROMPT, { ...FULL, pendingAction: "confirm_service" }),
+        turn("make it 3pm", "ok", { ...FULL, time: "15:00", pendingAction: "confirm_service" }),
+        turn("yes", "Captured.", {}, bookedWith({ ...GOOD, preferredTime: "15:00" })),
+      ]),
+    );
+    expect(changed.map((x) => x.check)).toContain("booking-authorization");
+  });
   it("rejects an early service question (armed but incomplete) as a final confirmation", () => {
     const f = runChecks(
       expect1,
