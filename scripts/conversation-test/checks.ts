@@ -250,7 +250,21 @@ export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[]
   }
 
   // 2. every executed booking carries exactly the expected facts
+  const bookingTurnIndex = (b: unknown) =>
+    t.turns.findIndex((turn) => turn.actionsTaken.some((a) => a === b));
   for (const b of bookings) {
+    // The expected facts are the scenario's FINAL facts. If the approval legitimately happened BEFORE a scripted
+    // correction (the adaptive customer supplied details earlier than the script did), a booking of the earlier
+    // details is a fixture-order mismatch, not wrong data.
+    const bs = t.turns[bookingTurnIndex(b)]?.scriptIndex;
+    const correctedLater = (scenario.expect.corrections ?? []).some(
+      (c) =>
+        bs !== undefined &&
+        c.turn > bs &&
+        (c.fields as string[]).some((f) =>
+          ["date", "time", "service", "name", "phone"].includes(f),
+        ),
+    );
     const p = b.action.payload as unknown as Record<string, unknown>;
     for (const [k, want] of Object.entries(exp)) {
       const got = p[k];
@@ -262,8 +276,8 @@ export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[]
           : got === want;
       if (!same) {
         add({
-          check: "booking-payload",
-          severity: "unsafe",
+          check: correctedLater ? "fixture-order-mismatch" : "booking-payload",
+          severity: correctedLater ? "incomplete" : "unsafe",
           detail:
             k === "preferredDate"
               ? `booked date ${JSON.stringify(got)} resolves to ${resolveCalendarDate(got, p.preferredTime)}, expected ${JSON.stringify(want)} = ${resolveCalendarDate(want, exp.preferredTime ?? p.preferredTime)}`

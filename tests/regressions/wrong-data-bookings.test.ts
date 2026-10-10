@@ -274,6 +274,16 @@ describe("a proposal replaces the stored slot; a hedged approval never books", (
       });
     },
   );
+  it.each([
+    "Okay. I can do any time on Mondays actually.",
+    "Ok, I forgot to ask: my child needs a booster seat",
+    "sure, what are your hours?",
+  ])("%j is not an approval of the shown booking (dev lane)", async (message) => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes", "Tuesday 2pm", "Bob Smythe 242-555-0130"]);
+    await c.say(message);
+    expect(bookings(c)).toHaveLength(0);
+  });
   it("scripted LLM: a model-proposed booking on 'Yes, but …' is blocked by the gate", async () => {
     const book = {
       content: "Booked!",

@@ -18,9 +18,14 @@ export function isApproval(message: string): boolean {
   return APPROVAL_RE.test(message);
 }
 
-/** An approval that carries no hedge, condition or extra request. */
+/** Words that may accompany an approval without adding anything ("yes please", "ok that's perfect, thanks"). */
+const APPROVAL_FILLER_RE =
+  /\b(?:yes|yeah|yep|yup|ya|yea|sure|ok(?:ay)?|alright|all|right|please|pls|do|it|go|ahead|book|that|that's|thats|is|s|are|works?|sounds|looks|good|great|perfect|fine|correct|confirm(?:ed)?|definitely|absolutely|thanks|thank|you|thx|so|much|now|then|lovely|wonderful|awesome|cool|nice)\b/gi;
+
+/** An approval that carries no hedge, condition or extra request: after removing approval/politeness words nothing is left. */
 export function isPureApproval(message: string): boolean {
-  return isApproval(message) && !HEDGE_RE.test(message);
+  if (!isApproval(message) || HEDGE_RE.test(message)) return false;
+  return message.replace(APPROVAL_FILLER_RE, " ").replace(/[^a-z0-9]+/gi, "").length === 0;
 }
 
 export const HEDGED_APPROVAL_NOTE =

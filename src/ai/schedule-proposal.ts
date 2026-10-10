@@ -49,7 +49,7 @@ const REJECT_RE =
   /\b(too (?:early|late|far|soon)|won'?t work|doesn'?t work|does not work|don'?t work|can'?t (?:do|make|come|go|be there)|cannot|can not|not (?:good|available|possible|free)|no good|unavailable|busy|meeting|conflict|brunch|appointment elsewhere|(?:i'?m|i am|am) off|i off|off that day|have (?:a|an|to) (?:game|class|work|shift|exam|event))\b/i;
 
 const PROPOSAL_CUE_RE =
-  /\b(i'?d like|i would like|i want|let'?s|can (?:we|i) (?:do|come|go|have|make)|could (?:we|i) (?:do|come|go|have|make)|how about|what about|go with|go for|try|is fine|is good|works(?: for me)?|will work|would work|sounds good|then)\b/i;
+  /\b(i'?d like|i would like|i want|let'?s|can (?:we|i) (?:do|come|go|have|make)|could (?:we|i) (?:do|come|go|have|make)|how about|what about|go with|go for|try|book|schedule|reserve|put me (?:down )?(?:for|on)|set it (?:for|to)|is fine|is good|works(?: for me)?|will work|would work|sounds good|then)\b/i;
 
 const norm = (s: string) => s.replace(/\b([ap])\.m\.?/gi, "$1m");
 

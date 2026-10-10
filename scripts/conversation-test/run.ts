@@ -140,7 +140,13 @@ async function runOne(s: ConvScenario, provider: ProviderName, mode: Mode): Prom
     return {
       ...base,
       status: findings.length ? "fail" : "pass",
-      category: !findings.length ? "pass" : unsafe ? "unsafe" : "safe-incomplete",
+      category: !findings.length
+        ? "pass"
+        : unsafe
+          ? "unsafe"
+          : findings.some((f) => f.check === "fixture-order-mismatch")
+            ? "script-mismatch"
+            : "safe-incomplete",
       findings,
       probableScriptMismatch: probable,
       actualOutcome: actual,
