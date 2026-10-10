@@ -29,6 +29,7 @@ import { extractIntroducedName, bareNameValue, isPlausibleBareName } from "../na
 import { extractPhone } from "../phone";
 import {
   describeInvalidTime,
+  formatTime12h,
   isWithinOperatingWindow,
   validateAppointmentTime,
 } from "../business-hours";
@@ -41,9 +42,18 @@ import {
   composeRecurringUnavailableEscalation,
 } from "../booking-confirmation";
 import { truncatePhrase } from "../unclear-phrase";
-import { composeConflictReply, composeExtractiveAnswer, composeNoEvidenceReply } from "../../knowledge/replies";
+import {
+  composeConflictReply,
+  composeExtractiveAnswer,
+  composeNoEvidenceReply,
+} from "../../knowledge/replies";
 import { extractStatedFields as extractSharedStatedFields } from "../message-field-extraction";
-import { detectRecurrenceIntervalMonths, generateOccurrenceDates, isRecurringIntentMessage, RECURRING_OCCURRENCE_COUNT } from "../recurrence";
+import {
+  detectRecurrenceIntervalMonths,
+  generateOccurrenceDates,
+  isRecurringIntentMessage,
+  RECURRING_OCCURRENCE_COUNT,
+} from "../recurrence";
 import type {
   AIProvider,
   AIProviderRequest,
@@ -93,9 +103,14 @@ export class DevRuleBasedAIProvider implements AIProvider {
 
     // A repeated "yes" / "ok" right after the booking request was recorded is a duplicate approval: acknowledge it,
     // create nothing.
-    if (!bookingState.intent && isPureApproval(message) && lastAssistantSaid(request, /captured your request/i)) {
+    if (
+      !bookingState.intent &&
+      isPureApproval(message) &&
+      lastAssistantSaid(request, /captured your request/i)
+    ) {
       return {
-        reply: "That request is already recorded — a team member will confirm it. Is there anything else I can help with?",
+        reply:
+          "That request is already recorded — a team member will confirm it. Is there anything else I can help with?",
         actions: [],
         bookingState,
       };
@@ -173,7 +188,12 @@ export class DevRuleBasedAIProvider implements AIProvider {
         };
       }
       if (bookingState.intent) {
-        const flow = await handleFlowTurn(business, bookingState, message, request.checkAvailability);
+        const flow = await handleFlowTurn(
+          business,
+          bookingState,
+          message,
+          request.checkAvailability,
+        );
         return { ...flow, reply: `${side.answer} ${flow.reply}`.trim() };
       }
       return { reply: side.answer, actions: [], bookingState };
@@ -206,7 +226,12 @@ export class DevRuleBasedAIProvider implements AIProvider {
       const priceReply = answerPriceInquiry(business, bookingState, message);
       if (bookingState.intent && !priceReply.reply.includes("Would you like to book")) {
         // The same message may also carry booking details ("9am works. What will it cost?"): absorb them, then answer.
-        const flow = await handleFlowTurn(business, bookingState, message, request.checkAvailability);
+        const flow = await handleFlowTurn(
+          business,
+          bookingState,
+          message,
+          request.checkAvailability,
+        );
         const answer = priceReply.reply.replace(resumePrompt(business, bookingState), "").trim();
         return { ...flow, reply: `${answer} ${flow.reply}`.trim() };
       }
@@ -215,7 +240,11 @@ export class DevRuleBasedAIProvider implements AIProvider {
     if (FAQ_INTENTS.has(intent)) {
       const faqReply = faqReplyFor(business, intent);
       if (bookingState.intent) {
-        return { reply: `${faqReply} ${resumePrompt(business, bookingState)}`, actions: [], bookingState };
+        return {
+          reply: `${faqReply} ${resumePrompt(business, bookingState)}`,
+          actions: [],
+          bookingState,
+        };
       }
       return { reply: faqReply, actions: [], bookingState };
     }
@@ -240,6 +269,20 @@ export class DevRuleBasedAIProvider implements AIProvider {
         };
       default: {
         const svc = findService(business, message);
+        // A service named together with a day or time ("a cleaning tonight at 7pm") is a booking request: keep every
+        // detail it carries instead of dropping them behind a bare "would you like to book it?".
+        if (svc && (parseTime(message) !== undefined || resolveDateWord(message, new Date(), business.timezone))) {
+          return handleFlowTurn(
+            business,
+            {
+              intent: "book_appointment",
+              name: bookingState.name,
+              phone: bookingState.phone,
+            },
+            message,
+            request.checkAvailability,
+          );
+        }
         if (svc) {
           // Not yet a committed booking flow — the customer only mentioned
           // a service, they haven't said "book" or "yes" to anything. But
@@ -254,7 +297,9 @@ export class DevRuleBasedAIProvider implements AIProvider {
               service: svc.name,
               name: bookingState.name,
               phone: bookingState.phone,
-              ...(bookingState.lastCompletedBooking ? { lastCompletedBooking: bookingState.lastCompletedBooking } : {}),
+              ...(bookingState.lastCompletedBooking
+                ? { lastCompletedBooking: bookingState.lastCompletedBooking }
+                : {}),
               pendingAction: "confirm_service",
             },
           };
@@ -275,7 +320,8 @@ export class DevRuleBasedAIProvider implements AIProvider {
         // provider has. Recorded purely for future human review — never
         // read back by this turn or any other live behavior (see
         // AIProviderResponse.unclearPhraseObservation's docstring).
-        const unclearPhraseReason = "no recognized intent, service, or active flow matched this message";
+        const unclearPhraseReason =
+          "no recognized intent, service, or active flow matched this message";
         const unclearPhraseContext = bookingState.intent
           ? `intent=${bookingState.intent}; nextRequiredField=${missingFields(bookingState)[0] ?? "none"}`
           : "intent=none";
@@ -397,7 +443,12 @@ function detectIntent(text: string): Intent {
   if (/\binsurance\b|\bcoverage\b/i.test(text)) return "insurance";
   if (/\bnew patients?\b|\bfirst visit\b/i.test(text)) return "new_patient";
   if (/\bthank(s| you)\b/i.test(text)) return "thanks";
-  if (/^\s*(hi+|hello+|hey+|hiya|yo|howdy|sup|wassup|wh?at'?s ?u[po]|wats ?up|good (morning|afternoon|evening))[!.,?\s]*$/i.test(text)) return "greeting";
+  if (
+    /^\s*(hi+|hello+|hey+|hiya|yo|howdy|sup|wassup|wh?at'?s ?u[po]|wats ?up|good (morning|afternoon|evening))[!.,?\s]*$/i.test(
+      text,
+    )
+  )
+    return "greeting";
   return "unknown";
 }
 
@@ -409,7 +460,14 @@ const FAQ_INTENTS = new Set<Intent>(["hours", "location", "services", "insurance
 // "do you do X" — which is a question about X, not a request for the list.
 // The gate still sends a bare "what services do you offer" back to the
 // deterministic list (no informative terms).
-const KNOWLEDGE_ELIGIBLE_INTENTS = new Set<Intent>(["unknown", "cancel", "reschedule", "book", "recurring", "services"]);
+const KNOWLEDGE_ELIGIBLE_INTENTS = new Set<Intent>([
+  "unknown",
+  "cancel",
+  "reschedule",
+  "book",
+  "recurring",
+  "services",
+]);
 
 /** Consults the knowledge engine for one turn. Returns a finished
  * response when the engine answered (or refused), undefined to carry on
@@ -428,7 +486,9 @@ async function answerFromKnowledge(
     context: {
       hasActiveIntent: !!bookingState.intent,
       hasPendingConfirmation: !!bookingState.pendingAction,
-      extractedBookingField: Object.entries(extracted).some(([k, v]) => k !== "intent" && v !== undefined),
+      extractedBookingField: Object.entries(extracted).some(
+        ([k, v]) => k !== "intent" && v !== undefined,
+      ),
     },
   });
   if (!lookup.consulted) return undefined;
@@ -481,7 +541,11 @@ function faqReplyFor(business: BusinessContext, intent: Intent): string {
  * question — reuses the exact same logic the flow itself would use, so
  * the resume prompt is never out of sync with what's actually missing. */
 function normReply(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9 ]/g, "").replace(/\s+/g, " ").trim();
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function lastAssistantSaid(request: AIProviderRequest, re: RegExp): boolean {
@@ -491,9 +555,33 @@ function lastAssistantSaid(request: AIProviderRequest, re: RegExp): boolean {
 
 /** The same prompt twice in a row is a stall, not help: the second time add a concrete example, the third time offer
  * a human, then hand over. Never touches replies that carry an action, a summary awaiting YES, or a handoff. */
-function varyIfRepeated(request: AIProviderRequest, response: AIProviderResponse): AIProviderResponse {
-  if (response.actions.length > 0 || /reply yes|team member|member of our team|already with our team/i.test(response.reply)) {
+function varyIfRepeated(
+  request: AIProviderRequest,
+  response: AIProviderResponse,
+): AIProviderResponse {
+  if (
+    response.actions.length > 0 ||
+    /team member|member of our team|already with our team/i.test(response.reply)
+  ) {
     return response;
+  }
+  if (/reply yes/i.test(response.reply)) {
+    // The same summary again (the customer said something that is not an approval or a change): say it is still
+    // awaiting an answer instead of repeating the identical sentence.
+    const lastSummaryShown = request.history
+      .filter((h) => h.role === "assistant")
+      .slice(-3)
+      .filter(
+        (h) =>
+          normReply(h.content).endsWith(normReply(response.reply)) ||
+          normReply(h.content) === normReply(response.reply),
+      ).length;
+    if (lastSummaryShown === 0) return response;
+    const lead =
+      lastSummaryShown === 1
+        ? "I'm still holding this for your answer. "
+        : 'Still waiting on a yes or a change. If you\'d rather talk to a person, say "talk to someone". ';
+    return { ...response, reply: `${lead}${response.reply}` };
   }
   const base = normReply(response.reply);
   if (!base) return response;
@@ -502,18 +590,24 @@ function varyIfRepeated(request: AIProviderRequest, response: AIProviderResponse
   if (repeats === 0) return response;
   // Progress (a detail was newly captured or changed) is NOT a stall: acknowledge what was noted and re-ask what's left.
   const fields = ["service", "date", "time", "name", "phone"] as const;
-  const noted = fields.filter((f) => response.bookingState[f] !== undefined && response.bookingState[f] !== request.bookingState[f]);
+  const noted = fields.filter(
+    (f) =>
+      response.bookingState[f] !== undefined &&
+      response.bookingState[f] !== request.bookingState[f],
+  );
   if (noted.length > 0) {
     // (kept free of "your name" / "phone number" wording so it can never read as re-asking for what was just given)
     return { ...response, reply: `Got it, thanks. ${response.reply}` };
   }
-  const missing = response.bookingState.intent ? missingFields(response.bookingState)[0] : undefined;
+  const missing = response.bookingState.intent
+    ? missingFields(response.bookingState)[0]
+    : undefined;
   const example: Record<string, string> = {
-    date: "\"Tuesday\"",
-    time: "\"2pm\"",
-    name: "\"Maria Smith\"",
-    phone: "\"242-555-0123\"",
-    service: "\"a cleaning\"",
+    date: '"Tuesday"',
+    time: '"2pm"',
+    name: '"Maria Smith"',
+    phone: '"242-555-0123"',
+    service: '"a cleaning"',
   };
   if (repeats === 1) {
     return {
@@ -528,10 +622,30 @@ function varyIfRepeated(request: AIProviderRequest, response: AIProviderResponse
     };
   }
   return {
-    reply: "I'm having trouble getting that detail, so I'm passing your request to a team member who can help.",
-    actions: [{ type: "escalate", payload: { reason: "customer could not provide a required detail after repeated clarification" } }],
+    reply:
+      "I'm having trouble getting that detail, so I'm passing your request to a team member who can help.",
+    actions: [
+      {
+        type: "escalate",
+        payload: {
+          reason: "customer could not provide a required detail after repeated clarification",
+        },
+      },
+    ],
     bookingState: response.bookingState,
   };
+}
+
+/** Removes the words that name a service (full names, significant words, aliases) so what is left can be judged as a name. */
+function stripServiceWords(business: BusinessContext, text: string): string {
+  const words = new Set<string>(["appointment", "booking"]);
+  for (const svc of business.services) {
+    svc.name.toLowerCase().split(/[\s/]+/).filter((w) => w.length > 3 && w !== "dental").forEach((w) => words.add(w));
+    (svc.aliases ?? []).forEach((a) => words.add(a.toLowerCase()));
+  }
+  let out = text;
+  for (const w of words) out = out.replace(new RegExp(`(^|[^a-z])${w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![a-z])`, "gi"), "$1 ");
+  return out.replace(/\s+/g, " ");
 }
 
 function resumePrompt(business: BusinessContext, state: BookingState): string {
@@ -569,7 +683,11 @@ function answerPriceInquiry(
     : `Here's our pricing: ${business.services.map((s) => `${s.name} (${s.priceLabel})`).join(", ")}.`;
 
   if (bookingState.intent) {
-    return { reply: `${answer} ${resumePrompt(business, bookingState)}`, actions: [], bookingState };
+    return {
+      reply: `${answer} ${resumePrompt(business, bookingState)}`,
+      actions: [],
+      bookingState,
+    };
   }
   return { reply: answer, actions: [], bookingState };
 }
@@ -596,7 +714,9 @@ function resolveFlowState(intent: Intent, bookingState: BookingState): BookingSt
       name: bookingState.name,
       phone: bookingState.phone,
       // remembered ONLY so a second request for the very same slot is not silently created (see completeFlow)
-      ...(bookingState.lastCompletedBooking ? { lastCompletedBooking: bookingState.lastCompletedBooking } : {}),
+      ...(bookingState.lastCompletedBooking
+        ? { lastCompletedBooking: bookingState.lastCompletedBooking }
+        : {}),
     };
   }
   if (requestedFlow) {
@@ -612,12 +732,21 @@ const REQUIRED_FIELDS: Record<BookingIntent, (keyof BookingState)[]> = {
   book_appointment: ["service", "date", "time", "name", "phone"],
   reschedule_appointment: ["date", "time", "name", "phone"],
   cancel_appointment: ["name", "phone"],
-  book_recurring_appointment: ["service", "date", "time", "recurrenceIntervalMonths", "name", "phone"],
+  book_recurring_appointment: [
+    "service",
+    "date",
+    "time",
+    "recurrenceIntervalMonths",
+    "name",
+    "phone",
+  ],
 };
 
 function missingFields(state: BookingState): (keyof BookingState)[] {
   if (!state.intent) return [];
-  return REQUIRED_FIELDS[state.intent].filter((field) => !state[field] || (field === "time" && state.timeClarification));
+  return REQUIRED_FIELDS[state.intent].filter(
+    (field) => !state[field] || (field === "time" && state.timeClarification),
+  );
 }
 
 /** Matches the full service name first ("Routine cleaning"), falling back
@@ -628,7 +757,10 @@ function missingFields(state: BookingState): (keyof BookingState)[] {
 function serviceCandidates(business: BusinessContext, text: string): BusinessService[] {
   const lower0 = text.toLowerCase();
   // "a filling, not a cleaning" / "instead of the exam": the negated service is NOT being requested.
-  const lower = lower0.replace(/\b(?:not|instead of|rather than|other than)\s+(?:an?\s+|the\s+)?[a-z' -]*?(?=[,.;!?]|\bbut\b|$)/g, " ");
+  const lower = lower0.replace(
+    /\b(?:not|instead of|rather than|other than)\s+(?:an?\s+|the\s+)?[a-z' -]*?(?=[,.;!?]|\bbut\b|$)/g,
+    " ",
+  );
 
   const exactMatches = business.services.filter((s) => lower.includes(s.name.toLowerCase()));
   // Same fix as message-field-extraction.ts's own findService — see its
@@ -649,17 +781,22 @@ function serviceCandidates(business: BusinessContext, text: string): BusinessSer
   // message-field-extraction.ts's own findService (see its comment):
   // plain `.includes()` matched "basic" inside "basically," turning a
   // filler word into a false, ambiguity-triggering service match.
-  const wordMatches = business.services.filter((s) =>
-    s.name
-      .toLowerCase()
-      .split(/\s+/)
-      .some((word) => word.length > 3 && word !== "dental" && new RegExp(`\\b${word}\\b`).test(lower)), // "dental" is the whole clinic, not a service
+  const wordMatches = business.services.filter(
+    (s) =>
+      s.name
+        .toLowerCase()
+        .split(/\s+/)
+        .some(
+          (word) => word.length > 3 && word !== "dental" && new RegExp(`\\b${word}\\b`).test(lower),
+        ), // "dental" is the whole clinic, not a service
   );
   // Configured everyday wordings ("check up", "exam"), matched on word boundaries; unioned with the word matches
   // above so a phrase that points at more than one service stays ambiguous instead of being guessed.
   const aliasMatches = business.services.filter((s) =>
     (s.aliases ?? []).some((a) =>
-      new RegExp(`(^|[^a-z])${a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`).test(lower),
+      new RegExp(
+        `(^|[^a-z])${a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`,
+      ).test(lower),
     ),
   );
   return business.services.filter((s) => wordMatches.includes(s) || aliasMatches.includes(s));
@@ -849,7 +986,11 @@ const CORRECTION_MARKER_RE =
  * customer still wants to book, just with something different. An
  * unrecognized reply re-asks rather than guessing either way. */
 /** A different service named while "would you like to book X?" is pending is the customer's answer: it replaces X. */
-function withoutSupersededService(business: BusinessContext, state: BookingState, message: string): BookingState {
+function withoutSupersededService(
+  business: BusinessContext,
+  state: BookingState,
+  message: string,
+): BookingState {
   const named = findService(business, message);
   if (!named || named.name === state.service) return state;
   const { service: _service, ...rest } = state;
@@ -866,7 +1007,11 @@ function handleServiceConfirmation(
 
   if (answer === "no") {
     if (hasCorrectionContent(business, message, state)) {
-      const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(business, state, message);
+      const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(
+        business,
+        state,
+        message,
+      );
       return handleFlowTurn(business, confirmed, message, checkAvailability);
     }
     return {
@@ -877,7 +1022,11 @@ function handleServiceConfirmation(
   }
 
   if (answer === "yes") {
-    const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(business, state, message);
+    const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(
+      business,
+      state,
+      message,
+    );
     return handleFlowTurn(business, confirmed, message, checkAvailability);
   }
 
@@ -891,7 +1040,11 @@ function handleServiceConfirmation(
   // rather than the final hard-confirmation one (see
   // handleBookingConfirmation, which already had this exact check).
   if (hasCorrectionContent(business, message, state)) {
-    const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(business, state, message);
+    const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(
+      business,
+      state,
+      message,
+    );
     return handleFlowTurn(business, confirmed, message, checkAvailability);
   }
 
@@ -962,6 +1115,29 @@ function finishFlowTurn(
 ): AIProviderResponse {
   const flow = merged.intent!;
 
+  // A time that fits NO open day's hours is invalid whatever the day turns out to be: say so now instead of storing it
+  // and asking for the day again ("tonight at 7pm").
+  if (flow !== "cancel_appointment" && !merged.date && merged.time && !merged.timeClarification) {
+    const open = Object.values(business.weeklyHours).filter(
+      (h): h is { open: string; close: string } => Boolean(h),
+    );
+    const toMin = (t: string) => t.split(":").reduce((a, v) => a * 60 + Number(v), 0);
+    const duration = business.services.find((x) => x.name === merged.service)?.durationMinutes ?? 0;
+    const t = toMin(merged.time);
+    if (
+      open.length &&
+      (t < Math.min(...open.map((h) => toMin(h.open))) ||
+        t + duration > Math.max(...open.map((h) => toMin(h.close))))
+    ) {
+      const { time: _time, pendingBareTime: _pbt, pendingAction: _pa, ...kept } = merged;
+      return {
+        reply: `${formatTime12h(merged.time)} is outside our hours — we're open ${business.hours}. What day and time works for you?`,
+        actions: [],
+        bookingState: kept,
+      };
+    }
+  }
+
   if (flow !== "cancel_appointment" && merged.date && merged.time && !merged.timeClarification) {
     const validation = validateFlowHours(business, flow, merged.date, merged.time, merged.service);
     if (!validation.valid) {
@@ -1021,7 +1197,10 @@ function presentBookingConfirmation(
   if (clean.intent === "book_recurring_appointment") {
     if (!checkAvailability) {
       return {
-        reply: composeRecurringUnavailableEscalation(clean.service, clean.recurrenceIntervalMonths!),
+        reply: composeRecurringUnavailableEscalation(
+          clean.service,
+          clean.recurrenceIntervalMonths!,
+        ),
         actions: [
           {
             type: "escalate",
@@ -1042,7 +1221,11 @@ function presentBookingConfirmation(
   }
 
   const pending: BookingState = { ...clean, pendingAction: "confirm_booking" };
-  return { reply: composeConfirmationPrompt(business, pending), actions: [], bookingState: pending };
+  return {
+    reply: composeConfirmationPrompt(business, pending),
+    actions: [],
+    bookingState: pending,
+  };
 }
 
 /** Resolves pendingAction === "confirm_booking" — the ONLY path that can
@@ -1061,7 +1244,10 @@ function presentBookingConfirmation(
  * whatever's now true. Anything else re-asks rather than guessing. */
 /** "tuesaday i off that day": free or unavailable? Never guess — ask, keep every stored detail, and drop the old
  * approval so the next yes only answers THIS question and a fresh summary is still required before booking. */
-function clarifyAmbiguousAvailability(state: BookingState, message: string): AIProviderResponse | undefined {
+function clarifyAmbiguousAvailability(
+  state: BookingState,
+  message: string,
+): AIProviderResponse | undefined {
   if (!state.date) return undefined;
   const schedule = analyzeScheduleMessage(message, state);
   if (!schedule.ambiguousAvailability) return undefined;
@@ -1100,7 +1286,12 @@ function handleBookingConfirmation(
     const { pendingAction: _pendingAction, pendingBareTime: _pendingBareTime, ...clean } = state;
     return completeFlow(business, state.intent!, clean, checkAvailability);
   }
-  if (answer === "no" && /\b(?:that(?:'s| is)? (?:right|correct)|sounds (?:right|good|correct)|looks (?:right|good|correct))\b/i.test(message)) {
+  if (
+    answer === "no" &&
+    /\b(?:that(?:'s| is)? (?:right|correct)|sounds (?:right|good|correct)|looks (?:right|good|correct))\b/i.test(
+      message,
+    )
+  ) {
     // "No, that sounds right": a "no" to "anything to change?" that also agrees. Never read as a decline OR an
     // approval — ask once, plainly, with the exact summary.
     return {
@@ -1251,7 +1442,10 @@ function handleFlowTurn(
 
   // A qualified time ("quarter to 3pm", "3pm or 4pm") is never resolved to an hour. Any stored time is kept but marked
   // unresolved (it counts as missing, so nothing is confirmed or booked); one exact time clears the mark.
-  const timeQualified = merged.intent !== undefined && merged.intent !== "cancel_appointment" && hasTimeQualifier(message);
+  const timeQualified =
+    merged.intent !== undefined &&
+    merged.intent !== "cancel_appointment" &&
+    hasTimeQualifier(message);
   if (timeQualified) merged.timeClarification = true;
   else if (stated.time) delete merged.timeClarification;
 
@@ -1265,7 +1459,11 @@ function handleFlowTurn(
   // already enough to know this can't be honored, so there's no point
   // asking for date/time/name/phone first just to escalate anyway. Same
   // early-bypass shape as LLMProvider's identical check.
-  if (merged.intent === "book_recurring_appointment" && merged.recurrenceIntervalMonths && !checkAvailability) {
+  if (
+    merged.intent === "book_recurring_appointment" &&
+    merged.recurrenceIntervalMonths &&
+    !checkAvailability
+  ) {
     return {
       reply: composeRecurringUnavailableEscalation(merged.service, merged.recurrenceIntervalMonths),
       actions: [
@@ -1303,23 +1501,30 @@ function handleFlowTurn(
   // PROVENANCE: a date/time change phrased as a correction is a schedule update, never an identity answer.
   const bareNameBlocked = correctionBlocksBareName(message, stated);
   const onlyServiceIncompatible = Object.keys(stated).every(
-    (key) => key === "name" || key === "phone" || key === "date" || key === "time" || key === "service",
+    (key) =>
+      key === "name" || key === "phone" || key === "date" || key === "time" || key === "service",
   );
   if (!merged.name && onlyServiceIncompatible && !bareNameBlocked && !timeQualified) {
     // Each sentence is judged on its own, so "Igor Horne, 242-555-0127. Also … do you offer a shuttle?" keeps the name
     // and phone even though a later sentence is a question. A FULL name (two or more capitalised name-shaped words)
     // is accepted even when the name was not the field being asked — customers volunteer it out of order.
     for (const sentence of message.split(/(?<=[.!?])\s+/)) {
-      // a sentence that itself names a service is about the service, not an identity
-      if (findService(business, sentence)) continue;
       const withoutPhone = sentence.replace(PHONE_SUBSTRING_RE, " ").replace(/,/g, " ");
-      const remainder = stripCorrectionLanguage(stripRecognizedDateTime(withoutPhone)).trim();
+      // Service words ("cleaning", "check up") are not part of an identity: strip them, and treat a sentence that
+      // is ONLY about the service (nothing left, or no phone/date/time/name signal) as not a name.
+      const mentionsService = Boolean(findService(business, sentence));
+      const remainder = stripCorrectionLanguage(
+        stripServiceWords(business, stripRecognizedDateTime(withoutPhone)),
+      ).trim();
+      if (mentionsService && !(strongNameSignal || weakNameSignal)) continue;
       const words = remainder.split(/\s+/).filter(Boolean);
       const fullNameVolunteered = words.length >= 2 && words.every((w) => /^[A-Z]/.test(w));
       const eligible = strongNameSignal || weakNameSignal || fullNameVolunteered;
       const candidateOk =
         eligible &&
-        (strongNameSignal || fullNameVolunteered ? looksLikeBareName(remainder) : looksLikeBareNameStrict(remainder)) &&
+        (strongNameSignal || fullNameVolunteered
+          ? looksLikeBareName(remainder)
+          : looksLikeBareNameStrict(remainder)) &&
         isPlausibleBareName(remainder, sentence, strongNameSignal);
       if (candidateOk) {
         const alreadySet = incomingState.name !== undefined;
@@ -1383,14 +1588,16 @@ function handleFlowTurn(
           reply: `I can book one service per appointment — which would you like first: ${namedServices.map((x) => x.name).join(" or ")}?`,
         }
       : timeQualified && incomingStateRaw.timeClarification
-      ? { ...flowResult, reply: TIME_CLARIFICATION_REPEATED_REPLY }
-      : timeQualified && missingFields(merged)[0] === "time"
-        ? { ...flowResult, reply: TIME_CLARIFICATION_REPLY }
-        : timeQualified && missingFields(merged).includes("time") && missingFields(merged)[0] === "date"
-          ? { ...flowResult, reply: TIME_AND_DATE_CLARIFICATION_REPLY }
-      : bareClarification
-        ? { ...flowResult, reply: bareClarification }
-        : flowResult;
+        ? { ...flowResult, reply: TIME_CLARIFICATION_REPEATED_REPLY }
+        : timeQualified && missingFields(merged)[0] === "time"
+          ? { ...flowResult, reply: TIME_CLARIFICATION_REPLY }
+          : timeQualified &&
+              missingFields(merged).includes("time") &&
+              missingFields(merged)[0] === "date"
+            ? { ...flowResult, reply: TIME_AND_DATE_CLARIFICATION_REPLY }
+            : bareClarification
+              ? { ...flowResult, reply: bareClarification }
+              : flowResult;
 
   // Item 13: a bare month mention ("actually start in October" — no
   // day) genuinely can't produce a date (resolveDateWord/
@@ -1405,7 +1612,9 @@ function handleFlowTurn(
     ? { ...result, reply: `Got it — ${bareMonth}. Which day in ${bareMonth} would you like?` }
     : result;
 
-  return unclearPhraseObservation ? { ...withBareMonthPrompt, unclearPhraseObservation } : withBareMonthPrompt;
+  return unclearPhraseObservation
+    ? { ...withBareMonthPrompt, unclearPhraseObservation }
+    : withBareMonthPrompt;
 }
 
 function askForField(flow: BookingIntent, missing: (keyof BookingState)[]): string {
@@ -1492,7 +1701,15 @@ function completeFlow(
     if (prior.phone === state.phone && prior.date === state.date && prior.time === state.time) {
       return {
         reply: `I already have a request recorded for ${buildBookingSummary(business, prior)}. I can't change an existing request myself, so I'm passing this change to the team.`,
-        actions: [{ type: "escalate", payload: { reason: "customer wants to change a request that was just recorded", unresolvedQuestion: buildBookingSummary(business, state) } }],
+        actions: [
+          {
+            type: "escalate",
+            payload: {
+              reason: "customer wants to change a request that was just recorded",
+              unresolvedQuestion: buildBookingSummary(business, state),
+            },
+          },
+        ],
         bookingState: {},
       };
     }
@@ -1574,7 +1791,10 @@ function completeFlow(
     // honest way regardless.
     if (!checkAvailability) {
       return {
-        reply: composeRecurringUnavailableEscalation(state.service, state.recurrenceIntervalMonths!),
+        reply: composeRecurringUnavailableEscalation(
+          state.service,
+          state.recurrenceIntervalMonths!,
+        ),
         actions: [
           {
             type: "escalate",

@@ -20,20 +20,21 @@ import type { BookingState } from "../../src/ai/types";
 describe("CATEGORY C — out-of-order information", () => {
   const IN_FLOW: BookingState = { intent: "book_appointment", service: "Routine cleaning" };
 
-  it("11. everything in one message, before any flow is active, captures the service and offers to book", async () => {
+  it("11. FIXED (retention): everything in one message, before any flow is active, is captured in full and a fresh confirmation is presented", async () => {
     const convo = devConversation();
     const result = await convo.say("Trevor 2428012847 Tuesday 2pm cleaning");
 
-    // The service-mention offer path only reads the service out of the
-    // message — the rest (name/phone/date/time) is not extracted here.
-    // Documenting the actual boundary: the customer will be asked for
-    // each of these again even though they already stated them.
-    expect(result.bookingState.service).toBe("Routine cleaning");
-    expect(result.bookingState.pendingAction).toBe("confirm_service");
-    expect(result.bookingState.name).toBeUndefined();
-    expect(result.bookingState.phone).toBeUndefined();
-    expect(result.bookingState.date).toBeUndefined();
-    expect(result.bookingState.time).toBeUndefined();
+    // Previously only the service was read out of this message and the customer was asked for each other detail
+    // again. A service named together with a day/time is a booking request: nothing it states is dropped.
+    expect(result.bookingState).toMatchObject({
+      service: "Routine cleaning",
+      name: "Trevor",
+      phone: "+12428012847",
+      date: "Tuesday",
+      time: "14:00",
+      pendingAction: "confirm_booking",
+    });
+    expect(result.actionsTaken).toEqual([]);
   });
 
   it("12. FIXED: phone number first now also captures the name, alongside date/time — every required field lands in one message, presenting a confirm prompt, and a plain yes then completes it", async () => {
@@ -90,7 +91,7 @@ describe("CATEGORY C — out-of-order information", () => {
     expect(result.bookingState).toEqual({});
   });
 
-  it("14. KNOWN GAP (unchanged, by design): a bare name is still dropped when a SERVICE is also mentioned in the same message — the combination stays too ambiguous to trust", async () => {
+  it("14. FIXED (retention): a name is kept when a SERVICE is also mentioned in the same message (service words are stripped before the leftover is judged as a name)", async () => {
     const convo = devConversation({}, { intent: "book_appointment" });
     const result = await convo.say("Tuesday 2pm Trevor 2428012847 cleaning");
 
@@ -98,7 +99,7 @@ describe("CATEGORY C — out-of-order information", () => {
     expect(result.bookingState.date).toBe("Tuesday");
     expect(result.bookingState.time).toBe("14:00");
     expect(result.bookingState.phone).toBe("+12428012847");
-    expect(result.bookingState.name).toBeUndefined();
+    expect(result.bookingState.name).toBe("Trevor");
   });
 
   it("15. name + phone given together, with nothing else in the message, IS captured (contrast with #14)", async () => {

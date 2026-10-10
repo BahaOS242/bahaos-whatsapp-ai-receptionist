@@ -367,3 +367,25 @@ describe("a bare-hour correction at the confirmation step is never silently igno
     expect(bookings(c)).toHaveLength(1);
   });
 });
+
+describe("no identical repeats, no obviously invalid time stored", () => {
+  it("a summary awaiting an answer is not repeated verbatim when the customer chats instead of approving", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes", "Tuesday 2pm", "Gina Hart 242-555-0121"]);
+    const first = c.last.reply;
+    const a = await c.say("hmm let me think");
+    const b = await c.say("one second");
+    expect(new Set([first, a.reply, b.reply]).size).toBe(3);
+    expect(a.reply).toMatch(/still holding this for your answer/);
+    expect(b.reply).toMatch(/talk to someone/);
+    await c.say("yes");
+    expect(bookings(c)).toHaveLength(1);
+  });
+  it("'tonight at 7pm' (no day) is rejected as outside hours at once; the service is kept and no time is stored", async () => {
+    const c = devConversation();
+    await c.sayAll(["Hello, I want a cleaning tonight at 7pm"]);
+    expect(c.last.reply).toMatch(/7:00 PM is outside our hours/);
+    expect(c.last.bookingState.time).toBeUndefined();
+    expect(c.last.bookingState.service).toBe("Routine cleaning");
+  });
+});
