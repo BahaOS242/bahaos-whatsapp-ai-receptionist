@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { devConversation, llmConversation, type TortureConversation } from "../torture/helpers";
+import { devConversation, type TortureConversation } from "../torture/helpers";
 import { pinClockToReferenceCalendar } from "../helpers/pin-clock";
 import { extractStatedFields } from "../../src/ai/message-field-extraction";
 import { repairTypos } from "../../src/ai/lexicon-repair";
