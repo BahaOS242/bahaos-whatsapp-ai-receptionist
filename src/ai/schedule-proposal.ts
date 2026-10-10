@@ -33,6 +33,8 @@ export interface ScheduleAnalysis {
   hadRejection: boolean;
   /** The message PROPOSES a day/time ("I'd like 10am then", "Friday 9:00 is fine"): it may replace a stored one. */
   hasProposalCue: boolean;
+  /** "I'm off that day" without a verdict: availability vs rejection is unclear — the app must ask. */
+  ambiguousAvailability: boolean;
 }
 
 const WEEKDAY =
@@ -45,8 +47,24 @@ const MENTION_RE = new RegExp(
   `\\b${WEEKDAY}\\b|\\b(?:today|tomorrow|tmrw|tonight)\\b|\\b\\d{1,2}(?::\\d{2})?\\s?(?:[ap]\\.?m\\.?)(?!\\w)|\\b\\d{1,2}:\\d{2}\\b|\\bnoon\\b|\\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s+\\d{1,2}\\b`,
   "i",
 );
-const REJECT_RE =
-  /\b(too (?:early|late|far|soon)|won'?t work|doesn'?t work|does not work|don'?t work|can'?t (?:do|make|come|go|be there)|cannot|can not|not (?:good|available|possible|free)|no good|unavailable|busy|meeting|conflict|brunch|appointment elsewhere|(?:i'?m|i am|am) off|i off|off that day|have (?:a|an|to) (?:game|class|work|shift|exam|event))\b/i;
+/** Hard rejections: the customer cannot / does not want the day or time being discussed. */
+const HARD_REJECT_RE =
+  /\b(too (?:early|late|far|soon)|won'?t work|doesn'?t work|does not work|don'?t work|can'?t (?:do|make|come|go|be there)|cannot|can not|not (?:good|available|possible|free|then|that day)|no good|unavailable|busy|meeting|conflict|brunch|appointment elsewhere|have (?:a|an|to) (?:game|class|work|shift|exam|event)|(?:i'?m|i am) (?:working|at work)|i work)\b/i;
+
+/** AVAILABILITY, not rejection: being off work / free / "that works" means the day is GOOD. */
+const AVAILABLE_RE =
+  /\b(?:(?:i'?m|i am|am|i'?ll be|i will be) (?:off|free|available|open)|my day off|day off|off (?:work|then)|(?:that|it|this|tuesday|monday|wednesday|thursday|friday) works|works (?:for me|fine)|(?:is|are) (?:fine|good|ok|okay)|i can (?:do|make) (?:it|that|that day))\b/i;
+
+/** "tuesday i off that day" (no "'m"/"am", no verdict): could mean free OR unavailable — ask, never guess. */
+const AMBIGUOUS_OFF_RE = /\b(?:i off|off that day|off on that day)\b/i;
+
+type ClauseKind = "reject" | "available" | "ambiguous" | "neutral";
+function classify(clause: string): ClauseKind {
+  if (HARD_REJECT_RE.test(clause)) return "reject";
+  if (AVAILABLE_RE.test(clause)) return "available";
+  if (AMBIGUOUS_OFF_RE.test(clause)) return "ambiguous";
+  return "neutral";
+}
 
 const PROPOSAL_CUE_RE =
   /\b(i'?d like|i would like|i want|let'?s|can (?:we|i) (?:do|come|go|have|make)|could (?:we|i) (?:do|come|go|have|make)|how about|what about|go with|go for|try|book|schedule|reserve|put me (?:down )?(?:for|on)|set it (?:for|to)|is fine|is good|works(?: for me)?|will work|would work|sounds good|then)\b/i;
@@ -76,7 +94,9 @@ export function analyzeScheduleMessage(
 ): ScheduleAnalysis {
   const text = norm(message).replace(DEADLINE_RE, " ");
   const parts = clauses(text);
-  const rejected = parts.filter((c) => REJECT_RE.test(c));
+  const rejected = parts.filter((c) => classify(c) === "reject");
+  const ambiguousAvailability =
+    parts.some((c) => classify(c) === "ambiguous") && rejected.length === 0;
   const hadRejection = rejected.length > 0;
   const hasProposalCue = PROPOSAL_CUE_RE.test(text) && MENTION_RE.test(text);
   let clearDate = false;
@@ -94,9 +114,23 @@ export function analyzeScheduleMessage(
   }
 
   if (!hadRejection && text === norm(message)) {
-    return { proposalText: norm(message), clearDate, clearTime, hadRejection, hasProposalCue };
+    return {
+      proposalText: norm(message),
+      clearDate,
+      clearTime,
+      hadRejection,
+      hasProposalCue,
+      ambiguousAvailability,
+    };
   }
-  const proposals = parts.filter((c) => !REJECT_RE.test(c));
+  const proposals = parts.filter((c) => classify(c) !== "reject");
   const proposalText = hadRejection ? proposals.join(". ") : text;
-  return { proposalText, clearDate, clearTime, hadRejection, hasProposalCue };
+  return {
+    proposalText,
+    clearDate,
+    clearTime,
+    hadRejection,
+    hasProposalCue,
+    ambiguousAvailability,
+  };
 }

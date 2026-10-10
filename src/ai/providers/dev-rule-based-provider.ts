@@ -18,6 +18,8 @@ import {
   combineBareTime,
   stripRecognizedDateTime,
   detectBareMonthMention,
+  isIsoDateString,
+  weekdayForIsoDate,
 } from "../date-time";
 import { HEDGED_APPROVAL_NOTE, isApproval, isPureApproval } from "../approval-purity";
 import { analyzeScheduleMessage } from "../schedule-proposal";
@@ -908,12 +910,29 @@ function presentBookingConfirmation(
  * booking"), and routes back through the normal flow so hours/
  * availability are re-validated and a FRESH confirmation is presented for
  * whatever's now true. Anything else re-asks rather than guessing. */
+/** "tuesaday i off that day": free or unavailable? Never guess — ask, keep every stored detail, and drop the old
+ * approval so the next yes only answers THIS question and a fresh summary is still required before booking. */
+function clarifyAmbiguousAvailability(state: BookingState, message: string): AIProviderResponse | undefined {
+  if (!state.date) return undefined;
+  const schedule = analyzeScheduleMessage(message, state);
+  if (!schedule.ambiguousAvailability) return undefined;
+  const { pendingAction: _pendingAction, ...kept } = state;
+  const day = isIsoDateString(state.date) ? weekdayForIsoDate(state.date) : state.date;
+  return {
+    reply: `Just to check — you mentioned you're off. Does ${day} work for your appointment, or would you like a different day?`,
+    actions: [],
+    bookingState: kept,
+  };
+}
+
 function handleBookingConfirmation(
   business: BusinessContext,
   state: BookingState,
   message: string,
   checkAvailability: AIProviderRequest["checkAvailability"],
 ): AIProviderResponse {
+  const ambiguous = clarifyAmbiguousAvailability(state, message);
+  if (ambiguous) return ambiguous;
   if (hasCorrectionContent(business, message, state)) {
     const { pendingAction: _pendingAction, ...rest } = state;
     return handleFlowTurn(business, rest, message, checkAvailability);
@@ -1004,6 +1023,8 @@ function handleFlowTurn(
   // Thursday", "11am won't work") is cleared from state so a stale approval cannot survive, and is never re-read
   // as a proposal; deadline phrases ("before Wednesday") are not days.
   const schedule = analyzeScheduleMessage(message, incomingStateRaw);
+  const ambiguousAvailability = clarifyAmbiguousAvailability(incomingStateRaw, message);
+  if (ambiguousAvailability) return ambiguousAvailability;
   const incomingState = applyScheduleRejections(incomingStateRaw, schedule);
 
   const nameCurrentlyAsked = isNameCurrentlyAsked(incomingState);
