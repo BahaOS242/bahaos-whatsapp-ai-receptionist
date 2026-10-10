@@ -8,7 +8,7 @@ const LIMITS =
   "WHAT THIS REPORT DOES NOT SHOW: nothing here measures live-model reliability. The 'dev-rule-based fallback' is a deterministic development stub, not the production model. The 'scripted LLM fixture' replays an authored tool-call script through LLMProvider, so it exercises application logic around a model (state derivation, hours authority, confirmation gate) and says nothing about language understanding. No paid or live model call was made.";
 
 const BASELINE =
-  "Free-test baseline on this branch's base commit (PR #2 head): `npx vitest run` showed 3 failed tests + 1 failed file (tests/ai/create-provider.test.ts 1 test, tests/health.test.ts 2 tests, tests/inbox-api.test.ts file). All four fail on `Invalid environment configuration: DATABASE_URL` thrown by loadEnv, i.e. the sandbox has no DATABASE_URL; none touches the receptionist. With `DATABASE_URL=postgres://u:p@127.0.0.1:1/none` (never connected to) the full suite passes: 95 files / 1549 tests. Date-sensitive suites on this base already pin the clock through tests/helpers/pin-clock.ts (2026-08-20T15:00Z). The conversation harness pins `Date` to the same instant.";
+  "Free checks executed for this run are listed in evidence/conversation-run-4-free-checks.md (unit suite with a dummy DATABASE_URL that is never connected to; database suite on a disposable local PostgreSQL 16; typecheck, lint, build, fallback eval). On the unmodified Phase 5 base the only unit failures without a DATABASE_URL are the env-dependent health, create-provider and inbox-api tests. The conversation harness pins Date to 2026-08-20T15:00Z (Thursday 11:00 Nassau), the same instant as tests/helpers/pin-clock.ts. All results are DEVELOPMENT-set results: the application was tuned against these scenarios, so they are not an estimate of performance on unseen conversations — the 12 held-out sources remain reserved and unrun.";
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const CATS: Category[] = [
@@ -40,26 +40,35 @@ const DEFN: Record<Category, string> = {
   "harness-error": "The run itself threw; no verdict.",
 };
 
-const PRIOR_RUN2 = "evidence/conversation-run-2-phase5-e39bffe/results.json";
+const PRIORS = [
+  {
+    path: "evidence/conversation-run-2-phase5-e39bffe/results.json",
+    label: "run 2 (e39bffe, old validators)",
+    note: "Run 2 used weaker validators (weekday-only date compare; no exact-details confirmation check), so its unsafe count is a lower bound.",
+  },
+  {
+    path: "evidence/conversation-run-3-e5bef4d-de1a1b1/results.json",
+    label: "run 3 (de1a1b1, same strong validators, before the booking-completion fixes)",
+    note: "Run 3 had no 'completed, quality defects' category: runs that now count there were counted as safe-incomplete.",
+  },
+];
 type Prior = {
   scenario: { id: string; variant: string };
   provider: string;
   mode: string;
   category: Category;
 }[];
-function loadPrior(): Prior | undefined {
+function loadPrior(path: string): Prior | undefined {
   try {
-    return existsSync(PRIOR_RUN2)
-      ? (JSON.parse(readFileSync(PRIOR_RUN2, "utf8")).results as Prior)
-      : undefined;
+    return existsSync(path) ? (JSON.parse(readFileSync(path, "utf8")).results as Prior) : undefined;
   } catch {
     return undefined;
   }
 }
 
 /** Changes versus the preserved run 2 (tested e39bffe; OLD validators — not one-to-one comparable). */
-function comparison(results: ResultRecord[]) {
-  const prior = loadPrior();
+function comparison(results: ResultRecord[], path: string) {
+  const prior = loadPrior(path);
   if (!prior) return undefined;
   const rows = GROUPS.map((g) => {
     const now = results.filter(g.filter);
@@ -68,8 +77,20 @@ function comparison(results: ResultRecord[]) {
       rs.filter((r) => r.category === k).length;
     return {
       label: g.label,
-      was: [c(was, "pass"), c(was, "unsafe"), c(was, "safe-incomplete"), c(was, "script-mismatch")],
-      now: [c(now, "pass"), c(now, "unsafe"), c(now, "safe-incomplete"), c(now, "script-mismatch")],
+      was: [
+        c(was, "pass"),
+        c(was, "completed-quality"),
+        c(was, "unsafe"),
+        c(was, "safe-incomplete"),
+        c(was, "script-mismatch"),
+      ],
+      now: [
+        c(now, "pass"),
+        c(now, "completed-quality"),
+        c(now, "unsafe"),
+        c(now, "safe-incomplete"),
+        c(now, "script-mismatch"),
+      ],
     };
   });
   const key = (r: { scenario: { id: string }; provider: string; mode: string }) =>
@@ -184,7 +205,7 @@ export function renderReports(meta: Meta, results: ResultRecord[]) {
   const unsafeRuns = results.filter((r) => r.category === "unsafe");
 
   const md: string[] = [];
-  md.push("# Conversation Test Report — Taskmaster-derived BahaOS evaluation (run 3)", "");
+  md.push("# Conversation Test Report — Taskmaster-derived BahaOS evaluation (run 4)", "");
   md.push(
     `- Branch: \`${meta.branch}\` (based on \`claude/phase5-jobs-and-receptionist-fixes\`; \`main\` untouched)`,
   );
@@ -228,11 +249,12 @@ export function renderReports(meta: Meta, results: ResultRecord[]) {
     );
   }
   md.push("");
-  const cmp = comparison(results);
-  if (cmp) {
-    md.push("## Changes compared with run 2 (e39bffe, old validators)", "");
+  for (const pr of PRIORS) {
+    const cmp = comparison(results, pr.path);
+    if (!cmp) continue;
+    md.push(`## Changes compared with ${pr.label}`, "");
     md.push(
-      "| Group | Run 2 pass/unsafe/safe-inc/mismatch | This run pass/unsafe/safe-inc/mismatch |",
+      "| Group | Earlier: pass / completed-quality / unsafe / safe-incomplete / mismatch | This run |",
       "|---|---|---|",
     );
     cmp.rows.forEach((r) =>
@@ -240,7 +262,7 @@ export function renderReports(meta: Meta, results: ResultRecord[]) {
     );
     md.push(
       "",
-      `Per-run movement (matching scenario×provider×mode): ${cmp.better} improved, ${cmp.worse} worse, ${cmp.same} unchanged. Run 2 used weaker validators (weekday-only date compare; no exact-details confirmation check), so its unsafe counts are a lower bound. Run 1 (main, dirty tree) is preserved but not comparable.`,
+      `Per-run movement (matching scenario×provider×mode): ${cmp.better} improved, ${cmp.worse} worse, ${cmp.same} unchanged. ${pr.note} Run 1 (main, dirty tree) is preserved but not comparable.`,
       "",
     );
   }
@@ -328,7 +350,7 @@ export function renderReports(meta: Meta, results: ResultRecord[]) {
 
   // ---------------- HTML ----------------
   const h: string[] = [];
-  h.push(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BahaOS Conversation Test Report (run 3)</title><style>
+  h.push(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BahaOS Conversation Test Report (run 4)</title><style>
 :root{--bg:#fff;--fg:#1c1f24;--mut:#5b6573;--card:#f5f6f8;--bd:#d7dbe0;--ok:#1a7f37;--bad:#c62828;--warn:#b26a00;--na:#6b7280;--info:#0b5cad}
 @media (prefers-color-scheme:dark){:root{--bg:#14171c;--fg:#e8eaed;--mut:#9aa3af;--card:#1d2128;--bd:#2f3640;--ok:#4cc26a;--bad:#ff7b72;--warn:#e3a008;--na:#9aa3af;--info:#6cb2ff}}
 body{font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0;padding:16px;max-width:1000px;margin-inline:auto}
@@ -340,7 +362,7 @@ td,th{border:1px solid var(--bd);padding:4px 8px;text-align:left}.card{backgroun
 .fail{margin:2px 0;color:var(--bad)}.fail.incomplete{color:var(--warn)}.small{font-size:.85rem;color:var(--mut)}details>summary{cursor:pointer;font-weight:600}
 .limits{border-left:4px solid var(--warn);padding:6px 12px;background:var(--card)}
 </style></head><body>`);
-  h.push(`<h1>BahaOS Conversation Test Report — run 3</h1>`);
+  h.push(`<h1>BahaOS Conversation Test Report — run 4</h1>`);
   h.push(
     `<p class="small">Branch <code>${esc(meta.branch)}</code> (on PR #2's branch; <code>main</code> untouched)<br><b>Exact commit tested: <code>${esc(meta.commit)}</code></b> — tree ${meta.dirty ? "DIRTY: " + esc(meta.dirtyFiles.join(", ")) : "clean at run time"}<br>${esc(meta.generatedAt)} · clock pinned to ${esc(meta.pinnedNow)} · providers: dev-rule-based fallback and scripted-LLM fixture (free) · no paid calls, deploy, migration or merge<br>Run 1 (base main, dirty tree) and run 2 (e39bffe, old validators) preserved unchanged in <code>evidence/conversation-run-1-main-ba3671d/</code> and <code>evidence/conversation-run-2-phase5-e39bffe/</code>.</p>`,
   );
@@ -365,6 +387,13 @@ td,th{border:1px solid var(--bd);padding:4px 8px;text-align:left}.card{backgroun
       },
     ).join("")}</table>`,
   );
+  for (const pr of PRIORS) {
+    const cmp = comparison(results, pr.path);
+    if (!cmp) continue;
+    h.push(
+      `<h2>Changes compared with ${esc(pr.label)}</h2><table><tr><th>Group</th><th>Earlier: pass / completed-quality / unsafe / safe-incomplete / mismatch</th><th>This run</th></tr>${cmp.rows.map((r) => `<tr><td>${esc(r.label)}</td><td>${r.was.join(" / ")}</td><td>${r.now.join(" / ")}</td></tr>`).join("")}</table><p class="small">Per-run movement: ${cmp.better} improved, ${cmp.worse} worse, ${cmp.same} unchanged. ${esc(pr.note)}</p>`,
+    );
+  }
   h.push(
     `<h2>Category definitions</h2><ul>${CATS.map((c) => `<li><b class="c-${c}">${LABEL[c]}</b> — ${esc(DEFN[c])}</li>`).join("")}</ul>`,
   );

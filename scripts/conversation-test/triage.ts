@@ -72,7 +72,9 @@ export function signature(r: Rec): { sig: string; at: number; msg: string } {
 }
 
 if (process.argv[1]?.endsWith("triage.ts")) {
-  const data = JSON.parse(readFileSync("reports/conversation-test/results.json", "utf8")) as {
+  const data = JSON.parse(
+    readFileSync(process.argv[2] ?? "reports/conversation-test/results.json", "utf8"),
+  ) as {
     meta: { commit: string };
     results: Rec[];
   };
@@ -111,6 +113,6 @@ if (process.argv[1]?.endsWith("triage.ts")) {
       "",
     );
   }
-  writeFileSync("reports/conversation-test/triage.md", lines.join("\n"));
+  writeFileSync(process.argv[3] ?? "reports/conversation-test/triage.md", lines.join("\n"));
   console.log(lines.slice(0, 14).join("\n"));
 }
