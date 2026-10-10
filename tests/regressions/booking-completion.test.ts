@@ -202,3 +202,87 @@ describe("a second request for the same slot is never silently double-booked", (
     expect(bookings(c)).toHaveLength(1);
   });
 });
+
+describe("clarification recovery: no identical re-asks, examples, then human help", () => {
+  it("an unrelated 'yes' while the day is being asked gets an example, then a human offer, then a handoff — never the same sentence", async () => {
+    const c = devConversation();
+    await c.sayAll(["I'd like to schedule a cleaning"]);
+    const first = c.last.reply;
+    const a = await c.say("yes");
+    const b = await c.say("ok");
+    const d = await c.say("yes");
+    const replies = [first, a.reply, b.reply, d.reply];
+    expect(new Set(replies.map((r) => r.toLowerCase())).size).toBe(4);
+    expect(a.reply).toMatch(/For example/);
+    expect(b.reply).toMatch(/talk to someone/i);
+    expect(d.reply).toMatch(/passing your request to a team member/);
+    expect(d.actionsTaken.some((x) => x.action.type === "escalate")).toBe(true);
+  });
+  it("making progress is never treated as a stall: name and phone given while the day is still missing are acknowledged and kept", async () => {
+    const c = devConversation();
+    await c.sayAll(["I'd like to schedule a cleaning", "Brent Cole 242-555-0112"]);
+    expect(c.last.reply).toMatch(/Got it, thanks/);
+    expect(c.last.bookingState).toMatchObject({ name: "Brent Cole", phone: "+12425550112" });
+    expect(c.last.actionsTaken).toEqual([]);
+  });
+  it("two services in one message get a specific question, not the generic list", async () => {
+    const c = devConversation();
+    const t = await c.say("Hello I need an appointment, a filling and a cleaning if possible");
+    expect(t.reply).toMatch(
+      /one service per appointment.*Routine cleaning or Basic filling|one service per appointment.*Basic filling or Routine cleaning/,
+    );
+  });
+  it("a repeated yes after the request was recorded is acknowledged, not re-processed, and creates nothing", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes", "Tuesday 2pm", "Gina Hart 242-555-0121", "yes"]);
+    expect(bookings(c)).toHaveLength(1);
+    const t = await c.say("yes");
+    expect(t.reply).toMatch(/already recorded/);
+    expect(bookings(c)).toHaveLength(1);
+  });
+  it.each([
+    "Ok. I will book next time.",
+    "No, not right now, I've got to go, bye",
+    "I think I'm just going to sit this one out",
+  ])("%j ends the booking politely", async (m) => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes"]);
+    const t = await c.say(m);
+    expect(t.bookingState.intent).toBeUndefined();
+    expect(bookings(c)).toHaveLength(0);
+  });
+});
+
+describe("identity provenance in context", () => {
+  it("'check-up' is a service request, never a payment question", async () => {
+    const c = devConversation();
+    const t = await c.say("Hello, I think I'm due for a check-up, can you set up an appointment?");
+    expect(t.reply).not.toMatch(/don't have that information/);
+    expect(t.bookingState).toMatchObject({
+      intent: "book_appointment",
+      service: "Dental consultation / basic exam",
+    });
+  });
+  it.each([
+    ["I'm Michael Gibson, 242-555-0137", "Michael Gibson"],
+    ["Opal Day 242-555-0146", "Opal Day"],
+  ])("%j gives the name %j when a phone number comes with it", async (m, name) => {
+    const c = devConversation();
+    await c.sayAll(["Hello, I'm calling to book an appointment"]);
+    const t = await c.say(m);
+    expect(t.bookingState.name).toBe(name);
+  });
+  it("a name in the sentence after a service request is found ('a consultation for me, Monday 10am. Ruth Sims 242-555-0144')", async () => {
+    const c = devConversation();
+    await c.sayAll([
+      "I want a booking",
+      "Ok then a consultation for me, Monday 10am. Ruth Sims 242-555-0144",
+    ]);
+    expect(c.last.bookingState).toMatchObject({
+      name: "Ruth Sims",
+      date: "Monday",
+      time: "10:00",
+      pendingAction: "confirm_booking",
+    });
+  });
+});

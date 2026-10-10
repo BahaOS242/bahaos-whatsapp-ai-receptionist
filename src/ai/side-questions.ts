@@ -32,7 +32,7 @@ const DIRECTIONS_RE = /\bdirections?\b|\bhow (?:do|can|would|should) i get (?:th
 const OTHER_TIMES_RE =
   /\b(?:other|another|different|any other|more|alternative|earlier|later)\s+(?:times?|slots?|options?)\b|\banything\s+(?:else|earlier|later|sooner|available|open)\b|\bwhat times?\s+(?:are|do|is)\b|\bavailable\s+(?:times?|slots?)\b|\bnext availab|\bwhen is the next\b/i;
 const UNKNOWN_FACT_RE =
-  /\b(?:accept|take)\s+(?:checks?|cash|cards?|credit|debit|visa|mastercard|payment|apple pay)\b|\bpay(?:ment)?\s+(?:plans?|methods?|options?)\b|\b(?:checks?|cash|credit cards?)\b.*\?|\bparking\b|\bshuttle\b|\b(?:ride|rides|transport(?:ation)?)\b|\bloaner\b|\brental\b|\bwheelchair\b|\baccessib|\bdress code\b|\bwi-?fi\b|\bhigh chair\b|\bbooster\b|\bchild seat\b|\bdiscounts?\b|\bpromotions?\b|\bspecials?\b|\bfinancing\b|\bwhich dentist\b|\bwho(?:'s| is)? (?:the )?(?:dentist|doctor)\b|\bdr\.?\s+[a-z]+/i;
+  /\b(?:accept|take)\s+(?:checks?|cash|cards?|credit|debit|visa|mastercard|payment|apple pay)\b|\bpay(?:ment)?\s+(?:plans?|methods?|options?)\b|\bpay(?:ing)?\s+(?:by|with|in)\s+(?:checks?|cash|cards?)\b|\bdo you (?:take|accept)\b.*\b(?:checks?|cash|cards?)\b|\bparking\b|\bshuttle\b|\b(?:ride|rides|transport(?:ation)?)\b|\bloaner\b|\brental\b|\bwheelchair\b|\baccessib|\bdress code\b|\bwi-?fi\b|\bhigh chair\b|\bbooster\b|\bchild seat\b|\bdiscounts?\b|\bpromotions?\b|\bspecials?\b|\bfinancing\b|\bwhich dentist\b|\bwho(?:'s| is)? (?:the )?(?:dentist|doctor)\b|\bdr\.?\s+[a-z]+/i;
 const UNSUPPORTED_SERVICE_RE =
   /\b(?:whiten(?:ing)?|braces|invisalign|aligners?|implants?|dentures?|veneers?|bridges?|extractions?|wisdom (?:teeth|tooth)|x-?rays?|sedation|orthodont\w*|tires?|oil change|brakes?|rotated)\b/i;
 const RECOMMEND_RE =

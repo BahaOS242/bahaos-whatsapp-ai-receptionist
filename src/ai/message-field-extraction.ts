@@ -124,7 +124,7 @@ const CANCEL_RE = /\bcancel\b|\bcan'?t make it\b/i;
  * consulted by detectStatedIntent while NO intent is set yet. */
 const RESCHEDULE_RE =
   /\bresched|\bmove my appointment\b|\b(change|update|modify)\s+(my\s+)?(appointment|booking)\b/i;
-const BOOK_RE = /\bbook\b|\bschedule\b|\bappointment\b/i;
+const BOOK_RE = /\bbook(?:ing)?\b|\bschedule\b|\bappointment\b/i;
 
 /** Deliberately narrow and anchored to the start of the message — matches
  * the same "safe, explicitly-enumerated, no general dictionary" approach
@@ -585,7 +585,10 @@ export function extractStatedFields(
   // An explicit introduction ("my name is X") is an identity statement in its own right and may
   // replace an earlier name without correction wording.
   const nameContrast = extractNameContrast(message, currentState.name);
-  const introduced = extractIntroducedName(message, { nameAsked: next === "name" });
+  const introduced = extractIntroducedName(message, {
+    nameAsked: next === "name",
+    phoneInMessage: Boolean(extracted.phone),
+  });
   if (nameContrast) {
     // "It's Alisha, not Alicia": the rejected name equals the one on file, so the correction is explicit.
     extracted.name = nameContrast;
@@ -604,7 +607,7 @@ export function extractStatedFields(
       ).trim();
       const words = remainder.split(/\s+/).filter(Boolean);
       const full = words.length >= 2 && words.every((w) => /^[A-Z]/.test(w));
-      if ((next === "name" || full) && looksLikeName(remainder) && isPlausibleBareName(remainder, sentence)) {
+      if ((next === "name" || full) && looksLikeName(remainder) && isPlausibleBareName(remainder, sentence, next === "name")) {
         extracted.name = bareNameValue(remainder);
         break;
       }

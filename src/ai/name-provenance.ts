@@ -194,7 +194,7 @@ export interface IntroducedName {
 /** A name stated with explicit provenance, or undefined. */
 export function extractIntroducedName(
   message: string,
-  opts: { nameAsked: boolean },
+  opts: { nameAsked: boolean; phoneInMessage?: boolean },
 ): IntroducedName | undefined {
   const text = message
     .replace(/\+?\d[\d\s().-]{5,}\d/g, " ")
@@ -202,7 +202,8 @@ export function extractIntroducedName(
     .trim();
   if (!text || /[?]/.test(text)) return undefined;
   for (const { re, explicit, onlyWhenAsked, requireCapital } of INTRODUCTIONS) {
-    if (onlyWhenAsked && !opts.nameAsked) continue;
+    // "I'm Michael Gibson, 242-555-0137": a phone number given alongside makes "I'm X" an introduction.
+    if (onlyWhenAsked && !opts.nameAsked && !opts.phoneInMessage) continue;
     const m = text.match(re);
     if (!m) continue;
     const name = takeNameTokens(m[1], { requireCapital });
@@ -215,7 +216,11 @@ export function extractIntroducedName(
  * Is `remainder` (the message minus phone, date/time text and correction
  * wording) plausibly the answer to "what's your name?"
  */
-export function isPlausibleBareName(remainder: string, original: string): boolean {
+/** Ordinary words that are also common surnames/given names; accepted only AFTER a first name word and only when
+ * capitalised as typed, in a context that is already about identity (name asked / phone given). */
+const SOFT_NAME_WORDS = new Set(["day", "long", "short", "early", "late", "good", "best", "hope", "love", "will", "may", "june", "april", "august", "rose", "bell", "king", "young"]);
+
+export function isPlausibleBareName(remainder: string, original: string, contextual = false): boolean {
   if (/[?]/.test(original)) return false; // a question is never a name
   const cleaned = remainder
     .replace(/[,.!;:]/g, " ")
@@ -225,7 +230,11 @@ export function isPlausibleBareName(remainder: string, original: string): boolea
   const words = cleaned.split(" ");
   if (words.length > 4) return false;
   if (words.length === 1 && /^[A-Z]{2,3}$/.test(words[0])) return false; // lone abbreviation ("XL"), not a name
-  return words.every((w) => TOKEN_RE.test(w) && !isStop(w) && !isScheduleTypoOrAbbreviation(w));
+  return words.every((w, i) => {
+    if (!TOKEN_RE.test(w) || isScheduleTypoOrAbbreviation(w)) return false;
+    if (!isStop(w)) return true;
+    return contextual && i > 0 && /^[A-Z]/.test(w) && SOFT_NAME_WORDS.has(w.toLowerCase());
+  });
 }
 
 /** Formats an accepted bare answer (call only after isPlausibleBareName). */

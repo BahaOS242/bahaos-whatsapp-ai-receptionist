@@ -9,24 +9,56 @@
  * rewritten.
  */
 const CANONICAL = [
-  "cleaning", "filling", "consultation", "appointment", "examination", "checkup",
-  "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday", "tomorrow",
+  "cleaning",
+  "filling",
+  "consultation",
+  "appointment",
+  "examination",
+  "checkup",
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+  "tomorrow",
 ];
 
 /** Real words that sit one edit from a canonical word. */
 const REAL_WORDS = new Set([
-  "billing", "ceiling", "clearing", "cleaner", "cleanings", "fillings", "feeling", "filming", "falling", "calling",
-  "appointments", "mondays", "tuesdays", "wednesdays", "thursdays", "fridays", "saturdays", "sundays",
+  "billing",
+  "ceiling",
+  "clearing",
+  "cleaner",
+  "cleanings",
+  "fillings",
+  "feeling",
+  "filming",
+  "falling",
+  "calling",
+  "appointments",
+  "mondays",
+  "tuesdays",
+  "wednesdays",
+  "thursdays",
+  "fridays",
+  "saturdays",
+  "sundays",
 ]);
 
 function osa(a: string, b: string): number {
-  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  const d: number[][] = Array.from({ length: a.length + 1 }, (_, i) => [
+    i,
+    ...Array(b.length).fill(0),
+  ]);
   for (let j = 0; j <= b.length; j++) d[0][j] = j;
   for (let i = 1; i <= a.length; i++) {
     for (let j = 1; j <= b.length; j++) {
       const cost = a[i - 1] === b[j - 1] ? 0 : 1;
       d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
-      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1])
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
     }
   }
   return d[a.length][b.length];
@@ -36,8 +68,13 @@ function osa(a: string, b: string): number {
 export function repairToken(token: string): string | undefined {
   const t = token.toLowerCase();
   if (t.length < 5 || CANONICAL.includes(t) || REAL_WORDS.has(t)) return undefined;
-  const hits = CANONICAL.filter((w) => w[0] === t[0] && Math.abs(w.length - t.length) <= 2 && osa(t, w) <= (w.length >= 8 ? 2 : 1));
-  return hits.length === 1 ? hits[0] : undefined;
+  const scored = CANONICAL.filter((w) => w[0] === t[0] && Math.abs(w.length - t.length) <= 2)
+    .map((w) => ({ w, d: osa(t, w), max: w.length >= 8 ? 2 : 1 }))
+    .filter((x) => x.d <= x.max);
+  if (!scored.length) return undefined;
+  const best = Math.min(...scored.map((x) => x.d));
+  const nearest = scored.filter((x) => x.d === best);
+  return nearest.length === 1 ? nearest[0].w : undefined; // a tie between two words is ambiguous: leave it alone
 }
 
 /** Rewrites typo'd key words in a message (case of the first letter is preserved). */

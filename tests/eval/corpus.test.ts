@@ -73,7 +73,7 @@ describe("Evaluation corpus — known Phase 1 baseline (reproducibility, not a b
     expect(second).toEqual(first);
   });
 
-  it("today's known baseline: 1 genuine finding (NL-01), everything else passing", async () => {
+  it("today's known baseline: all 38 scenarios pass (NL-01 fixed by typo tolerance)", async () => {
     const transcripts = await runCorpus(allScenarios);
     const evaluations = allScenarios.map((scenario, i) =>
       evaluateScenario(scenario, transcripts[i]),
@@ -90,9 +90,10 @@ describe("Evaluation corpus — known Phase 1 baseline (reproducibility, not a b
     // RECOVER-02 / RECOVER-03 were FIXED by the identity-provenance change (a date/time
     // correction is never an identity answer; see tests/regressions/). They previously
     // failed for exactly the reason described above, so the pin moves from 35/38 to 37/38.
-    // NL-01 (typo tolerance) remains an open, unrelated finding.
-    expect(failingIds).toEqual(["NL-01"]);
+    // NL-01 was FIXED by src/ai/lexicon-repair.ts (typo tolerance for the key booking words), so the pin moves
+    // from 37/38 to 38/38.
+    expect(failingIds).toEqual([]);
     expect(scorecard.totalScenarios).toBe(38);
-    expect(scorecard.passedScenarios).toBe(37);
+    expect(scorecard.passedScenarios).toBe(38);
   });
 });
