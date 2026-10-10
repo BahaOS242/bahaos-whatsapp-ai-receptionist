@@ -1,4 +1,4 @@
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import type { Category, ResultRecord } from "./run";
 
 const ATTRIBUTION =
@@ -29,6 +29,61 @@ const DEFN: Record<Category, string> = {
     "CONFIRMED: fixed-script run was safe-incomplete but the SAME scenario passes when the bounded adaptive customer answers the receptionist's clarification questions. The failure was the script not answering what was asked. Also CONFIRMED: the approval happened before a scripted correction because the adaptive customer supplied details earlier than the script (fixture-order-mismatch). (Separately, safe-incomplete runs whose only defect signal is a clarification the script never answered are counted as PROBABLE script mismatch in the table; they stay in safe-incomplete because no adaptive twin proved it.)",
   "harness-error": "The run itself threw; no verdict.",
 };
+
+const PRIOR_RUN2 = "evidence/conversation-run-2-phase5-e39bffe/results.json";
+type Prior = {
+  scenario: { id: string; variant: string };
+  provider: string;
+  mode: string;
+  category: Category;
+}[];
+function loadPrior(): Prior | undefined {
+  try {
+    return existsSync(PRIOR_RUN2)
+      ? (JSON.parse(readFileSync(PRIOR_RUN2, "utf8")).results as Prior)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Changes versus the preserved run 2 (tested e39bffe; OLD validators — not one-to-one comparable). */
+function comparison(results: ResultRecord[]) {
+  const prior = loadPrior();
+  if (!prior) return undefined;
+  const rows = GROUPS.map((g) => {
+    const now = results.filter(g.filter);
+    const was = prior.filter((r) => g.filter(r as unknown as ResultRecord));
+    const c = (rs: { category: Category }[], k: Category) =>
+      rs.filter((r) => r.category === k).length;
+    return {
+      label: g.label,
+      was: [c(was, "pass"), c(was, "unsafe"), c(was, "safe-incomplete"), c(was, "script-mismatch")],
+      now: [c(now, "pass"), c(now, "unsafe"), c(now, "safe-incomplete"), c(now, "script-mismatch")],
+    };
+  });
+  const key = (r: { scenario: { id: string }; provider: string; mode: string }) =>
+    `${r.provider}|${r.mode}|${r.scenario.id}`;
+  const was = new Map(prior.map((r) => [key(r), r.category]));
+  const rank: Record<string, number> = {
+    unsafe: 0,
+    "harness-error": 0,
+    "safe-incomplete": 1,
+    "script-mismatch": 1,
+    pass: 2,
+  };
+  let better = 0;
+  let worse = 0;
+  let same = 0;
+  for (const r of results) {
+    const w = was.get(key(r));
+    if (!w) continue;
+    if (rank[r.category] > rank[w]) better++;
+    else if (rank[r.category] < rank[w]) worse++;
+    else same++;
+  }
+  return { rows, better, worse, same };
+}
 
 interface Meta {
   commit: string;
@@ -106,7 +161,7 @@ export function renderReports(meta: Meta, results: ResultRecord[]) {
   const unsafeRuns = results.filter((r) => r.category === "unsafe");
 
   const md: string[] = [];
-  md.push("# Conversation Test Report — Taskmaster-derived BahaOS evaluation (run 2)", "");
+  md.push("# Conversation Test Report — Taskmaster-derived BahaOS evaluation (run 3)", "");
   md.push(
     `- Branch: \`${meta.branch}\` (based on \`claude/phase5-jobs-and-receptionist-fixes\`; \`main\` untouched)`,
   );
@@ -120,7 +175,7 @@ export function renderReports(meta: Meta, results: ResultRecord[]) {
     "- Providers: dev-rule-based fallback (free, simulated tools) and scripted-LLM fixture (free). No paid calls, deployment, migration or merge.",
   );
   md.push(
-    "- Run 1 (base `main` ba3671d, dirty tree) is preserved unchanged as historical evidence in `evidence/conversation-run-1-main-ba3671d/`.",
+    "- Run 1 (base `main` ba3671d, dirty tree) and run 2 (e39bffe, old validators) are preserved unchanged as historical evidence in `evidence/conversation-run-1-main-ba3671d/` and `evidence/conversation-run-2-phase5-e39bffe/`.",
     "",
   );
   md.push(`> ${LIMITS}`, "");
@@ -136,6 +191,22 @@ export function renderReports(meta: Meta, results: ResultRecord[]) {
     );
   }
   md.push(`| Held-out (reserved) | ${meta.heldOutIds.length} | not run | | | | |`, "");
+  const cmp = comparison(results);
+  if (cmp) {
+    md.push("## Changes compared with run 2 (e39bffe, old validators)", "");
+    md.push(
+      "| Group | Run 2 pass/unsafe/safe-inc/mismatch | This run pass/unsafe/safe-inc/mismatch |",
+      "|---|---|---|",
+    );
+    cmp.rows.forEach((r) =>
+      md.push(`| ${r.label} | ${r.was.join(" / ")} | ${r.now.join(" / ")} |`),
+    );
+    md.push(
+      "",
+      `Per-run movement (matching scenario×provider×mode): ${cmp.better} improved, ${cmp.worse} worse, ${cmp.same} unchanged. Run 2 used weaker validators (weekday-only date compare; no exact-details confirmation check), so its unsafe counts are a lower bound. Run 1 (main, dirty tree) is preserved but not comparable.`,
+      "",
+    );
+  }
   md.push("## Category definitions", "", ...CATS.map((c) => `- **${LABEL[c]}** — ${DEFN[c]}`), "");
   md.push(
     "## Failure categories by check (all runs)",
@@ -220,7 +291,7 @@ export function renderReports(meta: Meta, results: ResultRecord[]) {
 
   // ---------------- HTML ----------------
   const h: string[] = [];
-  h.push(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BahaOS Conversation Test Report (run 2)</title><style>
+  h.push(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BahaOS Conversation Test Report (run 3)</title><style>
 :root{--bg:#fff;--fg:#1c1f24;--mut:#5b6573;--card:#f5f6f8;--bd:#d7dbe0;--ok:#1a7f37;--bad:#c62828;--warn:#b26a00;--na:#6b7280;--info:#0b5cad}
 @media (prefers-color-scheme:dark){:root{--bg:#14171c;--fg:#e8eaed;--mut:#9aa3af;--card:#1d2128;--bd:#2f3640;--ok:#4cc26a;--bad:#ff7b72;--warn:#e3a008;--na:#9aa3af;--info:#6cb2ff}}
 body{font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg);margin:0;padding:16px;max-width:1000px;margin-inline:auto}
@@ -232,9 +303,9 @@ td,th{border:1px solid var(--bd);padding:4px 8px;text-align:left}.card{backgroun
 .fail{margin:2px 0;color:var(--bad)}.fail.incomplete{color:var(--warn)}.small{font-size:.85rem;color:var(--mut)}details>summary{cursor:pointer;font-weight:600}
 .limits{border-left:4px solid var(--warn);padding:6px 12px;background:var(--card)}
 </style></head><body>`);
-  h.push(`<h1>BahaOS Conversation Test Report — run 2</h1>`);
+  h.push(`<h1>BahaOS Conversation Test Report — run 3</h1>`);
   h.push(
-    `<p class="small">Branch <code>${esc(meta.branch)}</code> (on PR #2's branch; <code>main</code> untouched)<br><b>Exact commit tested: <code>${esc(meta.commit)}</code></b> — tree ${meta.dirty ? "DIRTY: " + esc(meta.dirtyFiles.join(", ")) : "clean at run time"}<br>${esc(meta.generatedAt)} · clock pinned to ${esc(meta.pinnedNow)} · providers: dev-rule-based fallback and scripted-LLM fixture (free) · no paid calls, deploy, migration or merge<br>Run 1 (base main, dirty tree) preserved as historical evidence in <code>evidence/conversation-run-1-main-ba3671d/</code>.</p>`,
+    `<p class="small">Branch <code>${esc(meta.branch)}</code> (on PR #2's branch; <code>main</code> untouched)<br><b>Exact commit tested: <code>${esc(meta.commit)}</code></b> — tree ${meta.dirty ? "DIRTY: " + esc(meta.dirtyFiles.join(", ")) : "clean at run time"}<br>${esc(meta.generatedAt)} · clock pinned to ${esc(meta.pinnedNow)} · providers: dev-rule-based fallback and scripted-LLM fixture (free) · no paid calls, deploy, migration or merge<br>Run 1 (base main, dirty tree) and run 2 (e39bffe, old validators) preserved unchanged in <code>evidence/conversation-run-1-main-ba3671d/</code> and <code>evidence/conversation-run-2-phase5-e39bffe/</code>.</p>`,
   );
   h.push(`<p class="limits"><b>${esc(LIMITS)}</b></p>`);
   h.push(

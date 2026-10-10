@@ -4,7 +4,11 @@ import {
   hasCorrectionLanguage,
   stripCorrectionLanguage,
 } from "../correction-language";
-import { TIME_CLARIFICATION_REPLY } from "../time-clarification";
+import {
+  TIME_AND_DATE_CLARIFICATION_REPLY,
+  TIME_CLARIFICATION_REPEATED_REPLY,
+  TIME_CLARIFICATION_REPLY,
+} from "../time-clarification";
 import {
   resolveDateWord,
   parseTime,
@@ -507,8 +511,16 @@ function findService(business: BusinessContext, text: string) {
       .split(/\s+/)
       .some((word) => word.length > 3 && word !== "dental" && new RegExp(`\\b${word}\\b`).test(lower)), // "dental" is the whole clinic, not a service
   );
-  if (wordMatches.length > 1) return undefined;
-  return wordMatches[0];
+  // Configured everyday wordings ("check up", "exam"), matched on word boundaries; unioned with the word matches
+  // above so a phrase that points at more than one service stays ambiguous instead of being guessed.
+  const aliasMatches = business.services.filter((s) =>
+    (s.aliases ?? []).some((a) =>
+      new RegExp(`(^|[^a-z])${a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`).test(lower),
+    ),
+  );
+  const candidates = business.services.filter((s) => wordMatches.includes(s) || aliasMatches.includes(s));
+  if (candidates.length > 1) return undefined;
+  return candidates[0];
 }
 
 /** Is `field` specifically one of the thing(s) this flow would ask about
@@ -686,6 +698,14 @@ const CORRECTION_MARKER_RE =
  * lemme change that to 3"), in which case it's treated like a "yes": the
  * customer still wants to book, just with something different. An
  * unrecognized reply re-asks rather than guessing either way. */
+/** A different service named while "would you like to book X?" is pending is the customer's answer: it replaces X. */
+function withoutSupersededService(business: BusinessContext, state: BookingState, message: string): BookingState {
+  const named = findService(business, message);
+  if (!named || named.name === state.service) return state;
+  const { service: _service, ...rest } = state;
+  return rest;
+}
+
 function handleServiceConfirmation(
   business: BusinessContext,
   state: BookingState,
@@ -696,7 +716,7 @@ function handleServiceConfirmation(
 
   if (answer === "no") {
     if (hasCorrectionContent(business, message, state)) {
-      const { pendingAction: _pendingAction, ...confirmed } = state;
+      const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(business, state, message);
       return handleFlowTurn(business, confirmed, message, checkAvailability);
     }
     return {
@@ -707,7 +727,7 @@ function handleServiceConfirmation(
   }
 
   if (answer === "yes") {
-    const { pendingAction: _pendingAction, ...confirmed } = state;
+    const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(business, state, message);
     return handleFlowTurn(business, confirmed, message, checkAvailability);
   }
 
@@ -721,7 +741,7 @@ function handleServiceConfirmation(
   // rather than the final hard-confirmation one (see
   // handleBookingConfirmation, which already had this exact check).
   if (hasCorrectionContent(business, message, state)) {
-    const { pendingAction: _pendingAction, ...confirmed } = state;
+    const { pendingAction: _pendingAction, ...confirmed } = withoutSupersededService(business, state, message);
     return handleFlowTurn(business, confirmed, message, checkAvailability);
   }
 
@@ -1166,8 +1186,12 @@ function handleFlowTurn(
         })()
       : undefined;
   const result =
-    timeQualified && missingFields(merged)[0] === "time"
-      ? { ...flowResult, reply: TIME_CLARIFICATION_REPLY }
+    timeQualified && incomingStateRaw.timeClarification
+      ? { ...flowResult, reply: TIME_CLARIFICATION_REPEATED_REPLY }
+      : timeQualified && missingFields(merged)[0] === "time"
+        ? { ...flowResult, reply: TIME_CLARIFICATION_REPLY }
+        : timeQualified && missingFields(merged).includes("time") && missingFields(merged)[0] === "date"
+          ? { ...flowResult, reply: TIME_AND_DATE_CLARIFICATION_REPLY }
       : bareClarification
         ? { ...flowResult, reply: bareClarification }
         : flowResult;

@@ -291,8 +291,16 @@ function findService(business: BusinessContext, text: string): BusinessService |
       .split(/\s+/)
       .some((word) => word.length > 3 && word !== "dental" && new RegExp(`\\b${word}\\b`).test(lower)), // "dental" is the whole clinic, not a service
   );
-  if (wordMatches.length > 1) return undefined;
-  return wordMatches[0];
+  // Configured everyday wordings ("check up", "exam"), matched on word boundaries; unioned with the word matches
+  // above so a phrase that points at more than one service stays ambiguous instead of being guessed.
+  const aliasMatches = business.services.filter((s) =>
+    (s.aliases ?? []).some((a) =>
+      new RegExp(`(^|[^a-z])${a.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`).test(lower),
+    ),
+  );
+  const candidates = business.services.filter((s) => wordMatches.includes(s) || aliasMatches.includes(s));
+  if (candidates.length > 1) return undefined;
+  return candidates[0];
 }
 
 /** Extracts whatever the application can safely determine from `message`

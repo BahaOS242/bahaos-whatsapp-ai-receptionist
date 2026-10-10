@@ -19,6 +19,9 @@ export interface BusinessService {
   name: string;
   durationMinutes: number;
   priceLabel: string;
+  /** Everyday wordings for this service ("check up" for the exam). Matched on word boundaries; a phrase that
+   * matches more than one service is treated as ambiguous, never guessed. */
+  aliases?: string[];
 }
 
 export interface BusinessPolicies {
