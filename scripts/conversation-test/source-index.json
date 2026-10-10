@@ -1,0 +1,306 @@
+{
+  "attribution": "Google Taskmaster-1 (TM-1-2019) self-dialogs, CC BY 4.0, Google LLC / Bill Byrne et al. https://github.com/google-research-datasets/Taskmaster. IDs and split labels only; no source text is stored in this repository for held-out conversations.",
+  "source_sha256": "1e590ed0ccee279e40c2fb9e083d3b9417477c6bfe35ce5b2277167698dd858d",
+  "conversations": [
+    {
+      "id": "dlg-9001c89d-d35f-47f8-a1a7-1b701970e763",
+      "domain": "auto-repair-appt-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-65958f69-c7c0-4dd9-931e-eb0497091f50",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-929b59a3-ebdd-4d57-9033-a185cc211359",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-cacb2e3c-c504-441a-8e9d-e605164c6415",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-e32859b3-88ca-4617-b7ce-1bc9cd4d42cb",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-515e9095-2f23-401d-abe6-cfacff005015",
+      "domain": "auto-repair-appt-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-5cb6cabb-e801-4c8a-bff7-0cc0ad92bb87",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-5d1a2f2e-63eb-45a4-b18e-71035ef62e8e",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-66c6b5b1-b41e-441c-bc3f-76e7edb7e5ac",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-87484a2b-afe9-4d39-8b24-6118576737a9",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-9b6ee6f9-077a-44fb-88c6-850a4b6be59a",
+      "domain": "auto-repair-appt-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-a8533b60-f82c-464c-877a-51150ae0bb77",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-b2e78e29-bb98-4a4b-aa72-1dc4296cf2cc",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-da2f3e45-5d76-4e15-8ae9-d7cafe2873b7",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-db02658a-e254-4b8a-949e-7cb7ca04800c",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-dc40549e-f111-4a5f-8653-31b84a60a57f",
+      "domain": "auto-repair-appt-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-136f95ec-e309-4246-a6d9-2b4e8beaba7f",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-1671146d-10be-460d-9f3a-ecb758f8078c",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-29f37e32-23e0-4f19-aab7-916a40861608",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-3d00c7a6-6556-4954-adcf-97ca7a4f6b77",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-40327ffd-4c23-482e-8af8-8513e0f67c0f",
+      "domain": "auto-repair-appt-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-4b9c7860-5de3-40ea-a210-57ecbca80427",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-4ebc6c62-8065-46ec-ba02-0766a86bcb8a",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-53cfb4bd-089b-4d88-9497-e928a7d4eb8c",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-60cceb98-f3d4-4f4c-8340-a5760dd79e46",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-6629e2af-0c4b-4b3c-af40-39ade8fab6ed",
+      "domain": "auto-repair-appt-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-70bc0cb6-d391-4f7e-bf11-bcc65e3363f3",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-71cbe988-8a26-4217-b466-db33a1840d46",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-73b0e503-42ec-49e8-839a-1104907f686e",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-7a8274ab-8a70-44f3-80df-197601afc7d6",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-7f771330-3d82-40ee-b4c4-79b90949b700",
+      "domain": "auto-repair-appt-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-8e3522af-9e99-405b-baa4-737eefbd2c4f",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-92975e16-5436-4179-9f4c-e680c623271e",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-9f67b33c-4074-4acf-9b9d-17f69bc00073",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-e0a60506-5c3f-4308-a716-34f02f27e273",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-e1d94686-209c-4d7d-ae38-acdf6d2ee0f4",
+      "domain": "auto-repair-appt-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-003677eb-20f8-4b1e-a396-c0f95a786543",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-038e5414-bc32-426b-8c19-9e583bf18cc5",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-078a0f20-4efc-4dde-b8c1-fbbd2d80e29d",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-17420eb9-65ab-46ae-9e6b-f0031d415ea7",
+      "domain": "auto-repair-appt-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-3700dfe8-9f75-4116-9461-b26b0a71f99d",
+      "domain": "restaurant-table-2",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-1b47bb2b-61b1-46b2-879a-719e939cf2f5",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-0b5b803f-ebfc-41f9-b3a0-bcea8b95a08e",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-1159607c-85d2-4899-bb3b-9db2ff0933a4",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-3660ae8b-6892-49a4-8e81-7617ed38127a",
+      "domain": "restaurant-table-3",
+      "split": "development"
+    },
+    {
+      "id": "dlg-4df4e178-f98c-47b9-a928-7ec9dda7ff70",
+      "domain": "restaurant-table-2",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-590f7375-238c-49d2-b3b8-7e537d210d4d",
+      "domain": "restaurant-table-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-5e0469c8-0968-40ad-8c22-6c118afaa781",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-92fb5414-3316-4340-b2a2-18a3c9d43bc8",
+      "domain": "restaurant-table-3",
+      "split": "development"
+    },
+    {
+      "id": "dlg-c4801b6b-3d1a-43b8-97e1-02be355e646d",
+      "domain": "restaurant-table-3",
+      "split": "development"
+    },
+    {
+      "id": "dlg-0302389b-1308-4579-b1ba-ef6b45337137",
+      "domain": "restaurant-table-2",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-0341f269-5d30-4ec7-bd67-672f8a715f89",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-0907b949-f00c-4595-8c1a-8978665bf1b6",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-0ea74929-d1b0-4c2a-8465-6fb65bf8a389",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-0f57a901-2757-464f-9613-132bff3ead34",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-1b35767a-2396-4f13-98e8-c0eeec6e2d12",
+      "domain": "restaurant-table-1",
+      "split": "held_out"
+    },
+    {
+      "id": "dlg-209856e2-3ec2-464c-bbc5-f6013d138ebb",
+      "domain": "restaurant-table-1",
+      "split": "development"
+    },
+    {
+      "id": "dlg-4d9d8a2b-4e6d-4923-b8a5-bc8fd4037286",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-55ab43fe-1b96-4b17-9aa3-6d15cf933780",
+      "domain": "restaurant-table-2",
+      "split": "development"
+    },
+    {
+      "id": "dlg-56325402-8eb3-4765-9a4a-94eee0d0ab41",
+      "domain": "restaurant-table-1",
+      "split": "development"
+    }
+  ]
+}
