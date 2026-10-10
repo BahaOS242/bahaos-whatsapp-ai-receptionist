@@ -1,4 +1,9 @@
-import { correctionBlocksBareName, extractNameContrast, hasCorrectionLanguage, stripCorrectionLanguage, trimNameAtBoundary } from "./correction-language";
+import {
+  correctionBlocksBareName,
+  extractNameContrast,
+  hasCorrectionLanguage,
+  stripCorrectionLanguage,
+} from "./correction-language";
 import {
   combineBareTime,
   decodeBareTime,
@@ -11,6 +16,8 @@ import {
   stripRecognizedDateTime,
 } from "./date-time";
 import { extractPhone } from "./phone";
+import { analyzeScheduleMessage } from "./schedule-proposal";
+import { bareNameValue, extractIntroducedName, isPlausibleBareName } from "./name-provenance";
 import { nextRequiredField } from "./booking-progression";
 import { isWithinOperatingWindow } from "./business-hours";
 import { isSlotAvailable } from "./availability";
@@ -42,8 +49,6 @@ import type { BookingIntent, BookingState, BusinessContext, BusinessService } fr
  * yet anyway. */
 const CORRECTION_MARKER_RE =
   /\b(actually|instead|i meant|change (that|it) to|correction|scratch that)\b/i;
-
-const HIGH_CONFIDENCE_NAME_RE = /\bmy name is\s+([A-Za-z][A-Za-z'-]*(?:\s+[A-Za-z][A-Za-z'-]*)?)/i;
 
 /** Local, narrow phone-like substring matcher — used only to strip a
  * phone number out of a combined "Trevor 2428012847" message before
@@ -95,28 +100,6 @@ function looksLikeName(text: string): boolean {
   return words.every((word) => /^[A-Za-z][A-Za-z'-]*$/.test(word));
 }
 
-/** Trims a "my name is X ..." capture down to the leading run of
- * name-shaped words, stopping at the first connector/filler word
- * (NON_NAME_WORDS). Guards against the regex's own optional second-word
- * group swallowing the start of the NEXT clause — "my name is Sarah and
- * my number is..." must resolve to "Sarah", not "Sarah And". */
-function trimToLeadingNameWords(candidate: string): string {
-  const words = candidate.trim().split(/\s+/);
-  const kept: string[] = [];
-  for (const word of words) {
-    if (NON_NAME_WORDS.has(word.toLowerCase())) break;
-    kept.push(word);
-  }
-  return kept.join(" ");
-}
-
-function titleCase(value: string): string {
-  return value
-    .split(/\s+/)
-    .map((word) => (word.length ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word))
-    .join(" ");
-}
-
 /** Same abandon/decline phrasing DevRuleBasedAIProvider's own ABANDON_RE
  * guards against, checked BEFORE the cancel pattern below for the same
  * reason it exists there: "cancel that" (declining whatever's just been
@@ -149,7 +132,8 @@ const BOOK_RE = /\bbook\b|\bschedule\b|\bappointment\b/i;
  * extraction, not model-facing logic — can use the exact same yes/no
  * vocabulary LLMProvider already trusts for its own auto-confirm/decline
  * bypasses, rather than maintaining a second, driftable copy. */
-export const AFFIRMATIVE_RE = /^\s*(yes|yeah|yep|yup|sure|ok(ay)?|go ahead|please do|sounds good)\b/i;
+export const AFFIRMATIVE_RE =
+  /^\s*(yes|yeah|yep|yup|sure|ok(ay)?|go ahead|please do|sounds good)\b/i;
 
 /** Mirror image of AFFIRMATIVE_RE — same narrow, anchored, explicitly-
  * enumerated shape. Anchored to the start of the message so "I know that
@@ -377,9 +361,15 @@ export function extractStatedFields(
   // "instead" wording. Only trusted to permit overwriting an
   // already-set field once a booking is already underway — see
   // CORRECTION_MARKER_RE's comment.
+  // Which date/time mention is the PROPOSAL? Rejected mentions ("too early", "busy on Thursday", "11am won't work")
+  // are never proposals and clear exactly the stored value they reject; deadlines ("before Wednesday") are not days.
+  const schedule = analyzeScheduleMessage(message, currentState);
   const hasCorrection =
     Boolean(currentState.intent) &&
-    (CORRECTION_MARKER_RE.test(message) || hasCorrectionLanguage(message) || Boolean(currentState.justDeclined));
+    (CORRECTION_MARKER_RE.test(message) ||
+      hasCorrectionLanguage(message) ||
+      Boolean(currentState.justDeclined) ||
+      schedule.hadRejection);
   // Consumed unconditionally — a one-shot hint for THIS turn only,
   // regardless of what (if anything) it ends up widening below. Every
   // return path from here on must carry this through so it's never left
@@ -424,7 +414,11 @@ export function extractStatedFields(
       // treatment. Deliberately never pre-fills date/time: those are
       // exactly what's being changed, and must come from the customer
       // fresh, not default to the appointment being replaced.
-      if (intent === "reschedule_appointment" && currentState.bookingJustCompleted && currentState.lastCompletedBooking) {
+      if (
+        intent === "reschedule_appointment" &&
+        currentState.bookingJustCompleted &&
+        currentState.lastCompletedBooking
+      ) {
         const snapshot = currentState.lastCompletedBooking;
         if (snapshot.name) extracted.name = snapshot.name;
         if (snapshot.phone) extracted.phone = snapshot.phone;
@@ -480,28 +474,50 @@ export function extractStatedFields(
   // more broadly than hasCorrection already is.
   const hasStaleInvalidSlot = Boolean(
     currentState.date &&
-      currentState.time &&
-      (!isWithinOperatingWindow(business, currentState.date, currentState.time).valid ||
-        !isSlotAvailable(business, currentState.date, currentState.time)),
+    currentState.time &&
+    (!isWithinOperatingWindow(business, currentState.date, currentState.time).valid ||
+      !isSlotAvailable(business, currentState.date, currentState.time)),
   );
 
   // A QUALIFIED time ("quarter to 3pm", "not 3pm", "3pm or 4pm", "from 2pm to 4pm") is never resolved to an hour:
   // no time is stored, any existing time is kept but marked unresolved, and the customer is asked for one exact time.
-  const timeQualified = Boolean(currentState.intent ?? extracted.intent) && hasTimeQualifier(message);
+  const timeQualified =
+    Boolean(currentState.intent ?? extracted.intent) && hasTimeQualifier(message);
   if (timeQualified) {
     extracted.timeClarification = true;
     if (currentState.pendingBareTime) extracted.pendingBareTime = undefined;
   }
 
+  if (currentState.intent || extracted.intent) {
+    if (schedule.clearDate) extracted.date = undefined;
+    if (schedule.clearTime) {
+      extracted.time = undefined;
+      extracted.timeClarification = undefined;
+      extracted.pendingBareTime = undefined;
+    }
+    if (schedule.clearDate || schedule.clearTime) extracted.pendingAction = undefined; // stale approval
+  }
   const dateTimeEligible =
-    next === "date" || next === "time" || hasCorrection || hasStaleInvalidSlot || Boolean(currentState.timeClarification);
+    next === "date" ||
+    next === "time" ||
+    hasCorrection ||
+    hasStaleInvalidSlot ||
+    Boolean(currentState.timeClarification) ||
+    schedule.clearDate ||
+    schedule.clearTime;
   if (dateTimeEligible) {
-    if (!currentState.date || hasCorrection || hasStaleInvalidSlot) {
-      const date = resolveDateWord(message, new Date(), business.timezone);
+    if (!currentState.date || hasCorrection || hasStaleInvalidSlot || schedule.clearDate) {
+      const date = resolveDateWord(schedule.proposalText, new Date(), business.timezone);
       if (date) extracted.date = date;
     }
-    if (!currentState.time || hasCorrection || hasStaleInvalidSlot || currentState.timeClarification) {
-      const time = parseTime(message);
+    if (
+      !currentState.time ||
+      hasCorrection ||
+      hasStaleInvalidSlot ||
+      currentState.timeClarification ||
+      schedule.clearTime
+    ) {
+      const time = parseTime(schedule.proposalText);
       if (time) {
         extracted.time = time;
         extracted.timeClarification = undefined; // one exact time stated: resolved (a fresh confirmation follows)
@@ -523,7 +539,7 @@ export function extractStatedFields(
         // ("3") to remember for a possible follow-up meridiem reply (see
         // the check at the top of this function). Never fires on a
         // message that already resolved a full time above.
-        const bareHour = parseBareHour(message);
+        const bareHour = parseBareHour(schedule.proposalText);
         if (bareHour) extracted.pendingBareTime = encodeBareTime(bareHour);
       }
     }
@@ -559,23 +575,26 @@ export function extractStatedFields(
   // An explicit introduction ("my name is X") is an identity statement in its own right and may
   // replace an earlier name without correction wording.
   const nameContrast = extractNameContrast(message, currentState.name);
+  const introduced = extractIntroducedName(message, { nameAsked: next === "name" });
   if (nameContrast) {
     // "It's Alisha, not Alicia": the rejected name equals the one on file, so the correction is explicit.
     extracted.name = nameContrast;
-  } else if (!currentState.name || hasCorrection || HIGH_CONFIDENCE_NAME_RE.test(message)) {
-    const highConfidence = message.match(HIGH_CONFIDENCE_NAME_RE);
-    if (highConfidence) {
-      const trimmed = trimNameAtBoundary(trimToLeadingNameWords(highConfidence[1]));
-      if (trimmed) extracted.name = titleCase(trimmed);
-    } else if (next === "name" && !correctionBlocksBareName(message, extracted)) {
-      // (a date/time change phrased as a correction is a schedule update, never an identity answer)
-      // Strips phone-like digits, recognized date/time text, and common
-      // punctuation ("Trevor, 2428012847" -> "Trevor") before checking
-      // whether what's left looks like a name.
-      const withoutPhone = message.replace(PHONE_LIKE_SUBSTRING_RE, " ");
-      const remainder = stripCorrectionLanguage(stripRecognizedDateTime(withoutPhone).replace(/[,.!?;:]/g, " ")).trim();
-      if (looksLikeName(remainder)) extracted.name = titleCase(remainder);
-    }
+  } else if (introduced && (!currentState.name || hasCorrection || introduced.explicit)) {
+    // PROVENANCE: explicit introduction ("my name is X", "put it under X", "it's for my wife, X"), or ambiguous
+    // phrasing ("I'm X") only while the name is the field being asked.
+    extracted.name = introduced.name;
+  } else if (
+    !currentState.name &&
+    next === "name" &&
+    !correctionBlocksBareName(message, extracted)
+  ) {
+    // (a date/time change phrased as a correction is a schedule update, never an identity answer)
+    const withoutPhone = message.replace(PHONE_LIKE_SUBSTRING_RE, " ");
+    const remainder = stripCorrectionLanguage(
+      stripRecognizedDateTime(withoutPhone).replace(/[,.!?;:]/g, " "),
+    ).trim();
+    if (looksLikeName(remainder) && isPlausibleBareName(remainder, message))
+      extracted.name = bareNameValue(remainder);
   }
 
   return extracted;

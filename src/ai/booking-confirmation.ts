@@ -2,7 +2,13 @@ import { formatTime12h } from "./business-hours";
 import { resolveAppointmentTimestamp } from "./appointment-timestamp";
 import { isIsoDateString, weekdayForIsoDate } from "./date-time";
 import { generateOccurrenceDates, RECURRING_OCCURRENCE_COUNT } from "./recurrence";
-import type { AIProviderRequest, BookingState, BusinessContext, ReceptionistAction, Weekday } from "./types";
+import type {
+  AIProviderRequest,
+  BookingState,
+  BusinessContext,
+  ReceptionistAction,
+  Weekday,
+} from "./types";
 
 /**
  * The ONE shared, application-owned confirmation contract both AIProvider
@@ -168,14 +174,16 @@ function isConfirmingPendingAction(pendingAction: BookingState["pendingAction"])
  * than throwing when it can't be resolved (e.g. date/time missing or
  * malformed) — the confirmation prompt degrades gracefully to the
  * weekday name alone in that case, never blocks on this being available. */
-function resolveDisplayDate(business: BusinessContext, bookingState: BookingState, now?: Date): string | undefined {
+function resolveDisplayDate(
+  business: BusinessContext,
+  bookingState: BookingState,
+  now?: Date,
+): string | undefined {
   if (!bookingState.date || !bookingState.time) return undefined;
   const isIso = isIsoDateString(bookingState.date);
   const resolved = resolveAppointmentTimestamp({
     business,
-    ...(isIso
-      ? { isoDate: bookingState.date }
-      : { weekday: bookingState.date as Weekday }),
+    ...(isIso ? { isoDate: bookingState.date } : { weekday: bookingState.date as Weekday }),
     time: bookingState.time,
     now,
   });
@@ -192,7 +200,11 @@ function resolveDisplayDate(business: BusinessContext, bookingState: BookingStat
  * further to whatever subset of service/date/time is actually known
  * (used for the pre-final-confirmation "here's what I have so far"
  * framing too, not just the hard-gated final prompt). */
-export function buildBookingSummary(business: BusinessContext, bookingState: BookingState, now?: Date): string {
+export function buildBookingSummary(
+  business: BusinessContext,
+  bookingState: BookingState,
+  now?: Date,
+): string {
   const parts: string[] = [];
   if (bookingState.service) parts.push(bookingState.service);
 
@@ -209,7 +221,9 @@ export function buildBookingSummary(business: BusinessContext, bookingState: Boo
     const dateLabel = displayDate ? `${weekdayLabel}, ${displayDate}` : weekdayLabel;
     parts.push(`${dateLabel} at ${formatTime12h(bookingState.time)}`);
   } else if (bookingState.date) {
-    parts.push(isIsoDateString(bookingState.date) ? weekdayForIsoDate(bookingState.date) : bookingState.date);
+    parts.push(
+      isIsoDateString(bookingState.date) ? weekdayForIsoDate(bookingState.date) : bookingState.date,
+    );
   }
 
   return parts.join(" on ");
@@ -280,7 +294,10 @@ function describeRecurrenceInterval(months: number): string {
  * validate a recurring series at all. Never claims a recurring booking
  * exists; always paired with an `escalate` action, never a completing
  * one. */
-export function composeRecurringUnavailableEscalation(service: string | undefined, intervalMonths: number): string {
+export function composeRecurringUnavailableEscalation(
+  service: string | undefined,
+  intervalMonths: number,
+): string {
   const serviceLabel = service ?? "an appointment";
   const intervalLabel = describeRecurrenceInterval(intervalMonths);
   return `I can see you'd like ${serviceLabel} every ${intervalLabel}. Recurring scheduling needs to be finalized by our front desk team, so I haven't booked the recurring series — they'll follow up with you to set it up.`;
@@ -360,7 +377,10 @@ export function composeRecurringConfirmationOrConflict(
     };
   }
 
-  const upcoming = occurrenceDates.slice(1).map((date) => formatOccurrenceDate(date, true)).join("\n");
+  const upcoming = occurrenceDates
+    .slice(1)
+    .map((date) => formatOccurrenceDate(date, true))
+    .join("\n");
   return {
     ready: true,
     occurrenceDates,
@@ -388,4 +408,3 @@ const CONFIRMATION_PROMPT_PATTERNS: RegExp[] = [
 export function looksLikeConfirmationPrompt(text: string): boolean {
   return CONFIRMATION_PROMPT_PATTERNS.some((re) => re.test(text));
 }
-

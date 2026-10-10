@@ -36,7 +36,6 @@ export const noopLanguageObservationRecorder: LanguageObservationRecorder = {
   },
 };
 
-
 /** Real, DB-backed recorder. `normalizedMeaning`/`intent` are stamped
  * with explicit sentinels rather than a guess — this module's whole
  * point is phrases the app did NOT confidently interpret, so there is

@@ -99,7 +99,9 @@ export function createReceptionistTools(
 ): ReceptionistTools {
   switch (resolveBookingBackend(env, Boolean(clinicSimulator))) {
     case "clinic_simulator":
-      return createClinicSimulatorReceptionistTools(clinicSimulator ?? createClinicSimulator(BAHAMAS_DENTAL_SERVICE));
+      return createClinicSimulatorReceptionistTools(
+        clinicSimulator ?? createClinicSimulator(BAHAMAS_DENTAL_SERVICE),
+      );
     case "database":
       return createDatabaseReceptionistTools(BAHAMAS_DENTAL_SERVICE, db);
     case "google_calendar": {

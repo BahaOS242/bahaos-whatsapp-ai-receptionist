@@ -54,7 +54,7 @@ export function isRecurringIntentMessage(message: string): boolean {
  * timezone involved — a calendar date has no timezone of its own). */
 function addCalendarMonths(isoDate: string, months: number): string {
   const [year, month, day] = isoDate.split("-").map((part) => Number.parseInt(part, 10));
-  const totalMonths = (month - 1) + months;
+  const totalMonths = month - 1 + months;
   const targetYear = year + Math.floor(totalMonths / 12);
   const targetMonth = (totalMonths % 12) + 1;
 
@@ -71,7 +71,11 @@ function addCalendarMonths(isoDate: string, months: number): string {
  * date generation — never checks availability itself (see
  * AIProviderRequest.checkAvailability for that, applied by the caller to
  * each date this returns). */
-export function generateOccurrenceDates(startDate: string, intervalMonths: number, count: number): string[] {
+export function generateOccurrenceDates(
+  startDate: string,
+  intervalMonths: number,
+  count: number,
+): string[] {
   const dates: string[] = [startDate];
   for (let i = 1; i < count; i++) {
     dates.push(addCalendarMonths(startDate, intervalMonths * i));

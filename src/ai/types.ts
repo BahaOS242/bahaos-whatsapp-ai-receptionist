@@ -446,7 +446,9 @@ export interface AIProviderRequest {
     date: string,
     time: string,
     durationMinutes: number,
-  ) => { ok: true } | { ok: false; reason: "closed_day" | "outside_hours" | "out_of_range" | "conflict" };
+  ) =>
+    | { ok: true }
+    | { ok: false; reason: "closed_day" | "outside_hours" | "out_of_range" | "conflict" };
 }
 
 export interface AIProvider {
