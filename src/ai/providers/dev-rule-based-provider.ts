@@ -42,18 +42,9 @@ import {
   composeRecurringUnavailableEscalation,
 } from "../booking-confirmation";
 import { truncatePhrase } from "../unclear-phrase";
-import {
-  composeConflictReply,
-  composeExtractiveAnswer,
-  composeNoEvidenceReply,
-} from "../../knowledge/replies";
+import { composeConflictReply, composeExtractiveAnswer, composeNoEvidenceReply } from "../../knowledge/replies";
 import { extractStatedFields as extractSharedStatedFields } from "../message-field-extraction";
-import {
-  detectRecurrenceIntervalMonths,
-  generateOccurrenceDates,
-  isRecurringIntentMessage,
-  RECURRING_OCCURRENCE_COUNT,
-} from "../recurrence";
+import { detectRecurrenceIntervalMonths, generateOccurrenceDates, isRecurringIntentMessage, RECURRING_OCCURRENCE_COUNT } from "../recurrence";
 import type {
   AIProvider,
   AIProviderRequest,
@@ -240,11 +231,7 @@ export class DevRuleBasedAIProvider implements AIProvider {
     if (FAQ_INTENTS.has(intent)) {
       const faqReply = faqReplyFor(business, intent);
       if (bookingState.intent) {
-        return {
-          reply: `${faqReply} ${resumePrompt(business, bookingState)}`,
-          actions: [],
-          bookingState,
-        };
+        return { reply: `${faqReply} ${resumePrompt(business, bookingState)}`, actions: [], bookingState };
       }
       return { reply: faqReply, actions: [], bookingState };
     }
@@ -320,8 +307,7 @@ export class DevRuleBasedAIProvider implements AIProvider {
         // provider has. Recorded purely for future human review — never
         // read back by this turn or any other live behavior (see
         // AIProviderResponse.unclearPhraseObservation's docstring).
-        const unclearPhraseReason =
-          "no recognized intent, service, or active flow matched this message";
+        const unclearPhraseReason = "no recognized intent, service, or active flow matched this message";
         const unclearPhraseContext = bookingState.intent
           ? `intent=${bookingState.intent}; nextRequiredField=${missingFields(bookingState)[0] ?? "none"}`
           : "intent=none";
@@ -460,14 +446,7 @@ const FAQ_INTENTS = new Set<Intent>(["hours", "location", "services", "insurance
 // "do you do X" — which is a question about X, not a request for the list.
 // The gate still sends a bare "what services do you offer" back to the
 // deterministic list (no informative terms).
-const KNOWLEDGE_ELIGIBLE_INTENTS = new Set<Intent>([
-  "unknown",
-  "cancel",
-  "reschedule",
-  "book",
-  "recurring",
-  "services",
-]);
+const KNOWLEDGE_ELIGIBLE_INTENTS = new Set<Intent>(["unknown", "cancel", "reschedule", "book", "recurring", "services"]);
 
 /** Consults the knowledge engine for one turn. Returns a finished
  * response when the engine answered (or refused), undefined to carry on
@@ -486,9 +465,7 @@ async function answerFromKnowledge(
     context: {
       hasActiveIntent: !!bookingState.intent,
       hasPendingConfirmation: !!bookingState.pendingAction,
-      extractedBookingField: Object.entries(extracted).some(
-        ([k, v]) => k !== "intent" && v !== undefined,
-      ),
+      extractedBookingField: Object.entries(extracted).some(([k, v]) => k !== "intent" && v !== undefined),
     },
   });
   if (!lookup.consulted) return undefined;
@@ -683,11 +660,7 @@ function answerPriceInquiry(
     : `Here's our pricing: ${business.services.map((s) => `${s.name} (${s.priceLabel})`).join(", ")}.`;
 
   if (bookingState.intent) {
-    return {
-      reply: `${answer} ${resumePrompt(business, bookingState)}`,
-      actions: [],
-      bookingState,
-    };
+    return { reply: `${answer} ${resumePrompt(business, bookingState)}`, actions: [], bookingState };
   }
   return { reply: answer, actions: [], bookingState };
 }
@@ -732,21 +705,12 @@ const REQUIRED_FIELDS: Record<BookingIntent, (keyof BookingState)[]> = {
   book_appointment: ["service", "date", "time", "name", "phone"],
   reschedule_appointment: ["date", "time", "name", "phone"],
   cancel_appointment: ["name", "phone"],
-  book_recurring_appointment: [
-    "service",
-    "date",
-    "time",
-    "recurrenceIntervalMonths",
-    "name",
-    "phone",
-  ],
+  book_recurring_appointment: ["service", "date", "time", "recurrenceIntervalMonths", "name", "phone"],
 };
 
 function missingFields(state: BookingState): (keyof BookingState)[] {
   if (!state.intent) return [];
-  return REQUIRED_FIELDS[state.intent].filter(
-    (field) => !state[field] || (field === "time" && state.timeClarification),
-  );
+  return REQUIRED_FIELDS[state.intent].filter((field) => !state[field] || (field === "time" && state.timeClarification));
 }
 
 /** Matches the full service name first ("Routine cleaning"), falling back
@@ -1197,16 +1161,11 @@ function presentBookingConfirmation(
   if (clean.intent === "book_recurring_appointment") {
     if (!checkAvailability) {
       return {
-        reply: composeRecurringUnavailableEscalation(
-          clean.service,
-          clean.recurrenceIntervalMonths!,
-        ),
+        reply: composeRecurringUnavailableEscalation(clean.service, clean.recurrenceIntervalMonths!),
         actions: [
           {
             type: "escalate",
-            payload: {
-              reason: "recurring scheduling requested but not safely completable on this backend",
-            },
+            payload: { reason: "recurring scheduling requested but not safely completable on this backend" },
           },
         ],
         bookingState: {},
@@ -1221,11 +1180,7 @@ function presentBookingConfirmation(
   }
 
   const pending: BookingState = { ...clean, pendingAction: "confirm_booking" };
-  return {
-    reply: composeConfirmationPrompt(business, pending),
-    actions: [],
-    bookingState: pending,
-  };
+  return { reply: composeConfirmationPrompt(business, pending), actions: [], bookingState: pending };
 }
 
 /** Resolves pendingAction === "confirm_booking" — the ONLY path that can
@@ -1442,10 +1397,7 @@ function handleFlowTurn(
 
   // A qualified time ("quarter to 3pm", "3pm or 4pm") is never resolved to an hour. Any stored time is kept but marked
   // unresolved (it counts as missing, so nothing is confirmed or booked); one exact time clears the mark.
-  const timeQualified =
-    merged.intent !== undefined &&
-    merged.intent !== "cancel_appointment" &&
-    hasTimeQualifier(message);
+  const timeQualified = merged.intent !== undefined && merged.intent !== "cancel_appointment" && hasTimeQualifier(message);
   if (timeQualified) merged.timeClarification = true;
   else if (stated.time) delete merged.timeClarification;
 
@@ -1459,19 +1411,13 @@ function handleFlowTurn(
   // already enough to know this can't be honored, so there's no point
   // asking for date/time/name/phone first just to escalate anyway. Same
   // early-bypass shape as LLMProvider's identical check.
-  if (
-    merged.intent === "book_recurring_appointment" &&
-    merged.recurrenceIntervalMonths &&
-    !checkAvailability
-  ) {
+  if (merged.intent === "book_recurring_appointment" && merged.recurrenceIntervalMonths && !checkAvailability) {
     return {
       reply: composeRecurringUnavailableEscalation(merged.service, merged.recurrenceIntervalMonths),
       actions: [
         {
           type: "escalate",
-          payload: {
-            reason: "recurring scheduling requested but not safely completable on this backend",
-          },
+          payload: { reason: "recurring scheduling requested but not safely completable on this backend" },
         },
       ],
       bookingState: {},
@@ -1612,9 +1558,7 @@ function handleFlowTurn(
     ? { ...result, reply: `Got it — ${bareMonth}. Which day in ${bareMonth} would you like?` }
     : result;
 
-  return unclearPhraseObservation
-    ? { ...withBareMonthPrompt, unclearPhraseObservation }
-    : withBareMonthPrompt;
+  return unclearPhraseObservation ? { ...withBareMonthPrompt, unclearPhraseObservation } : withBareMonthPrompt;
 }
 
 function askForField(flow: BookingIntent, missing: (keyof BookingState)[]): string {
@@ -1791,16 +1735,11 @@ function completeFlow(
     // honest way regardless.
     if (!checkAvailability) {
       return {
-        reply: composeRecurringUnavailableEscalation(
-          state.service,
-          state.recurrenceIntervalMonths!,
-        ),
+        reply: composeRecurringUnavailableEscalation(state.service, state.recurrenceIntervalMonths!),
         actions: [
           {
             type: "escalate",
-            payload: {
-              reason: "recurring scheduling requested but not safely completable on this backend",
-            },
+            payload: { reason: "recurring scheduling requested but not safely completable on this backend" },
           },
         ],
         bookingState: {},

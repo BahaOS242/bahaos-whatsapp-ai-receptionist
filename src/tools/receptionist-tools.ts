@@ -106,19 +106,14 @@ export function createSimulatedReceptionistTools(business: BusinessContext): Rec
       return { success: true };
     },
 
-    async requestRecurringAppointment(
-      payload: RequestRecurringAppointmentPayload,
-    ): Promise<ToolResult> {
+    async requestRecurringAppointment(payload: RequestRecurringAppointmentPayload): Promise<ToolResult> {
       // Genuinely NOT implemented here — see ReceptionistTools.requestRecurringAppointment's
       // own docstring and Section 9's "do NOT fake it." In practice
       // neither provider ever proposes this action against a backend
       // that doesn't set AIProviderRequest.checkAvailability (only the
       // clinic simulator does), so this is a defensive fallback that
       // should never actually run.
-      console.error(
-        "[simulated tool] request_recurring_appointment REJECTED (not supported by this backend)",
-        payload,
-      );
+      console.error("[simulated tool] request_recurring_appointment REJECTED (not supported by this backend)", payload);
       return {
         success: false,
         error: "Recurring scheduling is not available on this backend.",

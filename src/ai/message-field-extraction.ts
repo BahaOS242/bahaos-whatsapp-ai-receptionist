@@ -482,15 +482,14 @@ export function extractStatedFields(
   // more broadly than hasCorrection already is.
   const hasStaleInvalidSlot = Boolean(
     currentState.date &&
-    currentState.time &&
-    (!isWithinOperatingWindow(business, currentState.date, currentState.time).valid ||
-      !isSlotAvailable(business, currentState.date, currentState.time)),
+      currentState.time &&
+      (!isWithinOperatingWindow(business, currentState.date, currentState.time).valid ||
+        !isSlotAvailable(business, currentState.date, currentState.time)),
   );
 
   // A QUALIFIED time ("quarter to 3pm", "not 3pm", "3pm or 4pm", "from 2pm to 4pm") is never resolved to an hour:
   // no time is stored, any existing time is kept but marked unresolved, and the customer is asked for one exact time.
-  const timeQualified =
-    Boolean(currentState.intent ?? extracted.intent) && hasTimeQualifier(message);
+  const timeQualified = Boolean(currentState.intent ?? extracted.intent) && hasTimeQualifier(message);
   if (timeQualified) {
     extracted.timeClarification = true;
     if (currentState.pendingBareTime) extracted.pendingBareTime = undefined;

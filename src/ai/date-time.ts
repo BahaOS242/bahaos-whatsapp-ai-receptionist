@@ -116,7 +116,7 @@ function resolveRelativeDateWord(text: string, now: Date, timeZone: string): str
     const targetIndex = WEEKDAY_PREFIX_TO_INDEX[prefix];
     if (targetIndex !== undefined) {
       const todayIndex = new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay();
-      const diff = (targetIndex - todayIndex + 7) % 7 || 7;
+      const diff = ((targetIndex - todayIndex + 7) % 7) || 7;
       const d = addCalendarDays(today.year, today.month, today.day, diff);
       return isoDateFromYMD(d.year, d.month, d.day);
     }
