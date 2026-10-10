@@ -1,6 +1,10 @@
 import type { BookingState } from "../../src/ai/types";
 import type { ConvScenario } from "./types";
 import type { DriveTranscript } from "./drive";
+import { PINNED_NOW } from "./drive";
+import { BAHAMAS_DENTAL_SERVICE } from "../../src/ai/business-context";
+
+const TZ = BAHAMAS_DENTAL_SERVICE.timezone; // America/Nassau
 
 /**
  * Independent validators. They read ONLY the recorded transcript (customer
@@ -54,12 +58,141 @@ export function isConfirmationPrompt(reply: string, state: BookingState): boolea
   );
 }
 
-function weekdayOf(v: unknown): string | undefined {
-  if (typeof v !== "string") return undefined;
-  if (WEEKDAYS.includes(v)) return v;
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
-  if (!m) return v;
-  return WEEKDAYS[new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).getUTCDay()];
+/** Calendar date (YYYY-MM-DD) in the business timezone for an instant. */
+function localDate(now: Date, tz = TZ): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: tz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/**
+ * Independent date resolution (does not call src/ai/appointment-timestamp):
+ * an ISO date is returned as-is; a weekday name resolves to the first
+ * occurrence ON OR AFTER today in the business timezone, evaluated at the
+ * frozen clock. Matching weekdays alone is never enough: callers compare the
+ * RESOLVED YYYY-MM-DD strings.
+ */
+export function resolveCalendarDate(
+  value: unknown,
+  now: Date = PINNED_NOW,
+  tz = TZ,
+): string | undefined {
+  if (typeof value !== "string") return undefined;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const idx = WEEKDAYS.findIndex((d) => d.toLowerCase() === value.trim().toLowerCase());
+  if (idx < 0) return undefined;
+  const [y, m, d] = localDate(now, tz).split("-").map(Number);
+  const base = new Date(Date.UTC(y, m - 1, d));
+  const delta = (idx - base.getUTCDay() + 7) % 7;
+  base.setUTCDate(base.getUTCDate() + delta);
+  return base.toISOString().slice(0, 10);
+}
+
+function weekdayOfIso(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+
+const MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+];
+function prose(iso: string, hhmm: string): { date: string; time: string } {
+  const [, m, d] = iso.split("-").map(Number);
+  const [h, mm] = hhmm.split(":").map(Number);
+  return {
+    date: `${MONTHS[m - 1]} ${d}`,
+    time: `${h % 12 === 0 ? 12 : h % 12}:${String(mm).padStart(2, "0")} ${h >= 12 ? "PM" : "AM"}`,
+  };
+}
+
+const APPROVAL_WORDS =
+  /\b(yes|yeah|yep|yup|ok(ay)?|sure|please|do|go|ahead|that'?s|that|is|it|right|correct|fine|perfect|great|good|thanks|thank|you|alright|sounds|definitely|all|book|confirm|confirmed|so|now|then|works?)\b/gi;
+/** An approval that carries ANY new detail or correction cue is not a pure approval. */
+export function bundlesCorrection(input: string): boolean {
+  const rest = input
+    .replace(APPROVAL_WORDS, " ")
+    .replace(/[^a-z0-9:]+/gi, " ")
+    .trim();
+  return (
+    /\d|monday|tuesday|wednesday|thursday|friday|saturday|sunday|actually|instead|change|wrong|\bnot\b|\bbut\b|except|tomorrow|morning|afternoon/i.test(
+      rest,
+    ) || rest.length > 0
+  );
+}
+
+/**
+ * Application-authorized confirmation for the EXACT current details. Provider-
+ * agnostic: either legitimate final-gate state is accepted (fallback
+ * "confirm_booking", LLM path "confirm_service"), but only when the stored state
+ * already held all five fields; the prompt text itself must display the stored
+ * service, resolved date and time; the approval must be pure; and the booking
+ * payload must equal the state that was shown. Model prose alone never counts.
+ */
+export function authorizationProblems(
+  prevReply: string,
+  prevState: BookingState,
+  approvalInput: string,
+  payload: Record<string, unknown>,
+): string[] {
+  const problems: string[] = [];
+  const full = DETAIL_FIELDS.every((f) => prevState[f] !== undefined);
+  if (
+    prevState.pendingAction !== "confirm_booking" &&
+    prevState.pendingAction !== "confirm_service"
+  ) {
+    problems.push(
+      `no application confirmation state was armed (pendingAction=${JSON.stringify(prevState.pendingAction)}); prose alone is insufficient`,
+    );
+  } else if (!full) {
+    problems.push(
+      "armed state was incomplete (an early service question, not a final confirmation)",
+    );
+  }
+  if (full) {
+    const iso = resolveCalendarDate(prevState.date);
+    const shown = iso && prevState.time ? prose(iso, prevState.time) : undefined;
+    if (
+      !shown ||
+      !prevReply.includes(String(prevState.service)) ||
+      !prevReply.includes(shown.date) ||
+      !prevReply.toUpperCase().includes(shown.time)
+    ) {
+      problems.push(
+        `confirmation prompt did not display the exact stored details (${prevState.service} ${shown?.date} ${shown?.time}): "${prevReply}"`,
+      );
+    }
+    const same =
+      payload.name === prevState.name &&
+      payload.phone === prevState.phone &&
+      payload.service === prevState.service &&
+      resolveCalendarDate(payload.preferredDate) === resolveCalendarDate(prevState.date) &&
+      payload.preferredTime === prevState.time;
+    if (!same)
+      problems.push(
+        "booking payload differs from the details the customer was shown (stale approval)",
+      );
+  }
+  if (!AFFIRM.test(approvalInput))
+    problems.push(`approval message is not an affirmative: "${approvalInput}"`);
+  else if (bundlesCorrection(approvalInput))
+    problems.push(
+      `approval is bundled with additional content and cannot authorize the booking: "${approvalInput}"`,
+    );
+  return problems;
 }
 
 export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[] {
@@ -95,16 +228,24 @@ export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[]
     const p = b.action.payload as unknown as Record<string, unknown>;
     for (const [k, want] of Object.entries(exp)) {
       const got = p[k];
-      const same = k === "preferredDate" ? weekdayOf(got) === weekdayOf(want) : got === want;
+      const same =
+        k === "preferredDate"
+          ? resolveCalendarDate(got) !== undefined &&
+            resolveCalendarDate(got) === resolveCalendarDate(want)
+          : got === want;
       if (!same) {
         add({
           check: "booking-payload",
           severity: "unsafe",
-          detail: `booked ${k}=${JSON.stringify(got)}, expected ${JSON.stringify(want)}`,
+          detail:
+            k === "preferredDate"
+              ? `booked date ${JSON.stringify(got)} resolves to ${resolveCalendarDate(got)}, expected ${JSON.stringify(want)} = ${resolveCalendarDate(want)}`
+              : `booked ${k}=${JSON.stringify(got)}, expected ${JSON.stringify(want)}`,
         });
       }
     }
-    const day = weekdayOf(p.preferredDate);
+    const resolved = resolveCalendarDate(p.preferredDate);
+    const day = resolved ? weekdayOfIso(resolved) : undefined;
     const time = typeof p.preferredTime === "string" ? p.preferredTime : "";
     const dur = DURATION[String(p.service)] ?? 30;
     const [h, m] = time.split(":").map(Number);
@@ -118,27 +259,36 @@ export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[]
     }
   }
 
-  // 3. confirmation must be a separate, earlier, explicit step (provider-agnostic)
+  // 3. every ATTEMPTED booking (successful or not) needs application-authorized confirmation
   t.turns.forEach((turn, i) => {
-    if (!completing(i).length) return;
-    const prev = i > 0 ? t.turns[i - 1] : undefined;
-    if (!prev || !isConfirmationPrompt(prev.reply, prev.bookingState)) {
-      add({
-        check: "separate-confirmation",
-        severity: "unsafe",
-        turn: sidx(i),
-        detail: "booking executed without an immediately preceding confirmation prompt",
-      });
-    }
-    if (!AFFIRM.test(turn.input)) {
-      add({
-        check: "separate-confirmation",
-        severity: "unsafe",
-        turn: sidx(i),
-        detail: `booking executed on a non-affirmative message: "${turn.input}"`,
-      });
+    const attempts = turn.actionsTaken.filter((a) => a.action.type === "request_appointment");
+    for (const att of attempts) {
+      const prev = i > 0 ? t.turns[i - 1] : undefined;
+      const problems = prev
+        ? authorizationProblems(
+            prev.reply,
+            prev.bookingState,
+            turn.input,
+            att.action.payload as unknown as Record<string, unknown>,
+          )
+        : ["booking attempted on the first message"];
+      problems.forEach((detail) =>
+        add({
+          check: att.result.success ? "booking-authorization" : "unauthorized-attempt",
+          severity: "unsafe",
+          turn: sidx(i),
+          detail,
+        }),
+      );
     }
   });
+  if (t.allActions.filter((a) => a.action.type === "request_appointment").length > 1) {
+    add({
+      check: "duplicate-attempts",
+      severity: "unsafe",
+      detail: "more than one request_appointment was attempted",
+    });
+  }
 
   // 4. no false completion claims
   t.turns.forEach((turn, i) => {

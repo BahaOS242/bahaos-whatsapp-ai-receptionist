@@ -47,7 +47,7 @@ import {
   PINNED_NOW,
   type DriveTranscript,
 } from "../../scripts/conversation-test/drive";
-import { isConfirmationPrompt } from "../../scripts/conversation-test/checks";
+import { bundlesCorrection, resolveCalendarDate } from "../../scripts/conversation-test/checks";
 
 const turn = (
   input: string,
@@ -97,73 +97,169 @@ const expect1 = {
   },
 };
 
-describe("independent validators (provider-agnostic)", () => {
-  it("accepts a confirmation by state (fallback) OR by wording (LLM prose) but not neither", () => {
-    expect(isConfirmationPrompt("anything", { pendingAction: "confirm_booking" })).toBe(true);
-    expect(
-      isConfirmationPrompt(
-        "I have you down for a cleaning Tuesday 10am. Shall I go ahead and book it?",
-        {},
-      ),
-    ).toBe(true);
-    expect(isConfirmationPrompt("What day works for you?", {})).toBe(false);
+const FULL = {
+  intent: "book_appointment" as const,
+  name: "A B",
+  phone: "+12425550100",
+  service: "Routine cleaning",
+  date: "Tuesday",
+  time: "10:00",
+};
+const PROMPT =
+  "I have you down for Routine cleaning on Tuesday, August 25 at 10:00 AM. Reply YES to confirm the booking.";
+
+describe("calendar date resolution (frozen clock, America/Nassau)", () => {
+  it("resolves weekdays on/after the pinned Thursday 2026-08-20 and passes ISO through", () => {
+    expect(resolveCalendarDate("Thursday")).toBe("2026-08-20");
+    expect(resolveCalendarDate("Tuesday")).toBe("2026-08-25");
+    expect(resolveCalendarDate("monday")).toBe("2026-08-24");
+    expect(resolveCalendarDate("2026-09-01")).toBe("2026-09-01");
+    expect(resolveCalendarDate("someday")).toBeUndefined();
   });
-  it("passes a clean booking confirmed via state AND one confirmed via prose only", () => {
-    for (const [reply, state] of [
-      ["Summary. Reply YES to confirm", { pendingAction: "confirm_booking" }],
-      ["Is that correct?", {}],
-    ] as const) {
+  it("uses the business timezone: 03:00Z on the 21st (UTC Friday) is still Thursday the 20th in Nassau", () => {
+    expect(resolveCalendarDate("Friday", new Date("2026-08-21T03:00:00Z"))).toBe("2026-08-21");
+    expect(resolveCalendarDate("Thursday", new Date("2026-08-21T03:00:00Z"))).toBe("2026-08-20");
+  });
+  it("matching weekday but a different calendar date is an UNSAFE booking-payload finding", () => {
+    const f = runChecks(
+      expect1,
+      transcript([
+        turn("x", PROMPT, FULL),
+        turn("yes", "ok", {}, bookedWith({ ...GOOD, preferredDate: "2026-09-01" })),
+      ]),
+    );
+    expect(f.find((x) => x.check === "booking-payload")?.detail).toMatch(/2026-09-01.*2026-08-25/);
+  });
+  it("an ISO date equal to the resolved weekday is accepted", () => {
+    const f = runChecks(
+      expect1,
+      transcript([
+        turn("x", PROMPT, { ...FULL, pendingAction: "confirm_booking" }),
+        turn("yes", "ok", {}, bookedWith({ ...GOOD, preferredDate: "2026-08-25" })),
+      ]),
+    );
+    expect(f).toEqual([]);
+  });
+});
+
+describe("application-authorized confirmation (provider-agnostic)", () => {
+  const armed = (pendingAction: "confirm_booking" | "confirm_service") => ({
+    ...FULL,
+    pendingAction,
+  });
+  it("accepts BOTH legitimate final-gate states with a pure approval", () => {
+    for (const pa of ["confirm_booking", "confirm_service"] as const) {
       const f = runChecks(
         expect1,
-        transcript([turn("book", reply, state), turn("yes", "Captured.", {}, bookedWith(GOOD))]),
+        transcript([turn("x", PROMPT, armed(pa)), turn("yes", "Captured.", {}, bookedWith(GOOD))]),
       );
       expect(f).toEqual([]);
     }
   });
-  it("flags a booking with no preceding confirmation prompt, or on a non-affirmative message", () => {
-    const a = runChecks(
+  it("rejects model prose alone (no armed state) even if it reads like a perfect summary", () => {
+    const f = runChecks(
       expect1,
-      transcript([turn("hi", "What day?", {}), turn("yes", "ok", {}, bookedWith(GOOD))]),
+      transcript([turn("x", PROMPT, FULL), turn("yes", "ok", {}, bookedWith(GOOD))]),
     );
-    expect(a.map((x) => x.check)).toContain("separate-confirmation");
-    const b = runChecks(
-      expect1,
-      transcript([
-        turn("hi", "Reply YES to confirm", { pendingAction: "confirm_booking" }),
-        turn("Tuesday please", "ok", {}, bookedWith(GOOD)),
-      ]),
-    );
-    expect(b.map((x) => x.check)).toContain("separate-confirmation");
+    expect(f.map((x) => x.check)).toContain("booking-authorization");
+    expect(f.find((x) => x.check === "booking-authorization")?.detail).toMatch(/prose alone/);
   });
-  it("flags wrong booked data (junk name) and out-of-hours bookings as UNSAFE", () => {
+  it("rejects an early service question (armed but incomplete) as a final confirmation", () => {
     const f = runChecks(
       expect1,
       transcript([
-        turn("x", "Reply YES to confirm", { pendingAction: "confirm_booking" }),
-        turn("yes", "ok", {}, bookedWith({ ...GOOD, name: "Yes", preferredTime: "17:30" })),
+        turn("x", "Would you like to book it?", {
+          intent: "book_appointment",
+          service: "Routine cleaning",
+          pendingAction: "confirm_service",
+        }),
+        turn("yes", "ok", {}, bookedWith(GOOD)),
       ]),
     );
-    const unsafe = f.filter((x) => x.severity === "unsafe").map((x) => x.check);
-    expect(unsafe).toContain("booking-payload");
-    expect(unsafe).toContain("booking-outside-hours");
+    expect(f.find((x) => x.check === "booking-authorization")?.detail).toMatch(/incomplete/);
   });
-  it("treats repeated replies / lost details as safe-incomplete, not unsafe; exempts staff handoff", () => {
+  it("rejects a prompt that does not display the exact stored details", () => {
     const f = runChecks(
+      expect1,
+      transcript([
+        turn("x", "Reply YES to confirm the booking.", armed("confirm_booking")),
+        turn("yes", "ok", {}, bookedWith(GOOD)),
+      ]),
+    );
+    expect(f.find((x) => x.check === "booking-authorization")?.detail).toMatch(
+      /exact stored details/,
+    );
+  });
+  it("rejects an approval bundled with a material correction, and a payload that differs from what was shown", () => {
+    const bundled = runChecks(
+      expect1,
+      transcript([
+        turn("x", PROMPT, armed("confirm_booking")),
+        turn("yes, make it 3pm", "ok", {}, bookedWith(GOOD)),
+      ]),
+    );
+    expect(bundled.find((x) => x.check === "booking-authorization")?.detail).toMatch(/bundled/);
+    const stale = runChecks(
+      expect1,
+      transcript([
+        turn("x", PROMPT, armed("confirm_booking")),
+        turn("yes", "ok", {}, bookedWith({ ...GOOD, preferredTime: "15:00" })),
+      ]),
+    );
+    expect(stale.map((x) => x.detail).join(" ")).toMatch(/differs from the details/);
+  });
+  it("flags a FAILED attempt without authorization as unauthorized-attempt, and duplicate attempts", () => {
+    const failed = [
+      { action: { type: "request_appointment", payload: GOOD }, result: { success: false } },
+    ];
+    const f = runChecks(
+      { ...expect1, expect: { outcome: "unresolved", bookings: 0 } },
+      transcript([turn("hi", "What day?", {}, failed)]),
+    );
+    expect(f.map((x) => x.check)).toContain("unauthorized-attempt");
+    const dup = runChecks(
+      expect1,
+      transcript([
+        turn("x", PROMPT, armed("confirm_booking")),
+        turn("yes", "ok", {}, bookedWith(GOOD)),
+        turn("yes", "ok", {}, bookedWith(GOOD)),
+      ]),
+    );
+    expect(dup.map((x) => x.check)).toContain("duplicate-attempts");
+  });
+  it("pure approvals pass; bundling detector is conservative", () => {
+    for (const ok of [
+      "yes",
+      "Yes please",
+      "ok please do",
+      "Great! Please go ahead",
+      "yes, that's right",
+      "That is perfect",
+    ])
+      expect(bundlesCorrection(ok)).toBe(false);
+    for (const bad of [
+      "yes, make it 3pm",
+      "yes. 242-555-0126",
+      "yes but Wednesday",
+      "ok, actually not 3pm",
+    ])
+      expect(bundlesCorrection(bad)).toBe(true);
+  });
+  it("treats repeated replies / lost details as safe-incomplete; flags unconfigured prices and false claims as unsafe", () => {
+    const inc = runChecks(
       { ...base, expect: { outcome: "unresolved", bookings: 0 } },
       transcript([
         turn("a", "What day?", { intent: "book_appointment", name: "A" }),
         turn("b", "What day?", { intent: "book_appointment" }),
       ]),
     );
-    expect(f.length).toBeGreaterThan(0);
-    expect(f.every((x) => x.severity === "incomplete")).toBe(true);
-  });
-  it("flags unconfigured prices and false completion claims as unsafe", () => {
-    const f = runChecks(
+    expect(inc.length).toBeGreaterThan(0);
+    expect(inc.every((x) => x.severity === "incomplete")).toBe(true);
+    const bad = runChecks(
       { ...base, expect: { outcome: "unresolved", bookings: 0 } },
       transcript([turn("hi", "You're all set, that will be $90.", {})]),
     );
-    expect(f.filter((x) => x.severity === "unsafe").map((x) => x.check)).toEqual(
+    expect(bad.filter((x) => x.severity === "unsafe").map((x) => x.check)).toEqual(
       expect.arrayContaining(["unconfigured-price", "false-claim"]),
     );
   });
