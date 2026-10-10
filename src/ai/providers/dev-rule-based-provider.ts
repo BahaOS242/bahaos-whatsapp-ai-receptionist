@@ -203,7 +203,14 @@ export class DevRuleBasedAIProvider implements AIProvider {
       if (answered) return answered;
     }
     if (intent === "price") {
-      return answerPriceInquiry(business, bookingState, message);
+      const priceReply = answerPriceInquiry(business, bookingState, message);
+      if (bookingState.intent && !priceReply.reply.includes("Would you like to book")) {
+        // The same message may also carry booking details ("9am works. What will it cost?"): absorb them, then answer.
+        const flow = await handleFlowTurn(business, bookingState, message, request.checkAvailability);
+        const answer = priceReply.reply.replace(resumePrompt(business, bookingState), "").trim();
+        return { ...flow, reply: `${answer} ${flow.reply}`.trim() };
+      }
+      return priceReply;
     }
     if (FAQ_INTENTS.has(intent)) {
       const faqReply = faqReplyFor(business, intent);
@@ -366,7 +373,8 @@ function looksLikeAmbiguousCompound(text: string): boolean {
 /** "How much is X" / "what's the price/cost" — a price inquiry, answered
  * using whatever service is contextually relevant (see
  * answerPriceInquiry) rather than always listing everything. */
-const PRICE_RE = /\bhow much\b|\bwhat'?s the (price|cost)\b|\bwhat (is|are) the (price|cost)\b/i;
+const PRICE_RE =
+  /\bhow much\b|\bwhat'?s the (price|cost)\b|\bwhat (is|are) the (price|cost)\b|\bwhat (will|would|does|do) (it|that|this|the \w+) cost\b|\b(fee|fees|charge|charges)\b|\bhow (pricey|expensive)\b|\bwhat do you charge\b/i;
 
 function detectIntent(text: string): Intent {
   if (EMERGENCY_RE.test(text)) return "emergency";
@@ -1091,6 +1099,15 @@ function handleBookingConfirmation(
   if (answer === "yes") {
     const { pendingAction: _pendingAction, pendingBareTime: _pendingBareTime, ...clean } = state;
     return completeFlow(business, state.intent!, clean, checkAvailability);
+  }
+  if (answer === "no" && /\b(?:that(?:'s| is)? (?:right|correct)|sounds (?:right|good|correct)|looks (?:right|good|correct))\b/i.test(message)) {
+    // "No, that sounds right": a "no" to "anything to change?" that also agrees. Never read as a decline OR an
+    // approval — ask once, plainly, with the exact summary.
+    return {
+      reply: `Just to be sure I get this right — ${composeConfirmationPrompt(business, state)}`,
+      actions: [],
+      bookingState: state,
+    };
   }
   if (answer === "no") {
     const { pendingAction: _pendingAction, ...preserved } = state;

@@ -286,3 +286,48 @@ describe("identity provenance in context", () => {
     });
   });
 });
+
+describe("mixed messages: details are absorbed AND the question is answered", () => {
+  it("'9am works. What will it cost?' stores 9am and states the configured price", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes", "Tuesday 8am"]);
+    const t = await c.say("9am works. What will it cost?");
+    expect(t.bookingState).toMatchObject({ date: "Tuesday", time: "09:00" });
+    expect(t.reply).toMatch(/B\$125/);
+    expect(t.reply).toMatch(/name/i); // moves on to the next missing detail
+  });
+  it("'Can you ask what the exam fee is?' is a price question, not a request for a person", async () => {
+    const c = devConversation();
+    await c.sayAll(["I think I'm due for a check-up, can you set up an appointment?"]);
+    const t = await c.say("Can you ask what the exam fee is?");
+    expect(t.reply).toMatch(/B\$75/);
+    expect(t.actionsTaken).toEqual([]);
+  });
+  it("'What about 8am?' proposes a time; it is not an approximate time", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes", "Tuesday"]);
+    const t = await c.say("What about 8am?");
+    expect(t.reply).toMatch(/outside our hours/i);
+    expect(t.reply).not.toMatch(/exactly right/i);
+  });
+  it("'No, that sounds right' after the summary is neither a decline nor an approval: it asks once, plainly", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes", "Tuesday 2pm", "Gina Hart 242-555-0121"]);
+    const t = await c.say("No, that sounds right.");
+    expect(bookings(c)).toHaveLength(0);
+    expect(t.bookingState.pendingAction).toBe("confirm_booking");
+    expect(t.reply).toMatch(/Just to be sure/);
+    await c.say("yes");
+    expect(bookings(c)).toHaveLength(1);
+  });
+  it.each([
+    ["I want the cheapest option under B$100", /lowest-priced.*Dental consultation.*B\$75/],
+    ["Does the clinic have at least four stars?", /don't have that information/],
+    ["Can I get a window chair too?", /don't have that information/],
+  ])("%j", async (q, expected) => {
+    const c = devConversation();
+    const t = await c.say(q);
+    expect(t.reply).toMatch(expected);
+    expect(t.actionsTaken).toEqual([]);
+  });
+});

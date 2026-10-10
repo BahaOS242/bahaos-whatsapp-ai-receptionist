@@ -327,7 +327,9 @@ const TIME_QUALIFIER_RES: RegExp[] = [
  * "around 3pm". Picking any single hour out of such a message is a guess
  * (the first "N pm" is often the opposite of what was meant), so the time
  * parsers return undefined for it and the caller asks for ONE clear time. */
-export function hasTimeQualifier(text: string): boolean {
+export function hasTimeQualifier(raw: string): boolean {
+  // "What about 8am?" / "how about 3pm" PROPOSE a time; they do not make it approximate ("about 8am").
+  const text = raw.replace(/\b(what|how) about\b/gi, "$1_about");
   if (TIME_QUALIFIER_RES.some((re) => re.test(text))) return true;
   // "not 3pm" with no time stated before it. A time BEFORE the "not" is the stated one ("make it 3pm not 2pm").
   const negated = NEGATED_TIME_RE.exec(text);

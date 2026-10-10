@@ -21,7 +21,11 @@ import { renderReports } from "./report";
 import type { ConvScenario } from "./types";
 
 export type Status = "pass" | "fail" | "incomplete" | "not-run";
-export type Category = "pass" | "unsafe" | "safe-incomplete" | "script-mismatch" | "harness-error";
+export type Category =
+  "pass" | "completed-quality" | "unsafe" | "safe-incomplete" | "script-mismatch" | "harness-error";
+/** COMPLETION is reported separately from SAFETY. */
+export type Completion =
+  "completed-exact" | "no-booking-as-expected" | "not-completed" | "outcome-mismatch";
 export type ProviderName = "dev-rule-based fallback" | "scripted LLM fixture";
 
 export interface ResultRecord {
@@ -30,6 +34,7 @@ export interface ResultRecord {
   mode: Mode;
   status: Status;
   category: Category;
+  completion?: Completion;
   actualOutcome?: string;
   findings: Finding[];
   /** Safe-incomplete run whose only defect signal is the receptionist re-asking a
@@ -137,16 +142,31 @@ async function runOne(s: ConvScenario, provider: ProviderName, mode: Mode): Prom
       !findings.some((f) =>
         ["detail-loss", "reply-must-match", "reply-must-not-match"].includes(f.check),
       );
+    const successes = transcript.allActions.filter(
+      (a) => a.action.type === "request_appointment" && a.result.success,
+    ).length;
+    const completion: Completion =
+      s.expect.bookings === 1
+        ? successes === 1 && !unsafe
+          ? "completed-exact"
+          : "not-completed"
+        : successes === 0 && actual === s.expect.outcome
+          ? "no-booking-as-expected"
+          : "outcome-mismatch";
+    const completedOk = completion === "completed-exact" || completion === "no-booking-as-expected";
     return {
       ...base,
       status: findings.length ? "fail" : "pass",
+      completion,
       category: !findings.length
         ? "pass"
         : unsafe
           ? "unsafe"
           : findings.some((f) => f.check === "fixture-order-mismatch")
             ? "script-mismatch"
-            : "safe-incomplete",
+            : completedOk
+              ? "completed-quality"
+              : "safe-incomplete",
       findings,
       probableScriptMismatch: probable,
       actualOutcome: actual,
@@ -209,7 +229,7 @@ export async function main() {
     if (
       r.provider !== "dev-rule-based fallback" ||
       r.mode !== "fixed" ||
-      r.category !== "safe-incomplete"
+      (r.category !== "safe-incomplete" && r.category !== "completed-quality")
     )
       continue;
     const twin = results.find(
@@ -233,7 +253,7 @@ export async function main() {
   renderReports(meta, results);
   const n = (c: Category) => results.filter((r) => r.category === c).length;
   console.log(
-    `commit=${git.commit} dirty=${meta.dirty} executed=${results.length} pass=${n("pass")} unsafe=${n("unsafe")} safe-incomplete=${n("safe-incomplete")} script-mismatch=${n("script-mismatch")} harness-error=${n("harness-error")} held-out not-run=${heldOutIds.length}`,
+    `commit=${git.commit} dirty=${meta.dirty} executed=${results.length} pass=${n("pass")} completed-quality=${n("completed-quality")} unsafe=${n("unsafe")} safe-incomplete=${n("safe-incomplete")} script-mismatch=${n("script-mismatch")} harness-error=${n("harness-error")} held-out not-run=${heldOutIds.length}`,
   );
 }
 

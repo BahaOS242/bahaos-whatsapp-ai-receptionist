@@ -375,9 +375,27 @@ export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[]
     const intentCleared = !turn.bookingState.intent && Object.keys(known).length > 0;
     for (const f of DETAIL_FIELDS) {
       const now = turn.bookingState[f];
+      // A day/time the receptionist explained was unavailable (closed, outside hours, taken) is legitimately
+      // dropped, and "2026-08-20" vs "Thursday" is the same day written differently — neither is a lost detail.
+      const explainedInvalid =
+        (f === "date" || f === "time") &&
+        /outside our hours|we(?:'| a)re closed|closed on|isn't available|no longer available|already taken/i.test(
+          turn.reply,
+        );
+      const sameDay =
+        f === "date" &&
+        now !== undefined &&
+        known[f] !== undefined &&
+        resolveCalendarDate(now, turn.bookingState.time) ===
+          resolveCalendarDate(known[f], turn.bookingState.time);
+      if (explainedInvalid && now === undefined) {
+        delete known[f];
+        continue;
+      }
       if (
         known[f] !== undefined &&
         now !== known[f] &&
+        !sameDay &&
         !ok.has(f) &&
         !resetsAll &&
         !intentCleared &&

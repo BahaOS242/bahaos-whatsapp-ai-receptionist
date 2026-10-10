@@ -1174,7 +1174,7 @@ export const adaptations: ConvScenario[] = [
         },
         { turn: 2, mustNotMatch: ["booked|confirmed"], why: "8pm is after hours" },
       ],
-      corrections: [{ turn: 5, fields: ["date", "time"] }],
+      corrections: [{ turn: 5, fields: ["service", "date", "time"] }],
     }),
   ),
   S(

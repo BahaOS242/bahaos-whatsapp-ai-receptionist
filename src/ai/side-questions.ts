@@ -27,20 +27,25 @@ export interface SideAnswer {
 
 const DESCRIBE_RE =
   /\bwhat (?:does|do) (?:each|every|all)\b|\bwhat does each one\b|\bexplain (?:each|the|these) (?:one|service)s?\b|\bwhat(?:'s| is) (?:the )?difference\b|\bwhat do (?:they|these|those) (?:do|include|involve|mean)\b|\bwhat'?s included\b/i;
-const DURATION_RE = /\bhow long\b(?!.*\b(?:open|until|been|have you)\b)|\bhow many minutes\b|\bhow much time\b/i;
-const DIRECTIONS_RE = /\bdirections?\b|\bhow (?:do|can|would|should) i get (?:there|to (?:you|the (?:clinic|office|place)))\b|\bhow to get there\b/i;
+const DURATION_RE =
+  /\bhow long\b(?!.*\b(?:open|until|been|have you)\b)|\bhow many minutes\b|\bhow much time\b/i;
+const DIRECTIONS_RE =
+  /\bdirections?\b|\bhow (?:do|can|would|should) i get (?:there|to (?:you|the (?:clinic|office|place)))\b|\bhow to get there\b/i;
 const OTHER_TIMES_RE =
   /\b(?:other|another|different|any other|more|alternative|earlier|later)\s+(?:times?|slots?|options?)\b|\banything\s+(?:else|earlier|later|sooner|available|open)\b|\bwhat times?\s+(?:are|do|is)\b|\bavailable\s+(?:times?|slots?)\b|\bnext availab|\bwhen is the next\b/i;
 const UNKNOWN_FACT_RE =
-  /\b(?:accept|take)\s+(?:checks?|cash|cards?|credit|debit|visa|mastercard|payment|apple pay)\b|\bpay(?:ment)?\s+(?:plans?|methods?|options?)\b|\bpay(?:ing)?\s+(?:by|with|in)\s+(?:checks?|cash|cards?)\b|\bdo you (?:take|accept)\b.*\b(?:checks?|cash|cards?)\b|\bparking\b|\bshuttle\b|\b(?:ride|rides|transport(?:ation)?)\b|\bloaner\b|\brental\b|\bwheelchair\b|\baccessib|\bdress code\b|\bwi-?fi\b|\bhigh chair\b|\bbooster\b|\bchild seat\b|\bdiscounts?\b|\bpromotions?\b|\bspecials?\b|\bfinancing\b|\bwhich dentist\b|\bwho(?:'s| is)? (?:the )?(?:dentist|doctor)\b|\bdr\.?\s+[a-z]+/i;
+  /\b(?:window|outdoor|patio|booth|corner|quiet)\b.{0,30}\b(?:chair|seat|seating|room|table|space)\b|\b(?:chair|seat|table)\b.{0,20}\b(?:near|by|with a)\b.{0,20}\b(?:window|view|fireplace)\b|\b(?:water |ocean |sunset )?views?\b|\b(?:star|stars|ratings?|reviews?|yelp|google)\b|\bwhat (?:building|hotel)\b|\b(?:accept|take)\s+(?:checks?|cash|cards?|credit|debit|visa|mastercard|payment|apple pay)\b|\bpay(?:ment)?\s+(?:plans?|methods?|options?)\b|\bpay(?:ing)?\s+(?:by|with|in)\s+(?:checks?|cash|cards?)\b|\bdo you (?:take|accept)\b.*\b(?:checks?|cash|cards?)\b|\bparking\b|\bshuttle\b|\b(?:ride|rides|transport(?:ation)?)\b|\bloaner\b|\brental\b|\bwheelchair\b|\baccessib|\bdress code\b|\bwi-?fi\b|\bhigh chair\b|\bbooster\b|\bchild seat\b|\bdiscounts?\b|\bpromotions?\b|\bspecials?\b|\bfinancing\b|\bwhich dentist\b|\bwho(?:'s| is)? (?:the )?(?:dentist|doctor)\b|\bdr\.?\s+[a-z]+/i;
 const UNSUPPORTED_SERVICE_RE =
   /\b(?:whiten(?:ing)?|braces|invisalign|aligners?|implants?|dentures?|veneers?|bridges?|extractions?|wisdom (?:teeth|tooth)|x-?rays?|sedation|orthodont\w*|tires?|oil change|brakes?|rotated)\b/i;
+const CHEAPEST_RE =
+  /\b(?:cheapest|least expensive|lowest price|most affordable|cheap(?:er)? option|under b?\$\s?\d+)\b/i;
 const RECOMMEND_RE =
   /\bwhich (?:one|service|treatment)\b.*\b(?:best|good|better|recommend|need|should)\b|\bwhat do you recommend\b|\bwhich do you recommend\b|\bwhat should i (?:get|have|book|do)\b/i;
 const SYMPTOM_BODY_RE = /\b(?:tooth|teeth|gums?|jaw|mouth|crown|filling|molar)\b/i;
 const SYMPTOM_PROBLEM_RE =
   /\b(?:hurts?|hurting|pain(?:ful)?|ache|aching|sore|sensitive|loose|broken|chipped|cracked|bleed(?:s|ing)?|wrong|problem|issue|toothache|came loose|fell out)\b/i;
-const CHECK_REQUEST_RE = /\b(?:get|have|want|need|should get)\s+(?:my\s+)?(?:teeth|tooth|mouth)\s+(?:checked|looked at|examined)\b/i;
+const CHECK_REQUEST_RE =
+  /\b(?:get|have|want|need|should get)\s+(?:my\s+)?(?:teeth|tooth|mouth)\s+(?:checked|looked at|examined)\b/i;
 
 const FRONT_DESK =
   "I don't have that information on hand, and I won't guess — the front desk can confirm it. I can pass your question to the team if you'd like.";
@@ -91,6 +96,18 @@ export function answerSideQuestion(
     return {
       kind: "other_times",
       answer: `I can't see live openings from here, but we're open ${business.hours}. Tell me a day and a time within those hours and I'll set it up.`,
+    };
+  }
+  if (CHEAPEST_RE.test(message)) {
+    const cheapest = [...business.services].sort(
+      (a, b) => Number(a.priceLabel.replace(/\D/g, "")) - Number(b.priceLabel.replace(/\D/g, "")),
+    )[0];
+    return {
+      kind: "recommendation",
+      answer: `The lowest-priced service I can book is ${cheapest.name} at ${cheapest.priceLabel}. Prices for the others: ${business.services
+        .filter((s) => s !== cheapest)
+        .map((s) => `${s.name} ${s.priceLabel}`)
+        .join("; ")}.`,
     };
   }
   if (UNKNOWN_FACT_RE.test(message)) return { kind: "unknown_fact", answer: FRONT_DESK };
