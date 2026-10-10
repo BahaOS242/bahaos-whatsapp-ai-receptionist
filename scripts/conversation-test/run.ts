@@ -235,7 +235,14 @@ export async function main() {
     const twin = results.find(
       (x) => x.scenario.id === r.scenario.id && x.provider === r.provider && x.mode === "adaptive",
     );
-    if (twin?.category === "pass") r.category = "script-mismatch";
+    // the same scenario completes once the customer answers what was asked => the fixed script was the problem
+    if (
+      twin?.category === "pass" ||
+      twin?.completion === "completed-exact" ||
+      twin?.completion === "no-booking-as-expected"
+    ) {
+      r.category = "script-mismatch";
+    }
   }
 
   const meta = {

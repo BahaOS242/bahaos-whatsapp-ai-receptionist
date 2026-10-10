@@ -47,8 +47,10 @@ const SYMPTOM_PROBLEM_RE =
 const CHECK_REQUEST_RE =
   /\b(?:get|have|want|need|should get)\s+(?:my\s+)?(?:teeth|tooth|mouth)\s+(?:checked|looked at|examined)\b/i;
 
+// Deliberately NOT a yes/no question: mid-booking a second "would you like...?" would make the next "yes" ambiguous
+// (an answer to this vs approval of the booking summary).
 const FRONT_DESK =
-  "I don't have that information on hand, and I won't guess — the front desk can confirm it. I can pass your question to the team if you'd like.";
+  "I don't have that information on hand, and I won't guess — the front desk can confirm it. Say \"talk to someone\" if you'd like a team member to follow up.";
 
 export function answerSideQuestion(
   business: BusinessContext,
@@ -65,7 +67,7 @@ export function answerSideQuestion(
     if (!(SYMPTOM_PROBLEM_RE.test(message) && SYMPTOM_BODY_RE.test(message))) {
       return {
         kind: "unsupported_service",
-        answer: `That isn't one of the services I can book here — I can book ${list}. The team can tell you whether they offer it; I can pass your question along.`,
+        answer: `That isn't one of the services I can book here — I can book ${list}. The team can tell you whether they offer it — say \"talk to someone\" if you'd like them to follow up.`,
       };
     }
   }

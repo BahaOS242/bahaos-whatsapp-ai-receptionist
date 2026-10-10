@@ -331,3 +331,39 @@ describe("mixed messages: details are absorbed AND the question is answered", ()
     expect(t.actionsTaken).toEqual([]);
   });
 });
+
+describe("a bare-hour correction at the confirmation step is never silently ignored", () => {
+  it("'Actually, can we do 2:30?' (no am/pm) drops the stale approval, asks AM or PM, and books only the confirmed 2:30 PM once", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a filling", "yes", "Friday 2pm", "Joy Hall 242-555-0151"]);
+    expect(c.last.bookingState.pendingAction).toBe("confirm_booking");
+    const t = await c.say("Actually, can we do 2:30?");
+    expect(t.bookingState.time).toBeUndefined();
+    expect(t.bookingState.pendingAction).toBeUndefined();
+    expect(t.reply).toMatch(/2:30 AM or 2:30 PM/);
+    const y = await c.say("yes");
+    expect(bookings(c)).toHaveLength(0);
+    expect(y.reply).not.toMatch(/reply yes/i);
+    const p = await c.say("pm");
+    expect(p.bookingState).toMatchObject({
+      time: "16:30",
+      pendingAction: "confirm_booking",
+      name: "Joy Hall",
+    });
+    await c.say("yes");
+    expect(bookings(c)).toHaveLength(1);
+    expect(bookings(c)[0].action.payload).toMatchObject({
+      preferredTime: "16:30",
+      name: "Joy Hall",
+    });
+  });
+  it("the unknown-fact answer is a statement, not a second yes/no question (so the next yes is unambiguous)", async () => {
+    const c = devConversation();
+    await c.sayAll(["I need a cleaning", "yes", "Tuesday 2pm", "Gina Hart 242-555-0121"]);
+    const t = await c.say("Do you offer a shuttle?");
+    expect(t.reply).not.toMatch(/would you like|if you'd like me|pass your question/i);
+    expect(t.reply).toMatch(/talk to someone/);
+    await c.say("yes");
+    expect(bookings(c)).toHaveLength(1);
+  });
+});

@@ -113,6 +113,13 @@ export function analyzeScheduleMessage(
     }
   }
 
+  // "Actually, can we do 4:30?" with a time already stored: a bare hour (no am/pm) that differs from the stored time is a
+  // change request, not noise. Drop the stored time (and with it the stale approval) so the receptionist asks AM or PM.
+  if (!hadRejection && stored.time && hasProposalCue) {
+    const bare = parseBareHour(text);
+    if (bare && parseTime(text) === undefined && !sameBare(text, stored.time)) clearTime = true;
+  }
+
   if (!hadRejection && text === norm(message)) {
     return {
       proposalText: norm(message),
