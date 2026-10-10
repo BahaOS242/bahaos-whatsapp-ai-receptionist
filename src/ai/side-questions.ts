@@ -67,7 +67,7 @@ export function answerSideQuestion(
     if (!(SYMPTOM_PROBLEM_RE.test(message) && SYMPTOM_BODY_RE.test(message))) {
       return {
         kind: "unsupported_service",
-        answer: `That isn't one of the services I can book here — I can book ${list}. The team can tell you whether they offer it — say \"talk to someone\" if you'd like them to follow up.`,
+        answer: `That isn't one of the services I can book here — I can book ${list}. The team can tell you whether they offer it — say "talk to someone" if you'd like them to follow up.`,
       };
     }
   }

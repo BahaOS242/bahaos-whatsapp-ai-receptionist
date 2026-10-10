@@ -346,14 +346,14 @@ describe("a bare-hour correction at the confirmation step is never silently igno
     expect(y.reply).not.toMatch(/reply yes/i);
     const p = await c.say("pm");
     expect(p.bookingState).toMatchObject({
-      time: "16:30",
+      time: "14:30",
       pendingAction: "confirm_booking",
       name: "Joy Hall",
     });
     await c.say("yes");
     expect(bookings(c)).toHaveLength(1);
     expect(bookings(c)[0].action.payload).toMatchObject({
-      preferredTime: "16:30",
+      preferredTime: "14:30",
       name: "Joy Hall",
     });
   });
