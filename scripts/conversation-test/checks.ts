@@ -77,6 +77,7 @@ function localDate(now: Date, tz = TZ): string {
  */
 export function resolveCalendarDate(
   value: unknown,
+  time?: unknown,
   now: Date = PINNED_NOW,
   tz = TZ,
 ): string | undefined {
@@ -88,6 +89,17 @@ export function resolveCalendarDate(
   const base = new Date(Date.UTC(y, m - 1, d));
   const delta = (idx - base.getUTCDay() + 7) % 7;
   base.setUTCDate(base.getUTCDate() + delta);
+  // A weekday whose stated time has already passed today means NEXT week.
+  if (delta === 0 && typeof time === "string" && /^\d{1,2}:\d{2}$/.test(time)) {
+    const nowLocal = new Intl.DateTimeFormat("en-GB", {
+      timeZone: tz,
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    }).format(now);
+    const toMin = (hhmm: string) => hhmm.split(":").reduce((a, v) => a * 60 + Number(v), 0);
+    if (toMin(time) <= toMin(nowLocal)) base.setUTCDate(base.getUTCDate() + 7);
+  }
   return base.toISOString().slice(0, 10);
 }
 
@@ -163,7 +175,7 @@ export function authorizationProblems(
     );
   }
   if (full) {
-    const iso = resolveCalendarDate(prevState.date);
+    const iso = resolveCalendarDate(prevState.date, prevState.time);
     const shown = iso && prevState.time ? prose(iso, prevState.time) : undefined;
     if (
       !shown ||
@@ -179,7 +191,8 @@ export function authorizationProblems(
       payload.name === prevState.name &&
       payload.phone === prevState.phone &&
       payload.service === prevState.service &&
-      resolveCalendarDate(payload.preferredDate) === resolveCalendarDate(prevState.date) &&
+      resolveCalendarDate(payload.preferredDate, payload.preferredTime) ===
+        resolveCalendarDate(prevState.date, prevState.time) &&
       payload.preferredTime === prevState.time;
     if (!same)
       problems.push(
@@ -230,8 +243,9 @@ export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[]
       const got = p[k];
       const same =
         k === "preferredDate"
-          ? resolveCalendarDate(got) !== undefined &&
-            resolveCalendarDate(got) === resolveCalendarDate(want)
+          ? resolveCalendarDate(got, p.preferredTime) !== undefined &&
+            resolveCalendarDate(got, p.preferredTime) ===
+              resolveCalendarDate(want, exp.preferredTime ?? p.preferredTime)
           : got === want;
       if (!same) {
         add({
@@ -239,12 +253,12 @@ export function runChecks(scenario: ConvScenario, t: DriveTranscript): Finding[]
           severity: "unsafe",
           detail:
             k === "preferredDate"
-              ? `booked date ${JSON.stringify(got)} resolves to ${resolveCalendarDate(got)}, expected ${JSON.stringify(want)} = ${resolveCalendarDate(want)}`
+              ? `booked date ${JSON.stringify(got)} resolves to ${resolveCalendarDate(got, p.preferredTime)}, expected ${JSON.stringify(want)} = ${resolveCalendarDate(want, exp.preferredTime ?? p.preferredTime)}`
               : `booked ${k}=${JSON.stringify(got)}, expected ${JSON.stringify(want)}`,
         });
       }
     }
-    const resolved = resolveCalendarDate(p.preferredDate);
+    const resolved = resolveCalendarDate(p.preferredDate, p.preferredTime);
     const day = resolved ? weekdayOfIso(resolved) : undefined;
     const time = typeof p.preferredTime === "string" ? p.preferredTime : "";
     const dur = DURATION[String(p.service)] ?? 30;

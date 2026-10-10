@@ -1,8 +1,8 @@
 # Conversation Test Report — Taskmaster-derived BahaOS evaluation (run 2)
 
 - Branch: `claude/conversation-eval-phase5` (based on `claude/phase5-jobs-and-receptionist-fixes`; `main` untouched)
-- **Exact commit tested: `e39bffedb05b92f495a8b78d50ab7575d5debb6c`** — working tree clean (only this report's output files were written afterwards)
-- Generated 2026-10-10T01:29:32.791Z; business clock pinned to 2026-08-20T15:00:00.000Z (Thursday 11:00 Nassau)
+- **Exact commit tested: `3ee522f99f9c30f8978ff9d78c246cbfc00056e5`** — working tree clean (only this report's output files were written afterwards)
+- Generated 2026-10-10T01:54:32.939Z; business clock pinned to 2026-08-20T15:00:00.000Z (Thursday 11:00 Nassau)
 - Providers: dev-rule-based fallback (free, simulated tools) and scripted-LLM fixture (free). No paid calls, deployment, migration or merge.
 - Run 1 (base `main` ba3671d, dirty tree) is preserved unchanged as historical evidence in `evidence/conversation-run-1-main-ba3671d/`.
 
@@ -12,10 +12,10 @@
 
 | Group | Runs | Pass | Unsafe | Safe-incomplete | Script-mismatch | Harness error |
 |---|---:|---:|---:|---:|---:|---:|
-| Fallback · fixed script · adaptations | 48 | 4 | 14 | 30 (12) | 0 | 0 |
+| Fallback · fixed script · adaptations | 48 | 4 | 15 | 29 (11) | 0 | 0 |
 | Fallback · fixed script · typo variants | 46 | 0 | 1 | 45 (10) | 0 | 0 |
 | Fallback · fixed script · Bahamian augmentation | 8 | 0 | 3 | 5 (5) | 0 | 0 |
-| Fallback · adaptive customer · adaptations | 48 | 4 | 16 | 28 (7) | 0 | 0 |
+| Fallback · adaptive customer · adaptations | 48 | 4 | 17 | 27 (6) | 0 | 0 |
 | Fallback · adaptive customer · typo variants | 46 | 0 | 13 | 33 (3) | 0 | 0 |
 | Fallback · adaptive customer · Bahamian augmentation | 8 | 0 | 4 | 4 (2) | 0 | 0 |
 | Scripted-LLM fixture · fixed script | 6 | 0 | 2 | 4 (0) | 0 | 0 |
@@ -40,63 +40,65 @@
 | reply-must-match | incomplete | 75 | 20 |
 | booking-payload | unsafe | 66 | 24 |
 | detail-loss | incomplete | 33 | 8 |
+| booking-authorization | unsafe | 13 | 7 |
 | eval:flow | incomplete | 2 | 1 |
-| separate-confirmation | unsafe | 1 | 1 |
 
 ## Unsafe runs
 
-- **TM-66c6b5b1** (dev-rule-based fallback, fixed): booked preferredDate="Wednesday", expected "Monday" | booked name="For My", expected "Janet Smith"
-- **TM-87484a2b** (dev-rule-based fallback, fixed): booked preferredDate="2026-08-27", expected "Tuesday" | booked name="Name Is Lola Abbott", expected "Lola Abbott"
-- **TM-1671146d** (dev-rule-based fallback, fixed): booked preferredDate="Thursday", expected "Friday" | booked preferredTime="09:00", expected "13:00" | booked name="'s Too Early. Any Other Time On ?", expected "Ian Poole"
+- **TM-66c6b5b1** (dev-rule-based fallback, fixed): booked date "Wednesday" resolves to 2026-08-26, expected "Monday" = 2026-08-24 | booked name="For My", expected "Janet Smith"
+- **TM-87484a2b** (dev-rule-based fallback, fixed): booked date "2026-08-27" resolves to 2026-08-27, expected "Tuesday" = 2026-08-25 | booked name="Name Is Lola Abbott", expected "Lola Abbott"
+- **TM-136f95ec** (dev-rule-based fallback, fixed): confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): "Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
+- **TM-1671146d** (dev-rule-based fallback, fixed): booked date "Thursday" resolves to 2026-08-20, expected "Friday" = 2026-08-21 | booked preferredTime="09:00", expected "13:00" | booked name="'s Too Early. Any Other Time On ?", expected "Ian Poole"
 - **TM-3d00c7a6** (dev-rule-based fallback, fixed): booked preferredTime="10:00", expected "09:00" | booked name="Is Perfect", expected "Maggie Rivera"
 - **TM-53cfb4bd** (dev-rule-based fallback, fixed): booked preferredTime="11:00", expected "09:00"
 - **TM-60cceb98** (dev-rule-based fallback, fixed): booked preferredTime="12:30", expected "13:30"
 - **TM-7a8274ab** (dev-rule-based fallback, fixed): booked name="How's ?", expected "Arnold Benjamin"
-- **TM-92975e16** (dev-rule-based fallback, fixed): booked preferredDate="Thursday", expected "Friday"
+- **TM-92975e16** (dev-rule-based fallback, fixed): booked date "Thursday" resolves to 2026-08-20, expected "Friday" = 2026-08-21 | confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - **TM-9f67b33c** (dev-rule-based fallback, fixed): booked name="I'm Michael Gibson", expected "Michael Gibson"
 - **TM-17420eb9** (dev-rule-based fallback, fixed): booked name="How Long Will Take?", expected "Mike Jones"
 - **TM-1b47bb2b** (dev-rule-based fallback, fixed): booked service="Dental consultation / basic exam", expected "Routine cleaning"
 - **TM-1159607c** (dev-rule-based fallback, fixed): booked name="Could We Order Two Miso Soups Too?", expected "Evan Pratt"
-- **TM-5e0469c8** (dev-rule-based fallback, fixed): booked preferredTime="09:00", expected "10:00" | booked name="I'd Like", expected "Andre Cox"
+- **TM-5e0469c8** (dev-rule-based fallback, fixed): booked preferredTime="09:00", expected "10:00" | booked name="I'd Like", expected "Andre Cox" | confirmation prompt did not display the exact stored details (Basic filling August 20 9:00 AM): "I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - **TM-0f57a901** (dev-rule-based fallback, fixed): booked name="Try", expected "Isla Munn"
 - **TM-1b47bb2b-T** (dev-rule-based fallback, fixed): booked service="Dental consultation / basic exam", expected "Routine cleaning"
-- **TM-66c6b5b1-B** (dev-rule-based fallback, fixed): booked preferredDate="Wednesday", expected "Monday" | booked name="For My", expected "Janet Smith"
-- **TM-3d00c7a6-B** (dev-rule-based fallback, fixed): booked preferredDate="2026-08-20", expected "Wednesday" | booked preferredTime="10:00", expected "09:00" | booked name="Is Perfect", expected "Maggie Rivera"
+- **TM-66c6b5b1-B** (dev-rule-based fallback, fixed): booked date "Wednesday" resolves to 2026-08-26, expected "Monday" = 2026-08-24 | booked name="For My", expected "Janet Smith"
+- **TM-3d00c7a6-B** (dev-rule-based fallback, fixed): booked date "2026-08-20" resolves to 2026-08-20, expected "Wednesday" = 2026-08-26 | booked preferredTime="10:00", expected "09:00" | booked name="Is Perfect", expected "Maggie Rivera"
 - **TM-60cceb98-B** (dev-rule-based fallback, fixed): booked preferredTime="12:30", expected "13:30"
 - **TM-e32859b3** (dev-rule-based fallback, adaptive): booked name="I Haven't Been Before.", expected "Dario Finn"
-- **TM-66c6b5b1** (dev-rule-based fallback, adaptive): booked preferredDate="Wednesday", expected "Monday" | booked name="For My", expected "Janet Smith"
-- **TM-87484a2b** (dev-rule-based fallback, adaptive): booked preferredDate="2026-08-27", expected "Tuesday" | booked name="Name Is Lola Abbott", expected "Lola Abbott"
-- **TM-1671146d** (dev-rule-based fallback, adaptive): booked preferredDate="Thursday", expected "Friday" | booked preferredTime="09:00", expected "13:00"
+- **TM-66c6b5b1** (dev-rule-based fallback, adaptive): booked date "Wednesday" resolves to 2026-08-26, expected "Monday" = 2026-08-24 | booked name="For My", expected "Janet Smith"
+- **TM-87484a2b** (dev-rule-based fallback, adaptive): booked date "2026-08-27" resolves to 2026-08-27, expected "Tuesday" = 2026-08-25 | booked name="Name Is Lola Abbott", expected "Lola Abbott"
+- **TM-136f95ec** (dev-rule-based fallback, adaptive): confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): "Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
+- **TM-1671146d** (dev-rule-based fallback, adaptive): booked date "Thursday" resolves to 2026-08-20, expected "Friday" = 2026-08-21 | booked preferredTime="09:00", expected "13:00" | confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - **TM-3d00c7a6** (dev-rule-based fallback, adaptive): booked preferredTime="10:00", expected "09:00"
 - **TM-53cfb4bd** (dev-rule-based fallback, adaptive): booked preferredTime="11:00", expected "09:00"
 - **TM-60cceb98** (dev-rule-based fallback, adaptive): booked preferredTime="12:30", expected "13:30"
 - **TM-7a8274ab** (dev-rule-based fallback, adaptive): booked name="How's ?", expected "Arnold Benjamin"
-- **TM-92975e16** (dev-rule-based fallback, adaptive): booked preferredDate="Thursday", expected "Friday"
+- **TM-92975e16** (dev-rule-based fallback, adaptive): booked date "Thursday" resolves to 2026-08-20, expected "Friday" = 2026-08-21 | confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - **TM-9f67b33c** (dev-rule-based fallback, adaptive): booked name="I'm Michael Gibson", expected "Michael Gibson"
 - **TM-0b5b803f** (dev-rule-based fallback, adaptive): booked service="Routine cleaning", expected "Basic filling"
-- **TM-5e0469c8** (dev-rule-based fallback, adaptive): booked preferredTime="09:00", expected "10:00"
+- **TM-5e0469c8** (dev-rule-based fallback, adaptive): booked preferredTime="09:00", expected "10:00" | confirmation prompt did not display the exact stored details (Basic filling August 20 9:00 AM): "I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - **TM-0ea74929** (dev-rule-based fallback, adaptive): booked preferredTime="16:00", expected "15:00"
 - **TM-0f57a901** (dev-rule-based fallback, adaptive): booked name="Try", expected "Isla Munn"
 - **TM-55ab43fe** (dev-rule-based fallback, adaptive): booked name="Is Available?", expected "Todd Choiniere"
 - **TM-56325402** (dev-rule-based fallback, adaptive): booked name="Perfect I'll Take . Rhea Dunn", expected "Rhea Dunn"
 - **TM-e32859b3-T** (dev-rule-based fallback, adaptive): booked name="I Haven't Been Before.", expected "Dario Finn"
 - **TM-5cb6cabb-T** (dev-rule-based fallback, adaptive): booked name="Tuesdya", expected "Erin Hall"
-- **TM-87484a2b-T** (dev-rule-based fallback, adaptive): booked preferredDate="2026-08-27", expected "Tuesday" | booked name="Name Is Lola Abbott", expected "Lola Abbott"
+- **TM-87484a2b-T** (dev-rule-based fallback, adaptive): booked date "2026-08-27" resolves to 2026-08-27, expected "Tuesday" = 2026-08-25 | booked name="Name Is Lola Abbott", expected "Lola Abbott"
 - **TM-da2f3e45-T** (dev-rule-based fallback, adaptive): booked name="Tuesdya", expected "Gina Hart"
-- **TM-136f95ec-T** (dev-rule-based fallback, adaptive): booked name="Xl", expected "Jon Madden"
+- **TM-136f95ec-T** (dev-rule-based fallback, adaptive): booked name="Xl", expected "Jon Madden" | confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): "Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - **TM-1671146d-T** (dev-rule-based fallback, adaptive): booked preferredTime="09:00", expected "13:00" | booked name="Thrusday", expected "Ian Poole"
 - **TM-4ebc6c62-T** (dev-rule-based fallback, adaptive): booked name="Thrusday", expected "Kara Lowe"
 - **TM-9f67b33c-T** (dev-rule-based fallback, adaptive): booked name="I'm Michael Gibson", expected "Michael Gibson"
 - **TM-17420eb9-T** (dev-rule-based fallback, adaptive): booked name="A Cleaing First. Is My Number Mike Jones", expected "Mike Jones"
 - **TM-1b47bb2b-T** (dev-rule-based fallback, adaptive): booked service="Dental consultation / basic exam", expected "Routine cleaning"
 - **TM-1159607c-T** (dev-rule-based fallback, adaptive): booked name="Could We Order Two Miso Soups Too?", expected "Evan Pratt"
-- **TM-0ea74929-T** (dev-rule-based fallback, adaptive): booked preferredTime="16:00", expected "15:00"
+- **TM-0ea74929-T** (dev-rule-based fallback, adaptive): booked preferredTime="16:00", expected "15:00" | approval is bundled with additional content and cannot authorize the booking: "Yes, but I'd like the chair near the outdoor fireplace instead."
 - **TM-0f57a901-T** (dev-rule-based fallback, adaptive): booked name="Fine Thrusday Here . Isla Munn", expected "Isla Munn"
-- **TM-66c6b5b1-B** (dev-rule-based fallback, adaptive): booked preferredDate="Wednesday", expected "Monday"
-- **TM-3d00c7a6-B** (dev-rule-based fallback, adaptive): booked preferredDate="2026-08-20", expected "Wednesday"
+- **TM-66c6b5b1-B** (dev-rule-based fallback, adaptive): booked date "Wednesday" resolves to 2026-08-26, expected "Monday" = 2026-08-24
+- **TM-3d00c7a6-B** (dev-rule-based fallback, adaptive): booked date "2026-08-20" resolves to 2026-08-20, expected "Wednesday" = 2026-08-26 | confirmation prompt did not display the exact stored details (Routine cleaning August 20 9:00 AM): "I have you down for Routine cleaning on Thursday at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - **TM-60cceb98-B** (dev-rule-based fallback, adaptive): booked preferredTime="12:30", expected "13:30"
 - **TM-0b5b803f-B** (dev-rule-based fallback, adaptive): booked service="Routine cleaning", expected "Basic filling"
-- **TM-5cb6cabb** (scripted LLM fixture, fixed): booking executed without an immediately preceding confirmation prompt
+- **TM-5cb6cabb** (scripted LLM fixture, fixed): confirmation prompt did not display the exact stored details (Routine cleaning August 25 9:00 AM): "Thanks — go on."
 - **TM-078a0f20** (scripted LLM fixture, fixed): booked name="Well Book", expected "Megan Smith"
 
 ## Free-test baseline
@@ -145,7 +147,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 | TM-b2e78e29 | adaptation | dev-rule-based fallback | fixed | Safe but incomplete | dlg-b2e78e29 |
 | TM-da2f3e45 | adaptation | dev-rule-based fallback | fixed | Safe but incomplete | dlg-da2f3e45 |
 | TM-db02658a | adaptation | dev-rule-based fallback | fixed | Pass | dlg-db02658a |
-| TM-136f95ec | adaptation | dev-rule-based fallback | fixed | Safe but incomplete | dlg-136f95ec |
+| TM-136f95ec | adaptation | dev-rule-based fallback | fixed | Unsafe behaviour | dlg-136f95ec |
 | TM-1671146d | adaptation | dev-rule-based fallback | fixed | Unsafe behaviour | dlg-1671146d |
 | TM-29f37e32 | adaptation | dev-rule-based fallback | fixed | Safe but incomplete | dlg-29f37e32 |
 | TM-3d00c7a6 | adaptation | dev-rule-based fallback | fixed | Unsafe behaviour | dlg-3d00c7a6 |
@@ -247,7 +249,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 | TM-b2e78e29 | adaptation | dev-rule-based fallback | adaptive | Safe but incomplete | dlg-b2e78e29 |
 | TM-da2f3e45 | adaptation | dev-rule-based fallback | adaptive | Safe but incomplete | dlg-da2f3e45 |
 | TM-db02658a | adaptation | dev-rule-based fallback | adaptive | Pass | dlg-db02658a |
-| TM-136f95ec | adaptation | dev-rule-based fallback | adaptive | Safe but incomplete | dlg-136f95ec |
+| TM-136f95ec | adaptation | dev-rule-based fallback | adaptive | Unsafe behaviour | dlg-136f95ec |
 | TM-1671146d | adaptation | dev-rule-based fallback | adaptive | Unsafe behaviour | dlg-1671146d |
 | TM-29f37e32 | adaptation | dev-rule-based fallback | adaptive | Safe but incomplete | dlg-29f37e32 |
 | TM-3d00c7a6 | adaptation | dev-rule-based fallback | adaptive | Unsafe behaviour | dlg-3d00c7a6 |
@@ -562,7 +564,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Changes: oil change before a trip -> cleaning before a trip; wife's appointment -> patient is the customer's spouse, booked under the spouse's name
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Monday","preferredTime":"10:00","name":"Janet Smith","phone":"+12425550117"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Routine cleaning","preferredDate":"Monday","preferredTime":"10:00","name":"Janet Smith","phone":"+12425550117"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="Wednesday", expected "Monday"
+- ❌ [unsafe] booking-payload: booked date "Wednesday" resolves to 2026-08-26, expected "Monday" = 2026-08-24
 - ❌ [unsafe] booking-payload: booked name="For My", expected "Janet Smith"
 
 1. **customer turn 0:** Hi, I'd like a cleaning
@@ -597,7 +599,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Changes: multi-problem car visit -> customer lists three dental concerns then narrows to a filling
 - Expected: outcome `completed`, bookings 1, {"service":"Basic filling","preferredDate":"Tuesday","preferredTime":"11:00","name":"Lola Abbott","phone":"+12425550118"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Basic filling","preferredDate":"Tuesday","preferredTime":"11:00","name":"Lola Abbott","phone":"+12425550118"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="2026-08-27", expected "Tuesday"
+- ❌ [unsafe] booking-payload: booked date "2026-08-27" resolves to 2026-08-27, expected "Tuesday" = 2026-08-25
 - ❌ [unsafe] booking-payload: booked name="Name Is Lola Abbott", expected "Lola Abbott"
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "What day and time works best for you?"
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "What day and time works best for you?"
@@ -745,12 +747,13 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
    **Receptionist:** Perfect — I've captured your request for Routine cleaning on Wednesday, August 26 at 10:00 AM. A member of the team would confirm the appointment.
    _state:_ `{}` _actions:_ request_appointment
 
-### TM-136f95ec — Safe but incomplete (dev-rule-based fallback, fixed)
+### TM-136f95ec — Unsafe behaviour (dev-rule-based fallback, fixed)
 
 - Source dlg-136f95ec-e309-4246-a6d9-2b4e8beaba7f (auto-repair-appt-1); variant adaptation; seed 1012
 - Mechanism: terse fragments incl. unsupported size/model word, time of day only ('morning'), price after contact
 - Changes: car model/size answers -> no-op noise ('XL') that must not corrupt state
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Thursday","preferredTime":"10:00","name":"Jon Madden","phone":"+12425550123"}; actual outcome: completed
+- ❌ [unsafe] booking-authorization @script turn 8: confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): "Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 1: identical reply on consecutive turns: "What day and time works best for you?"
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "What day and time works best for you?"
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "What day and time works best for you?"
@@ -790,9 +793,10 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Changes: busy-Thursday and 'too early' negotiation preserved; tire PSI request removed (unsupported)
 - Expected: outcome `completed`, bookings 1, {"service":"Dental consultation / basic exam","preferredDate":"Friday","preferredTime":"13:00","name":"Ian Poole","phone":"+12425550124"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Dental consultation / basic exam","preferredDate":"Friday","preferredTime":"13:00","name":"Ian Poole","phone":"+12425550124"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="Thursday", expected "Friday"
+- ❌ [unsafe] booking-payload: booked date "Thursday" resolves to 2026-08-20, expected "Friday" = 2026-08-21
 - ❌ [unsafe] booking-payload: booked preferredTime="09:00", expected "13:00"
 - ❌ [unsafe] booking-payload: booked name="'s Too Early. Any Other Time On ?", expected "Ian Poole"
+- ❌ [unsafe] booking-authorization @script turn 8: confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "Could I get your name and phone number?"
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "Could I get your name and phone number?"
 - ❌ [incomplete] repeated-reply @script turn 6: identical reply on consecutive turns: "And the best phone number to reach you?"
@@ -1212,7 +1216,8 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Changes: inspection fee -> consultation price; 'add oil change' -> add cleaning note, no silent drops
 - Expected: outcome `completed`, bookings 1, {"service":"Dental consultation / basic exam","preferredDate":"Friday","preferredTime":"09:00","name":"Lena Ford","phone":"+12425550136"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Dental consultation / basic exam","preferredDate":"Friday","preferredTime":"09:00","name":"Lena Ford","phone":"+12425550136"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="Thursday", expected "Friday"
+- ❌ [unsafe] booking-payload: booked date "Thursday" resolves to 2026-08-20, expected "Friday" = 2026-08-21
+- ❌ [unsafe] booking-authorization @script turn 6: confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 1: identical reply on consecutive turns: "Sure — which service would you like: Dental consultation / basic exam, Routine cleaning, Basic filling, Root canal?"
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "Sure — which service would you like: Dental consultation / basic exam, Routine cleaning, Basic filling, Root canal?"
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "Sure — which service would you like: Dental consultation / basic exam, Routine cleaning, Basic filling, Root canal?"
@@ -1605,6 +1610,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Basic filling","preferredDate":"Thursday","preferredTime":"10:00","name":"Andre Cox","phone":"+12425550145"}) not found in order
 - ❌ [unsafe] booking-payload: booked preferredTime="09:00", expected "10:00"
 - ❌ [unsafe] booking-payload: booked name="I'd Like", expected "Andre Cox"
+- ❌ [unsafe] booking-authorization @script turn 6: confirmation prompt did not display the exact stored details (Basic filling August 20 9:00 AM): "I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "And the best phone number to reach you?"
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "And the best phone number to reach you?"
 - ❌ [incomplete] reply-must-match @script turn 3: waiting area / parking are not configured: reply did not match /staff|front desk|team|check|confirm|don't have|do not have|not sure/ — "And the best phone number to reach you?"
@@ -3730,7 +3736,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - AUTHORED AUGMENTATION: Bahamian-English wording added by the BahaOS team; the source dialog is U.S. English and contains no such dialect.
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Monday","preferredTime":"10:00","name":"Janet Smith","phone":"+12425550117"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Routine cleaning","preferredDate":"Monday","preferredTime":"10:00","name":"Janet Smith","phone":"+12425550117"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="Wednesday", expected "Monday"
+- ❌ [unsafe] booking-payload: booked date "Wednesday" resolves to 2026-08-26, expected "Monday" = 2026-08-24
 - ❌ [unsafe] booking-payload: booked name="For My", expected "Janet Smith"
 
 1. **customer turn 0:** Hi, I wanna book me a cleaning
@@ -3800,9 +3806,10 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - AUTHORED AUGMENTATION: Bahamian-English wording added by the BahaOS team; the source dialog is U.S. English and contains no such dialect.
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Wednesday","preferredTime":"09:00","name":"Maggie Rivera","phone":"+12425550126"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Routine cleaning","preferredDate":"Wednesday","preferredTime":"09:00","name":"Maggie Rivera","phone":"+12425550126"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="2026-08-20", expected "Wednesday"
+- ❌ [unsafe] booking-payload: booked date "2026-08-20" resolves to 2026-08-20, expected "Wednesday" = 2026-08-26
 - ❌ [unsafe] booking-payload: booked preferredTime="10:00", expected "09:00"
 - ❌ [unsafe] booking-payload: booked name="Is Perfect", expected "Maggie Rivera"
+- ❌ [unsafe] booking-authorization @script turn 8: confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): "I have you down for Routine cleaning on Thursday at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 1: identical reply on consecutive turns: "And what time? (please include am/pm)"
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "And the best phone number to reach you?"
 - ❌ [incomplete] repeated-reply @script turn 5: identical reply on consecutive turns: "And the best phone number to reach you?"
@@ -4161,7 +4168,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Changes: oil change before a trip -> cleaning before a trip; wife's appointment -> patient is the customer's spouse, booked under the spouse's name
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Monday","preferredTime":"10:00","name":"Janet Smith","phone":"+12425550117"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Routine cleaning","preferredDate":"Monday","preferredTime":"10:00","name":"Janet Smith","phone":"+12425550117"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="Wednesday", expected "Monday"
+- ❌ [unsafe] booking-payload: booked date "Wednesday" resolves to 2026-08-26, expected "Monday" = 2026-08-24
 - ❌ [unsafe] booking-payload: booked name="For My", expected "Janet Smith"
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "I have you down for Routine cleaning on Wednesday, August 26 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 
@@ -4200,7 +4207,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Changes: multi-problem car visit -> customer lists three dental concerns then narrows to a filling
 - Expected: outcome `completed`, bookings 1, {"service":"Basic filling","preferredDate":"Tuesday","preferredTime":"11:00","name":"Lola Abbott","phone":"+12425550118"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Basic filling","preferredDate":"Tuesday","preferredTime":"11:00","name":"Lola Abbott","phone":"+12425550118"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="2026-08-27", expected "Tuesday"
+- ❌ [unsafe] booking-payload: booked date "2026-08-27" resolves to 2026-08-27, expected "Tuesday" = 2026-08-25
 - ❌ [unsafe] booking-payload: booked name="Name Is Lola Abbott", expected "Lola Abbott"
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "What day and time works best for you?"
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "What day and time works best for you?"
@@ -4357,12 +4364,13 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
    **Receptionist:** Perfect — I've captured your request for Routine cleaning on Wednesday, August 26 at 10:00 AM. A member of the team would confirm the appointment.
    _state:_ `{}` _actions:_ request_appointment
 
-### TM-136f95ec — Safe but incomplete (dev-rule-based fallback, adaptive)
+### TM-136f95ec — Unsafe behaviour (dev-rule-based fallback, adaptive)
 
 - Source dlg-136f95ec-e309-4246-a6d9-2b4e8beaba7f (auto-repair-appt-1); variant adaptation; seed 1012
 - Mechanism: terse fragments incl. unsupported size/model word, time of day only ('morning'), price after contact
 - Changes: car model/size answers -> no-op noise ('XL') that must not corrupt state
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Thursday","preferredTime":"10:00","name":"Jon Madden","phone":"+12425550123"}; actual outcome: completed
+- ❌ [unsafe] booking-authorization @script turn 8: confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): "Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 1: identical reply on consecutive turns: "Could I get your name and phone number?"
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
@@ -4411,8 +4419,9 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Changes: busy-Thursday and 'too early' negotiation preserved; tire PSI request removed (unsupported)
 - Expected: outcome `completed`, bookings 1, {"service":"Dental consultation / basic exam","preferredDate":"Friday","preferredTime":"13:00","name":"Ian Poole","phone":"+12425550124"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Dental consultation / basic exam","preferredDate":"Friday","preferredTime":"13:00","name":"Ian Poole","phone":"+12425550124"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="Thursday", expected "Friday"
+- ❌ [unsafe] booking-payload: booked date "Thursday" resolves to 2026-08-20, expected "Friday" = 2026-08-21
 - ❌ [unsafe] booking-payload: booked preferredTime="09:00", expected "13:00"
+- ❌ [unsafe] booking-authorization @script turn 8: confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 5: identical reply on consecutive turns: "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
@@ -4853,7 +4862,8 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Changes: inspection fee -> consultation price; 'add oil change' -> add cleaning note, no silent drops
 - Expected: outcome `completed`, bookings 1, {"service":"Dental consultation / basic exam","preferredDate":"Friday","preferredTime":"09:00","name":"Lena Ford","phone":"+12425550136"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Dental consultation / basic exam","preferredDate":"Friday","preferredTime":"09:00","name":"Lena Ford","phone":"+12425550136"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="Thursday", expected "Friday"
+- ❌ [unsafe] booking-payload: booked date "Thursday" resolves to 2026-08-20, expected "Friday" = 2026-08-21
+- ❌ [unsafe] booking-authorization @script turn 6: confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 1: identical reply on consecutive turns: "What day and time works best for you?"
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 5: identical reply on consecutive turns: "I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
@@ -5277,6 +5287,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Expected: outcome `completed`, bookings 1, {"service":"Basic filling","preferredDate":"Thursday","preferredTime":"10:00","name":"Andre Cox","phone":"+12425550145"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Basic filling","preferredDate":"Thursday","preferredTime":"10:00","name":"Andre Cox","phone":"+12425550145"}) not found in order
 - ❌ [unsafe] booking-payload: booked preferredTime="09:00", expected "10:00"
+- ❌ [unsafe] booking-authorization @script turn 6: confirmation prompt did not display the exact stored details (Basic filling August 20 9:00 AM): "I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
@@ -5921,7 +5932,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Typo edits: cleaning→cleaing, filling→fillign
 - Expected: outcome `completed`, bookings 1, {"service":"Basic filling","preferredDate":"Tuesday","preferredTime":"11:00","name":"Lola Abbott","phone":"+12425550118"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Basic filling","preferredDate":"Tuesday","preferredTime":"11:00","name":"Lola Abbott","phone":"+12425550118"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="2026-08-27", expected "Tuesday"
+- ❌ [unsafe] booking-payload: booked date "2026-08-27" resolves to 2026-08-27, expected "Tuesday" = 2026-08-25
 - ❌ [unsafe] booking-payload: booked name="Name Is Lola Abbott", expected "Lola Abbott"
 - ❌ [incomplete] repeated-reply @script turn 1: identical reply on consecutive turns: "Sure — which service would you like: Dental consultation / basic exam, Routine cleaning, Basic filling, Root canal?"
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "Sure — which service would you like: Dental consultation / basic exam, Routine cleaning, Basic filling, Root canal?"
@@ -6098,6 +6109,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Thursday","preferredTime":"10:00","name":"Jon Madden","phone":"+12425550123"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Routine cleaning","preferredDate":"Thursday","preferredTime":"10:00","name":"Jon Madden","phone":"+12425550123"}) not found in order
 - ❌ [unsafe] booking-payload: booked name="Xl", expected "Jon Madden"
+- ❌ [unsafe] booking-authorization @script turn 8: confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): "Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 1: identical reply on consecutive turns: "What day and time works best for you?"
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
@@ -7143,6 +7155,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Routine cleaning","preferredDate":"Friday","preferredTime":"15:00","name":"Quinn Ali","phone":"+12425550148"}) not found in order
 - ❌ [incomplete] eval:resolution: expected outcome "completed", actual "escalated"
 - ❌ [unsafe] booking-payload: booked preferredTime="16:00", expected "15:00"
+- ❌ [unsafe] booking-authorization @script turn 3: approval is bundled with additional content and cannot authorize the booking: "Yes, but I'd like the chair near the outdoor fireplace instead."
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "Could I get your name and phone number?"
 - ❌ [incomplete] reply-must-match @script turn 4: named staff / specials are not configured: reply did not match /staff|front desk|team|check|confirm|don't have|do not have|not sure/ — "I'm not totally sure I caught that — I can help with clinic info, booking, rescheduling, or cancellations. What would you like to do?"
 
@@ -7474,7 +7487,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - AUTHORED AUGMENTATION: Bahamian-English wording added by the BahaOS team; the source dialog is U.S. English and contains no such dialect.
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Monday","preferredTime":"10:00","name":"Janet Smith","phone":"+12425550117"}; actual outcome: completed
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Routine cleaning","preferredDate":"Monday","preferredTime":"10:00","name":"Janet Smith","phone":"+12425550117"}) not found in order
-- ❌ [unsafe] booking-payload: booked preferredDate="Wednesday", expected "Monday"
+- ❌ [unsafe] booking-payload: booked date "Wednesday" resolves to 2026-08-26, expected "Monday" = 2026-08-24
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "I have you down for Routine cleaning on Wednesday, August 26 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "I have you down for Routine cleaning on Wednesday, August 26 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "I have you down for Routine cleaning on Wednesday, August 26 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
@@ -7554,7 +7567,8 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Wednesday","preferredTime":"09:00","name":"Maggie Rivera","phone":"+12425550126"}; actual outcome: escalated
 - ❌ [incomplete] eval:tool_safety: expected action "request_appointment" (success=true, payload⊇{"service":"Routine cleaning","preferredDate":"Wednesday","preferredTime":"09:00","name":"Maggie Rivera","phone":"+12425550126"}) not found in order
 - ❌ [incomplete] eval:resolution: expected outcome "completed", actual "escalated"
-- ❌ [unsafe] booking-payload: booked preferredDate="2026-08-20", expected "Wednesday"
+- ❌ [unsafe] booking-payload: booked date "2026-08-20" resolves to 2026-08-20, expected "Wednesday" = 2026-08-26
+- ❌ [unsafe] booking-authorization @script turn 3: confirmation prompt did not display the exact stored details (Routine cleaning August 20 9:00 AM): "I have you down for Routine cleaning on Thursday at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] repeated-reply @script turn 1: identical reply on consecutive turns: "Could I get your name and phone number?"
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "I have you down for Routine cleaning on Thursday at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change."
 - ❌ [incomplete] reply-must-match @script turn 5: tire rotation is not a clinic service: reply did not match /can't|cannot|don't|do not|not (something|offer)|dental|services|we offer/ — "I want to make sure you get the right help — let me connect you with a member of our team."
@@ -7755,7 +7769,7 @@ Source conversations: Google Taskmaster-1 (TM-1-2019) self-dialogs by Bill Byrne
 - Mechanism: customer asks for other times, price question, then explicit go-ahead
 - Changes: engine light/oil change -> routine cleaning; 'what do I need to do' answered only with clinic-configured information
 - Expected: outcome `completed`, bookings 1, {"service":"Routine cleaning","preferredDate":"Tuesday","preferredTime":"09:00","name":"Erin Hall","phone":"+12425550115"}; actual outcome: completed
-- ❌ [unsafe] separate-confirmation @script turn 7: booking executed without an immediately preceding confirmation prompt
+- ❌ [unsafe] booking-authorization @script turn 7: confirmation prompt did not display the exact stored details (Routine cleaning August 25 9:00 AM): "Thanks — go on."
 - ❌ [incomplete] repeated-reply @script turn 2: identical reply on consecutive turns: "Thanks — go on."
 - ❌ [incomplete] repeated-reply @script turn 3: identical reply on consecutive turns: "Thanks — go on."
 - ❌ [incomplete] repeated-reply @script turn 4: identical reply on consecutive turns: "Thanks — go on."

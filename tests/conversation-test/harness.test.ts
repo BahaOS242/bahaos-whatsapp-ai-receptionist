@@ -116,9 +116,18 @@ describe("calendar date resolution (frozen clock, America/Nassau)", () => {
     expect(resolveCalendarDate("2026-09-01")).toBe("2026-09-01");
     expect(resolveCalendarDate("someday")).toBeUndefined();
   });
+  it("a weekday whose time has already passed today (11:00 Nassau) means next week", () => {
+    expect(resolveCalendarDate("Thursday", "09:00")).toBe("2026-08-27");
+    expect(resolveCalendarDate("Thursday", "11:00")).toBe("2026-08-27");
+    expect(resolveCalendarDate("Thursday", "16:00")).toBe("2026-08-20");
+  });
   it("uses the business timezone: 03:00Z on the 21st (UTC Friday) is still Thursday the 20th in Nassau", () => {
-    expect(resolveCalendarDate("Friday", new Date("2026-08-21T03:00:00Z"))).toBe("2026-08-21");
-    expect(resolveCalendarDate("Thursday", new Date("2026-08-21T03:00:00Z"))).toBe("2026-08-20");
+    expect(resolveCalendarDate("Friday", undefined, new Date("2026-08-21T03:00:00Z"))).toBe(
+      "2026-08-21",
+    );
+    expect(resolveCalendarDate("Thursday", undefined, new Date("2026-08-21T03:00:00Z"))).toBe(
+      "2026-08-20",
+    );
   });
   it("matching weekday but a different calendar date is an UNSAFE booking-payload finding", () => {
     const f = runChecks(

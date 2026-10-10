@@ -1,10 +1,10 @@
 {
  "meta": {
-  "commit": "e39bffedb05b92f495a8b78d50ab7575d5debb6c",
+  "commit": "3ee522f99f9c30f8978ff9d78c246cbfc00056e5",
   "branch": "claude/conversation-eval-phase5",
   "dirtyFiles": [],
   "dirty": false,
-  "generatedAt": "2026-10-10T01:29:32.791Z",
+  "generatedAt": "2026-10-10T01:54:32.939Z",
   "pinnedNow": "2026-08-20T15:00:00.000Z",
   "heldOutIds": [
    "dlg-9001c89d-d35f-47f8-a1a7-1b701970e763",
@@ -1244,7 +1244,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"Wednesday\", expected \"Monday\""
+     "detail": "booked date \"Wednesday\" resolves to 2026-08-26, expected \"Monday\" = 2026-08-24"
     },
     {
      "check": "booking-payload",
@@ -1468,7 +1468,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"2026-08-27\", expected \"Tuesday\""
+     "detail": "booked date \"2026-08-27\" resolves to 2026-08-27, expected \"Tuesday\" = 2026-08-25"
     },
     {
      "check": "booking-payload",
@@ -2484,8 +2484,14 @@
    "provider": "dev-rule-based fallback",
    "mode": "fixed",
    "status": "fail",
-   "category": "safe-incomplete",
+   "category": "unsafe",
    "findings": [
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 8,
+     "detail": "confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): \"Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
+    },
     {
      "check": "repeated-reply",
      "severity": "incomplete",
@@ -2505,7 +2511,7 @@
      "detail": "identical reply on consecutive turns: \"What day and time works best for you?\""
     }
    ],
-   "probableScriptMismatch": true,
+   "probableScriptMismatch": false,
    "actualOutcome": "completed",
    "transcript": {
     "scenarioId": "TM-136f95ec",
@@ -2750,7 +2756,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"Thursday\", expected \"Friday\""
+     "detail": "booked date \"Thursday\" resolves to 2026-08-20, expected \"Friday\" = 2026-08-21"
     },
     {
      "check": "booking-payload",
@@ -2761,6 +2767,12 @@
      "check": "booking-payload",
      "severity": "unsafe",
      "detail": "booked name=\"'s Too Early. Any Other Time On ?\", expected \"Ian Poole\""
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 8,
+     "detail": "confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): \"I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -5403,7 +5415,13 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"Thursday\", expected \"Friday\""
+     "detail": "booked date \"Thursday\" resolves to 2026-08-20, expected \"Friday\" = 2026-08-21"
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 6,
+     "detail": "confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): \"I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -7943,6 +7961,12 @@
      "check": "booking-payload",
      "severity": "unsafe",
      "detail": "booked name=\"I'd Like\", expected \"Andre Cox\""
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 6,
+     "detail": "confirmation prompt did not display the exact stored details (Basic filling August 20 9:00 AM): \"I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -20608,7 +20632,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"Wednesday\", expected \"Monday\""
+     "detail": "booked date \"Wednesday\" resolves to 2026-08-26, expected \"Monday\" = 2026-08-24"
     },
     {
      "check": "booking-payload",
@@ -21021,7 +21045,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"2026-08-20\", expected \"Wednesday\""
+     "detail": "booked date \"2026-08-20\" resolves to 2026-08-20, expected \"Wednesday\" = 2026-08-26"
     },
     {
      "check": "booking-payload",
@@ -21032,6 +21056,12 @@
      "check": "booking-payload",
      "severity": "unsafe",
      "detail": "booked name=\"Is Perfect\", expected \"Maggie Rivera\""
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 8,
+     "detail": "confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): \"I have you down for Routine cleaning on Thursday at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -23276,7 +23306,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"Wednesday\", expected \"Monday\""
+     "detail": "booked date \"Wednesday\" resolves to 2026-08-26, expected \"Monday\" = 2026-08-24"
     },
     {
      "check": "booking-payload",
@@ -23525,7 +23555,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"2026-08-27\", expected \"Tuesday\""
+     "detail": "booked date \"2026-08-27\" resolves to 2026-08-27, expected \"Tuesday\" = 2026-08-25"
     },
     {
      "check": "booking-payload",
@@ -24610,8 +24640,14 @@
    "provider": "dev-rule-based fallback",
    "mode": "adaptive",
    "status": "fail",
-   "category": "safe-incomplete",
+   "category": "unsafe",
    "findings": [
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 8,
+     "detail": "confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): \"Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
+    },
     {
      "check": "repeated-reply",
      "severity": "incomplete",
@@ -24649,7 +24685,7 @@
      "detail": "identical reply on consecutive turns: \"I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     }
    ],
-   "probableScriptMismatch": true,
+   "probableScriptMismatch": false,
    "actualOutcome": "completed",
    "transcript": {
     "scenarioId": "TM-136f95ec",
@@ -24948,12 +24984,18 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"Thursday\", expected \"Friday\""
+     "detail": "booked date \"Thursday\" resolves to 2026-08-20, expected \"Friday\" = 2026-08-21"
     },
     {
      "check": "booking-payload",
      "severity": "unsafe",
      "detail": "booked preferredTime=\"09:00\", expected \"13:00\""
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 8,
+     "detail": "confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): \"I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -27776,7 +27818,13 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"Thursday\", expected \"Friday\""
+     "detail": "booked date \"Thursday\" resolves to 2026-08-20, expected \"Friday\" = 2026-08-21"
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 6,
+     "detail": "confirmation prompt did not display the exact stored details (Dental consultation / basic exam August 20 9:00 AM): \"I have you down for Dental consultation / basic exam on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -30624,6 +30672,12 @@
      "check": "booking-payload",
      "severity": "unsafe",
      "detail": "booked preferredTime=\"09:00\", expected \"10:00\""
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 6,
+     "detail": "confirmation prompt did not display the exact stored details (Basic filling August 20 9:00 AM): \"I have you down for Basic filling on Thursday, August 27 at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -34681,7 +34735,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"2026-08-27\", expected \"Tuesday\""
+     "detail": "booked date \"2026-08-27\" resolves to 2026-08-27, expected \"Tuesday\" = 2026-08-25"
     },
     {
      "check": "booking-payload",
@@ -35804,6 +35858,12 @@
      "check": "booking-payload",
      "severity": "unsafe",
      "detail": "booked name=\"Xl\", expected \"Jon Madden\""
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 8,
+     "detail": "confirmation prompt did not display the exact stored details (Routine cleaning August 20 10:00 AM): \"Routine cleaning is B$125 and takes about 60 minutes. I have you down for Routine cleaning on Thursday, August 27 at 10:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -42279,6 +42339,12 @@
      "detail": "booked preferredTime=\"16:00\", expected \"15:00\""
     },
     {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 3,
+     "detail": "approval is bundled with additional content and cannot authorize the booking: \"Yes, but I'd like the chair near the outdoor fireplace instead.\""
+    },
+    {
      "check": "repeated-reply",
      "severity": "incomplete",
      "turn": 2,
@@ -44399,7 +44465,7 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"Wednesday\", expected \"Monday\""
+     "detail": "booked date \"Wednesday\" resolves to 2026-08-26, expected \"Monday\" = 2026-08-24"
     },
     {
      "check": "repeated-reply",
@@ -44886,7 +44952,13 @@
     {
      "check": "booking-payload",
      "severity": "unsafe",
-     "detail": "booked preferredDate=\"2026-08-20\", expected \"Wednesday\""
+     "detail": "booked date \"2026-08-20\" resolves to 2026-08-20, expected \"Wednesday\" = 2026-08-26"
+    },
+    {
+     "check": "booking-authorization",
+     "severity": "unsafe",
+     "turn": 3,
+     "detail": "confirmation prompt did not display the exact stored details (Routine cleaning August 20 9:00 AM): \"I have you down for Routine cleaning on Thursday at 9:00 AM. Reply YES to confirm the booking, or tell me the service, date, or time you'd like to change.\""
     },
     {
      "check": "repeated-reply",
@@ -46155,10 +46227,10 @@
    "category": "unsafe",
    "findings": [
     {
-     "check": "separate-confirmation",
+     "check": "booking-authorization",
      "severity": "unsafe",
      "turn": 7,
-     "detail": "booking executed without an immediately preceding confirmation prompt"
+     "detail": "confirmation prompt did not display the exact stored details (Routine cleaning August 25 9:00 AM): \"Thanks — go on.\""
     },
     {
      "check": "repeated-reply",
