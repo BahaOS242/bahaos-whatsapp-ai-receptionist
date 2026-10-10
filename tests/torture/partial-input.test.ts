@@ -65,7 +65,8 @@ describe("CATEGORY B — incomplete date/time", () => {
     expect(result.actionsTaken).toEqual([]);
     expect(result.reply).toMatch(/9:00 PM/);
     expect(result.reply).toMatch(/outside our hours/i);
-    expect(result.bookingState.date).toBeUndefined();
+    // RETENTION (intentional change): only the out-of-hours time is dropped; the valid day is kept.
+    expect(result.bookingState.date).toBe("Tuesday");
     expect(result.bookingState.time).toBeUndefined();
   });
 

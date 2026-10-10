@@ -38,6 +38,7 @@ const NOT_NAME_WORDS = new Set(
    cleaning filling consultation exam checkup check root canal service services price cost fee parking insurance
    want need like think know guess mean see tell ask help get got make come go going let lets let's
    not dont don't doesnt doesn't cant can't wont won't never nothing none nobody
+   well oh um uh hmm hm anyway anyhow wow haha lol ugh
    am pm`
     .split(/\s+/)
     .filter(Boolean),

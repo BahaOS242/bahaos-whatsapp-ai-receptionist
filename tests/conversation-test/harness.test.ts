@@ -237,7 +237,7 @@ describe("application-authorized confirmation (provider-agnostic)", () => {
     );
     expect(stale.map((x) => x.detail).join(" ")).toMatch(/differs from the details/);
   });
-  it("flags a FAILED attempt without authorization as unauthorized-attempt, and duplicate attempts", () => {
+  it("flags a FAILED attempt without authorization as unauthorized-attempt, and identical duplicate attempts", () => {
     const failed = [
       { action: { type: "request_appointment", payload: GOOD }, result: { success: false } },
     ];

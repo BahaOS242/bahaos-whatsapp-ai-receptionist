@@ -7,9 +7,6 @@ import { pinClockToReferenceCalendar } from "../helpers/pin-clock";
  * reliability prompt (§3), as they were typed. LANE: dev-rule-based fallback +
  * simulated tools, clock frozen at 2026-08-20T15:00Z.
  *
- * `it.fails` marks a KNOWN GAP that is recorded rather than fixed in this
- * round; it will start failing (turn red) the moment the gap is closed, which
- * is the signal to convert it to a plain `it`.
  */
 pinClockToReferenceCalendar();
 const bookings = (c: ReturnType<typeof devConversation>) =>
@@ -71,7 +68,7 @@ describe("supplied conversation 1: check up -> cleaning -> repeated '3pm or 4pm'
   });
 });
 
-describe("supplied conversation 2: service information (KNOWN GAPS recorded, not fixed this round)", () => {
+describe("supplied conversation 2: service information", () => {
   it("answers 'where yall located' from the configured address", async () => {
     const c = devConversation();
     const t = await c.say("where yall located");
@@ -83,24 +80,18 @@ describe("supplied conversation 2: service information (KNOWN GAPS recorded, not
     expect(t.reply).toMatch(/consultation/i);
     expect(t.reply).not.toMatch(/you (have|need) (a )?(cavity|root canal|infection)/i);
   });
-  it.fails(
-    "KNOWN GAP: handles the greeting typo 'whatsuo' (currently: generic 'not sure I caught that')",
-    async () => {
-      const c = devConversation();
-      const t = await c.say("whatsuo");
-      expect(t.reply).not.toMatch(/not totally sure I caught that/i);
-    },
-  );
-  it.fails(
-    "KNOWN GAP: resolves 'what does each one do' to the services just listed (currently: generic reply)",
-    async () => {
-      const c = devConversation();
-      await c.sayAll([
-        "where yall located",
-        "what services yall have for someone who teeth hurting",
-      ]);
-      const t = await c.say("what does each one do");
-      expect(t.reply).not.toMatch(/not totally sure I caught that/i);
-    },
-  );
+  it("handles the greeting typo 'whatsuo' as a greeting", async () => {
+    const c = devConversation();
+    const t = await c.say("whatsuo");
+    expect(t.reply).toMatch(/how can I help/i);
+  });
+  it("resolves 'what does each one do' to the configured services, from approved data only, and says detail is not on file", async () => {
+    const c = devConversation();
+    await c.sayAll(["where yall located", "what services yall have for someone who teeth hurting"]);
+    const t = await c.say("what does each one do");
+    for (const name of ["consultation", "cleaning", "filling", "root canal"])
+      expect(t.reply).toMatch(new RegExp(name, "i"));
+    expect(t.reply).toMatch(/don't have detailed descriptions/i);
+    expect(t.reply).not.toMatch(/you (have|need) (a )?(cavity|infection)/i);
+  });
 });

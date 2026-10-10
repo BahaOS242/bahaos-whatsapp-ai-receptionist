@@ -125,7 +125,8 @@ describe("Business hours — boundaries", () => {
     expect(afterTime.reply).toMatch(/outside our hours/i);
     expect(afterTime.reply).not.toMatch(/name|phone/i);
     expect(afterTime.bookingState.service).toBe("Basic filling");
-    expect(afterTime.bookingState.date).toBeUndefined();
+    // RETENTION (intentional change): an out-of-hours TIME invalidates only the time; the valid day is kept.
+    expect(afterTime.bookingState.date).toBe("Tuesday");
     expect(afterTime.bookingState.time).toBeUndefined();
   });
 });
@@ -159,7 +160,8 @@ describe("Business hours — rejected BEFORE name/phone are ever asked (natural 
     // reached.
     expect(afterInvalidTime.bookingState.name).toBe("Trevor");
     expect(afterInvalidTime.bookingState.phone).toBeUndefined();
-    expect(afterInvalidTime.bookingState.date).toBeUndefined();
+    // RETENTION (intentional change): an out-of-hours TIME invalidates only the time; the valid day is kept.
+    expect(afterInvalidTime.bookingState.date).toBe("Tuesday");
   });
 
   it("after a natural-order rejection, the flow continues normally and asks for name/phone once a valid time is given", async () => {
@@ -204,7 +206,8 @@ describe("Business hours — out-of-hours and closed-day rejection (preservation
     expect(preserved.service).toBe("Basic filling");
     expect(preserved.name).toBe("Trevor");
     expect(preserved.phone).toBe("+12428012847");
-    expect(preserved.date).toBeUndefined();
+    // RETENTION (intentional change): an out-of-hours TIME invalidates only the time; the valid day is kept.
+    expect(preserved.date).toBe("Tuesday");
     expect(preserved.time).toBeUndefined();
   });
 

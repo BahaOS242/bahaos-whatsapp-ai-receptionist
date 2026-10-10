@@ -188,6 +188,8 @@ export async function main() {
   const unpin = pinClock();
   const origLog = console.log;
   console.log = () => {}; // silence simulated-tool chatter
+  const origError = console.error;
+  console.error = () => {};
   const results: ResultRecord[] = [];
   try {
     for (const mode of ["fixed", "adaptive"] as Mode[]) {
@@ -198,6 +200,7 @@ export async function main() {
     }
   } finally {
     console.log = origLog;
+    console.error = origError;
     unpin();
   }
 

@@ -21,6 +21,8 @@ import {
   isIsoDateString,
   weekdayForIsoDate,
 } from "../date-time";
+import { repairTypos } from "../lexicon-repair";
+import { answerSideQuestion } from "../side-questions";
 import { HEDGED_APPROVAL_NOTE, isApproval, isPureApproval } from "../approval-purity";
 import { analyzeScheduleMessage } from "../schedule-proposal";
 import { extractIntroducedName, bareNameValue, isPlausibleBareName } from "../name-provenance";
@@ -68,7 +70,10 @@ import type {
  */
 export class DevRuleBasedAIProvider implements AIProvider {
   async generateResponse(request: AIProviderRequest): Promise<AIProviderResponse> {
-    const { business, message } = request;
+    const { business } = request;
+    // Typo tolerance for the key booking words ("claening", "Wendesday", "apointment"); names are unaffected unless
+    // they are one edit from such a word.
+    const message = repairTypos(request.message);
     // `rawBookingState` (with whatever unclearTurnCount was carried in)
     // is read ONLY by the "genuinely not understood" branch far below,
     // to compute whether THIS is a second consecutive unclear turn.
@@ -126,6 +131,52 @@ export class DevRuleBasedAIProvider implements AIProvider {
         bookingState,
       };
     }
+    // Honest side questions (duration, directions, other times, unconfigured facts, unsupported services,
+    // recommendations, non-emergency symptoms). Mid-booking, the message is ALSO processed as a flow turn first so
+    // any detail it carries (a name, phone, day or time given alongside the question) is retained, then the answer
+    // is prepended to the flow's own next prompt — the booking is never restarted or stalled by the question.
+    const side = answerSideQuestion(
+      business,
+      message,
+      bookingState,
+      intent,
+      Boolean(findService(business, message)),
+    );
+    if (side) {
+      if (side.startConsultationOffer) {
+        const consult = business.services.find((s) => /consult|exam/i.test(s.name))!;
+        return {
+          reply: side.answer,
+          actions: [],
+          bookingState: {
+            intent: "book_appointment",
+            service: consult.name,
+            name: bookingState.name,
+            phone: bookingState.phone,
+            pendingAction: "confirm_service",
+          },
+        };
+      }
+      if (bookingState.intent) {
+        const flow = await handleFlowTurn(business, bookingState, message, request.checkAvailability);
+        return { ...flow, reply: `${side.answer} ${flow.reply}`.trim() };
+      }
+      return { reply: side.answer, actions: [], bookingState };
+    }
+    // A booking request that also carries a hours/location/price question ("can I get a filling this week? any time
+    // before you close") is a BOOKING with a side answer, not just an FAQ.
+    if (
+      (FAQ_INTENTS.has(intent) || intent === "price") &&
+      findService(business, message) &&
+      BOOKING_LEAD_IN_RE.test(message)
+    ) {
+      const flowState = resolveFlowState("book", bookingState);
+      if (flowState) {
+        const flow = await handleFlowTurn(business, flowState, message, request.checkAvailability);
+        const faq = intent === "price" ? "" : faqReplyFor(business, intent);
+        return { ...flow, reply: `${faq} ${flow.reply}`.trim() };
+      }
+    }
     // Business knowledge (RAG), only when the engine is enabled. Offered
     // ONLY the intents whose regexes can't answer a business question on
     // their own — hours/location/services/price/insurance/new-patient keep
@@ -181,6 +232,7 @@ export class DevRuleBasedAIProvider implements AIProvider {
               service: svc.name,
               name: bookingState.name,
               phone: bookingState.phone,
+              ...(bookingState.lastCompletedBooking ? { lastCompletedBooking: bookingState.lastCompletedBooking } : {}),
               pendingAction: "confirm_service",
             },
           };
@@ -272,6 +324,10 @@ type Intent =
  * truth. */
 const UNCLEAR_TURN_ESCALATION_THRESHOLD = 2;
 
+/** Phrases that make a message a booking REQUEST even when it also asks about hours/price. */
+const BOOKING_LEAD_IN_RE =
+  /\b(?:can|could) i (?:get|have|book|come|schedule)\b|\bi(?:'d| would)? (?:like|want|need)\b|\bbook me\b|\bget me\b|\bset me up\b|\bsign me up\b/i;
+
 /** Abandonment/exit — "the customer wants to stop" has no keyword at all
  * today; this is that intent. Deliberately targets phrasing that refers
  * to THE CURRENT (new, in-progress) request — "cancel that", "forget
@@ -318,7 +374,7 @@ function detectIntent(text: string): Intent {
   if (/\binsurance\b|\bcoverage\b/i.test(text)) return "insurance";
   if (/\bnew patients?\b|\bfirst visit\b/i.test(text)) return "new_patient";
   if (/\bthank(s| you)\b/i.test(text)) return "thanks";
-  if (/^\s*(hi|hello|hey)[!.,\s]*$/i.test(text)) return "greeting";
+  if (/^\s*(hi+|hello+|hey+|hiya|yo|howdy|sup|wassup|wh?at'?s ?u[po]|wats ?up|good (morning|afternoon|evening))[!.,?\s]*$/i.test(text)) return "greeting";
   return "unknown";
 }
 
@@ -458,7 +514,13 @@ function resolveFlowState(intent: Intent, bookingState: BookingState): BookingSt
   if (requestedFlow && requestedFlow !== bookingState.intent) {
     // Switching tasks: identity info (name/phone) is still reusable, but
     // service/date/time belonged to whatever task was previously active.
-    return { intent: requestedFlow, name: bookingState.name, phone: bookingState.phone };
+    return {
+      intent: requestedFlow,
+      name: bookingState.name,
+      phone: bookingState.phone,
+      // remembered ONLY so a second request for the very same slot is not silently created (see completeFlow)
+      ...(bookingState.lastCompletedBooking ? { lastCompletedBooking: bookingState.lastCompletedBooking } : {}),
+    };
   }
   if (requestedFlow) {
     return bookingState;
@@ -486,7 +548,10 @@ function missingFields(state: BookingState): (keyof BookingState)[] {
  * still resolves — a real LLM wouldn't need this crutch, but this is the
  * deterministic fallback provider. */
 function findService(business: BusinessContext, text: string) {
-  const lower = text.toLowerCase();
+  const lower0 = text.toLowerCase();
+  // "a filling, not a cleaning" / "instead of the exam": the negated service is NOT being requested.
+  const lower = lower0.replace(/\b(?:not|instead of|rather than|other than)\s+(?:an?\s+|the\s+)?[a-z' -]*?(?=[,.;!?]|\bbut\b|$)/g, " ");
+
   const exactMatches = business.services.filter((s) => lower.includes(s.name.toLowerCase()));
   // Same fix as message-field-extraction.ts's own findService — see its
   // comment. "Should I get a cleaning or a filling?" naming TWO services
@@ -820,6 +885,7 @@ function finishFlowTurn(
       return rejectTime(
         merged,
         describeInvalidTime(business, validation, merged.date, merged.time),
+        validation.reason,
       );
     }
 
@@ -1142,21 +1208,25 @@ function handleFlowTurn(
   const weakNameSignal = Boolean(stated.date) || Boolean(stated.time);
   // PROVENANCE: a date/time change phrased as a correction is a schedule update, never an identity answer.
   const bareNameBlocked = correctionBlocksBareName(message, stated);
-  if (
-    !merged.name &&
-    !statedIncompatible &&
-    !bareNameBlocked &&
-    !timeQualified &&
-    (strongNameSignal || weakNameSignal)
-  ) {
-    const withoutPhone = message.replace(PHONE_SUBSTRING_RE, " ").replace(/,/g, " ");
-    const remainder = stripCorrectionLanguage(stripRecognizedDateTime(withoutPhone)).trim();
-    const candidateOk =
-      (strongNameSignal ? looksLikeBareName(remainder) : looksLikeBareNameStrict(remainder)) &&
-      isPlausibleBareName(remainder, message);
-    if (candidateOk) {
-      const alreadySet = incomingState.name !== undefined;
-      if (!alreadySet || hasCorrectionMarker) merged.name = bareNameValue(remainder);
+  if (!merged.name && !statedIncompatible && !bareNameBlocked && !timeQualified) {
+    // Each sentence is judged on its own, so "Igor Horne, 242-555-0127. Also … do you offer a shuttle?" keeps the name
+    // and phone even though a later sentence is a question. A FULL name (two or more capitalised name-shaped words)
+    // is accepted even when the name was not the field being asked — customers volunteer it out of order.
+    for (const sentence of message.split(/(?<=[.!?])\s+/)) {
+      const withoutPhone = sentence.replace(PHONE_SUBSTRING_RE, " ").replace(/,/g, " ");
+      const remainder = stripCorrectionLanguage(stripRecognizedDateTime(withoutPhone)).trim();
+      const words = remainder.split(/\s+/).filter(Boolean);
+      const fullNameVolunteered = words.length >= 2 && words.every((w) => /^[A-Z]/.test(w));
+      const eligible = strongNameSignal || weakNameSignal || fullNameVolunteered;
+      const candidateOk =
+        eligible &&
+        (strongNameSignal || fullNameVolunteered ? looksLikeBareName(remainder) : looksLikeBareNameStrict(remainder)) &&
+        isPlausibleBareName(remainder, sentence);
+      if (candidateOk) {
+        const alreadySet = incomingState.name !== undefined;
+        if (!alreadySet || hasCorrectionMarker) merged.name = bareNameValue(remainder);
+        break;
+      }
     }
   }
 
@@ -1268,8 +1338,16 @@ function askForField(flow: BookingIntent, missing: (keyof BookingState)[]): stri
 /** Clears only date/time from a rejected-time BookingState — service,
  * name, and phone (whatever was already known) are preserved so the
  * customer never has to repeat them after picking a new time. */
-function rejectTime(state: BookingState, reply: string): AIProviderResponse {
-  const { date: _date, time: _time, pendingBareTime: _pendingBareTime, ...preserved } = state;
+function rejectTime(
+  state: BookingState,
+  reply: string,
+  reason?: "closed_day" | "outside_hours",
+): AIProviderResponse {
+  // Keep every VALID detail: a closed day invalidates only the day, an out-of-hours time only the time.
+  const { pendingBareTime: _pendingBareTime, pendingAction: _pendingAction, ...rest } = state;
+  const preserved: BookingState = { ...rest };
+  if (reason !== "outside_hours") delete preserved.date;
+  if (reason !== "closed_day") delete preserved.time;
   return { reply, actions: [], bookingState: preserved };
 }
 
@@ -1301,10 +1379,28 @@ function completeFlow(
   // requirement 9 / the tools-layer backstop in
   // src/tools/receptionist-tools.ts, which independently re-checks again
   // regardless of anything this provider does).
+  if (flow === "book_appointment" && state.lastCompletedBooking) {
+    // DUPLICATE GUARD: the same patient asking again for the same day and time as the request just recorded is a
+    // CHANGE to that request (service, etc.), which this assistant cannot make itself. Never create a second,
+    // conflicting booking: say so honestly and hand the change to the team.
+    const prior = state.lastCompletedBooking;
+    if (prior.phone === state.phone && prior.date === state.date && prior.time === state.time) {
+      return {
+        reply: `I already have a request recorded for ${buildBookingSummary(business, prior)}. I can't change an existing request myself, so I'm passing this change to the team.`,
+        actions: [{ type: "escalate", payload: { reason: "customer wants to change a request that was just recorded", unresolvedQuestion: buildBookingSummary(business, state) } }],
+        bookingState: {},
+      };
+    }
+  }
+
   if (flow === "book_appointment") {
     const validation = validateFlowHours(business, flow, state.date!, state.time!, state.service);
     if (!validation.valid) {
-      return rejectTime(state, describeInvalidTime(business, validation, state.date!, state.time!));
+      return rejectTime(
+        state,
+        describeInvalidTime(business, validation, state.date!, state.time!),
+        validation.reason,
+      );
     }
 
     return {
@@ -1337,7 +1433,11 @@ function completeFlow(
   if (flow === "reschedule_appointment") {
     const validation = validateFlowHours(business, flow, state.date!, state.time!, state.service);
     if (!validation.valid) {
-      return rejectTime(state, describeInvalidTime(business, validation, state.date!, state.time!));
+      return rejectTime(
+        state,
+        describeInvalidTime(business, validation, state.date!, state.time!),
+        validation.reason,
+      );
     }
 
     return {

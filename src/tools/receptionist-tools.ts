@@ -39,6 +39,9 @@ import type {
  * change when that lands.
  */
 export function createSimulatedReceptionistTools(business: BusinessContext): ReceptionistTools {
+  // Mirrors the production tools' slot semantics: once a request holds a day+time, a second request for the same
+  // slot is rejected as no longer available (the customer is told honestly) — never silently double-booked.
+  const heldSlots = new Set<string>();
   return {
     async createLead(payload: CreateLeadPayload): Promise<ToolResult> {
       console.log("[simulated tool] create_lead", payload);
@@ -64,10 +67,15 @@ export function createSimulatedReceptionistTools(business: BusinessContext): Rec
           error: `Requested time is outside business hours (${validation.reason}).`,
         };
       }
-      if (!isSlotAvailable(business, payload.preferredDate, payload.preferredTime)) {
+      const slotKey = `${payload.preferredDate}|${payload.preferredTime}`;
+      if (
+        heldSlots.has(slotKey) ||
+        !isSlotAvailable(business, payload.preferredDate, payload.preferredTime)
+      ) {
         console.error("[simulated tool] request_appointment REJECTED (unavailable)", payload);
         return { success: false, error: "Requested time is no longer available." };
       }
+      heldSlots.add(slotKey);
       console.log("[simulated tool] request_appointment", payload);
       return { success: true };
     },
@@ -98,14 +106,19 @@ export function createSimulatedReceptionistTools(business: BusinessContext): Rec
       return { success: true };
     },
 
-    async requestRecurringAppointment(payload: RequestRecurringAppointmentPayload): Promise<ToolResult> {
+    async requestRecurringAppointment(
+      payload: RequestRecurringAppointmentPayload,
+    ): Promise<ToolResult> {
       // Genuinely NOT implemented here — see ReceptionistTools.requestRecurringAppointment's
       // own docstring and Section 9's "do NOT fake it." In practice
       // neither provider ever proposes this action against a backend
       // that doesn't set AIProviderRequest.checkAvailability (only the
       // clinic simulator does), so this is a defensive fallback that
       // should never actually run.
-      console.error("[simulated tool] request_recurring_appointment REJECTED (not supported by this backend)", payload);
+      console.error(
+        "[simulated tool] request_recurring_appointment REJECTED (not supported by this backend)",
+        payload,
+      );
       return {
         success: false,
         error: "Recurring scheduling is not available on this backend.",

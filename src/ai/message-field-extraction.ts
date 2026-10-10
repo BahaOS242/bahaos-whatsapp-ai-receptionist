@@ -16,6 +16,7 @@ import {
   stripRecognizedDateTime,
 } from "./date-time";
 import { extractPhone } from "./phone";
+import { repairTypos } from "./lexicon-repair";
 import { analyzeScheduleMessage } from "./schedule-proposal";
 import { bareNameValue, extractIntroducedName, isPlausibleBareName } from "./name-provenance";
 import { nextRequiredField } from "./booking-progression";
@@ -267,7 +268,10 @@ function detectPostCompletionReschedule(
  * (kept as a small, separate local copy rather than importing from that
  * file, which stays fully untouched). */
 function findService(business: BusinessContext, text: string): BusinessService | undefined {
-  const lower = text.toLowerCase();
+  const lower0 = text.toLowerCase();
+  // "a filling, not a cleaning" / "instead of the exam": the negated service is NOT being requested.
+  const lower = lower0.replace(/\b(?:not|instead of|rather than|other than)\s+(?:an?\s+|the\s+)?[a-z' -]*?(?=[,.;!?]|\bbut\b|$)/g, " ");
+
   const exactMatches = business.services.filter((s) => lower.includes(s.name.toLowerCase()));
   // Genuine bug found live during the Context & Human Conversation Pass:
   // "should I get a cleaning or a filling?" used to silently resolve to
@@ -309,9 +313,10 @@ function findService(business: BusinessContext, text: string): BusinessService |
  * state, never the reverse (an extraction here is always meant to win). */
 export function extractStatedFields(
   business: BusinessContext,
-  message: string,
+  rawMessage: string,
   currentState: BookingState,
 ): Partial<BookingState> {
+  const message = repairTypos(rawMessage); // "claening" -> cleaning, "Wendesday" -> Wednesday
   // Early exit: a correction right after a completion is a fundamentally
   // different case from everything below (which all assumes an ALREADY-
   // active intent to extract fields against) — see
@@ -588,18 +593,22 @@ export function extractStatedFields(
     // PROVENANCE: explicit introduction ("my name is X", "put it under X", "it's for my wife, X"), or ambiguous
     // phrasing ("I'm X") only while the name is the field being asked.
     extracted.name = introduced.name;
-  } else if (
-    !currentState.name &&
-    next === "name" &&
-    !correctionBlocksBareName(message, extracted)
-  ) {
+  } else if (!currentState.name && !correctionBlocksBareName(message, extracted)) {
     // (a date/time change phrased as a correction is a schedule update, never an identity answer)
-    const withoutPhone = message.replace(PHONE_LIKE_SUBSTRING_RE, " ");
-    const remainder = stripCorrectionLanguage(
-      stripRecognizedDateTime(withoutPhone).replace(/[,.!?;:]/g, " "),
-    ).trim();
-    if (looksLikeName(remainder) && isPlausibleBareName(remainder, message))
-      extracted.name = bareNameValue(remainder);
+    // Each sentence is judged alone; a FULL name (two+ capitalised name-shaped words) is accepted even when the name
+    // is not the field being asked (customers volunteer it out of order). A single word needs name to be asked.
+    for (const sentence of message.split(/(?<=[.!?])\s+/)) {
+      const withoutPhone = sentence.replace(PHONE_LIKE_SUBSTRING_RE, " ");
+      const remainder = stripCorrectionLanguage(
+        stripRecognizedDateTime(withoutPhone).replace(/[,.!?;:]/g, " "),
+      ).trim();
+      const words = remainder.split(/\s+/).filter(Boolean);
+      const full = words.length >= 2 && words.every((w) => /^[A-Z]/.test(w));
+      if ((next === "name" || full) && looksLikeName(remainder) && isPlausibleBareName(remainder, sentence)) {
+        extracted.name = bareNameValue(remainder);
+        break;
+      }
+    }
   }
 
   return extracted;

@@ -18,7 +18,7 @@ const WEEKDAY_NAMES = [
 ];
 
 const WEEKDAY_WORD_RE =
-  /\b(mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:rs(?:day)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)\b/i;
+  /\b(mon(?:day)?|tue(?:s(?:day)?)?|wed(?:nesday)?|thu(?:rs(?:day)?)?|fri(?:day)?|sat(?:urday)?|sun(?:day)?)(?:s\b|\b)/i; // "any time on Mondays" = Monday
 
 const WEEKDAY_PREFIX_TO_INDEX: Record<string, number> = {
   sun: 0,

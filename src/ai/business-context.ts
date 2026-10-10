@@ -35,7 +35,7 @@ export const BAHAMAS_DENTAL_SERVICE: BusinessContext = {
     },
     { id: "filling", name: "Basic filling", durationMinutes: 45,
       priceLabel: "B$175",
-      aliases: ["fill", "cavity"],
+      aliases: ["fill"],
     },
     { id: "root_canal", name: "Root canal", durationMinutes: 90,
       priceLabel: "B$950",
